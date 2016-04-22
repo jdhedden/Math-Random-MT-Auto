@@ -12,12 +12,12 @@ no warnings 'void';
 $| = 1;
 
 use Math::Random::MT::Auto qw/rand irand srand seed warnings gaussian :!auto/;
-use Time::HiRes 'time';
+use Time::HiRes;
 use Config;
 
 MAIN:
 {
-    my $count = (@ARGV) ? $ARGV[0] : 624000;
+    my $count = (@ARGV) ? $ARGV[0] : 3120000;
 
     my ($cnt, $start, $end);
 
@@ -25,45 +25,53 @@ MAIN:
 
     # Time Perl's srand()
     print("\n- Core -\n");
-    my $seed = time() + $$;
-    $start = time();
+    my $seed = CORE::time() + $$;
+    $start = Time::HiRes::time();
     CORE::srand($seed);
-    $end = time();
+    $end = Time::HiRes::time();
     printf("srand:\t\t%f secs.\n", $end - $start);
 
+    # Loop overhead
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+    }
+    $end = Time::HiRes::time();
+    my $overhead = $end - $start;
+
     # Time Perl's rand()
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         CORE::rand();
-    } while ($cnt--);
-    $end = time();
-    printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("rand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
     CORE::srand($seed);
 
     # Time Perl's rand(arg)
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         CORE::rand(5);
-    } while ($cnt--);
-    $end = time();
-    printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Time Perl's rand() to product 64-bit randoms
     if (exists($Config{'use64bitint'})) {
         # Reseed
         CORE::srand($seed);
 
-        $cnt = $count-1;
-        $start = time();
-        do {
+        $cnt = $count;
+        $start = Time::HiRes::time();
+        while ($cnt--) {
             (int(CORE::rand(4294967296)) << 32) | int(CORE::rand(4294967296));
-        } while ($cnt--);
-        $end = time();
-        printf("rand [64-bit]:\t%f secs. (%d)\n", $end - $start, $count);
+        }
+        $end = Time::HiRes::time();
+        printf("rand [64-bit]:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
     }
 
     my @seed = @{seed()};       # Copy of existing seed
@@ -77,9 +85,9 @@ MAIN:
         @warnings = warnings(1);
         if (! @warnings) {
             # Time our srand() for win32
-            $start = time();
+            $start = Time::HiRes::time();
             srand('win32');
-            $end = time();
+            $end = Time::HiRes::time();
             printf("srand:\t\t%f secs. (Win32 XP)\n", $end - $start);
             @seed = @{seed()};
         }
@@ -87,9 +95,9 @@ MAIN:
     } else {
         # Time our srand() for /dev/random
         print("\n- Math::Random::MT::Auto - Standalone PRNG -\n");
-        $start = time();
+        $start = Time::HiRes::time();
         srand('/dev/random');
-        $end = time();
+        $end = Time::HiRes::time();
         # If errors, then ignore (probably no /dev/random)
         @warnings = warnings(1);
         if (! @warnings) {
@@ -105,62 +113,74 @@ MAIN:
     @warnings = warnings(1);
     if (! @warnings) {
         # Time our srand() for random.org
-        $start = time();
+        $start = Time::HiRes::time();
         srand('random_org');
-        $end = time();
+        $end = Time::HiRes::time();
         printf("srand:\t\t%f secs. (random.org)\n", $end - $start);
         @seed = @{seed()};
     }
 
     # Time our irand()
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         irand();
-    } while ($cnt--);
-    $end = time();
-    printf("irand:\t\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("irand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+    # Reseed
+    seed(\@seed);
+
+    # Time our irand()
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+        Math::Random::MT::Auto::mt_irand();
+    }
+    $end = Time::HiRes::time();
+    printf("::mt_irand:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
     seed(\@seed);
 
     # Time our rand()
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         rand();
-    } while ($cnt--);
-    $end = time();
-    printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("rand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
     seed(\@seed);
 
     # Time our rand(arg)
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         rand(5);
-    } while ($cnt--);
-    $end = time();
-    printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Time gaussian()
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         gaussian();
-    } while ($cnt--);
-    $end = time();
-    printf("gaussian:\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("gaussian:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Time OO interface
     print("\n- Math::Random::MT::Auto - OO Interface -\n");
     my $rand;
     if ($^O eq 'MSWin32') {
-        $start = time();
+        $start = Time::HiRes::time();
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['win32']);
-        $end = time();
+        $end = Time::HiRes::time();
         # If errors, then ignore (probably not XP or no Win32::API::Prototype)
         @warnings = $rand->warnings(1);
         if (! @warnings) {
@@ -168,9 +188,9 @@ MAIN:
         }
 
     } else {
-        $start = time();
+        $start = Time::HiRes::time();
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['/dev/random']);
-        $end = time();
+        $end = Time::HiRes::time();
         # If errors, then ignore (probably no /dev/random)
         @warnings = $rand->warnings(1);
         if (! @warnings) {
@@ -179,9 +199,9 @@ MAIN:
     }
 
     # Time our srand() for random.org
-    $start = time();
+    $start = Time::HiRes::time();
     $rand = Math::Random::MT::Auto->new('SOURCE' => ['random_org']);
-    $end = time();
+    $end = Time::HiRes::time();
     # If errors, then ignore (probably no LWP::UserAgent)
     @warnings = $rand->warnings(1);
     if (! @warnings) {
@@ -192,37 +212,37 @@ MAIN:
     $rand->seed(\@seed);
 
     # Time our irand()
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         $rand->irand();
-    } while ($cnt--);
-    $end = time();
-    printf("irand:\t\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("irand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
     $rand->seed(\@seed);
 
     # Time our rand()
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         $rand->rand();
-    } while ($cnt--);
-    $end = time();
-    printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("rand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
     $rand->seed(\@seed);
 
     # Time our rand(arg)
-    $cnt = $count-1;
-    $start = time();
-    do {
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
         $rand->rand(5);
-    } while ($cnt--);
-    $end = time();
-    printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+    }
+    $end = Time::HiRes::time();
+    printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
 
     # See if Math::Random::MT is available
@@ -230,44 +250,44 @@ MAIN:
     if (! $@) {
         # Time its new(@seed) method
         print("\n- Math::Random::MT -\n");
-        $start = time();
+        $start = Time::HiRes::time();
         $rand = Math::Random::MT->new(@seed);
-        $end = time();
+        $end = Time::HiRes::time();
         printf("new:\t\t%f secs. (+ seed acquisition time)\n", $end - $start);
 
         # Time its rand() method
-        $cnt = $count-1;
-        $start = time();
-        do {
+        $cnt = $count;
+        $start = Time::HiRes::time();
+        while ($cnt--) {
             $rand->rand();
-        } while ($cnt--);
-        $end = time();
-        printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
+        }
+        $end = Time::HiRes::time();
+        printf("rand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
         # Reseed
         $rand = Math::Random::MT->new(@seed);
 
         # Time its rand(arg) method
-        $cnt = $count-1;
-        $start = time();
-        do {
+        $cnt = $count;
+        $start = Time::HiRes::time();
+        while ($cnt--) {
             $rand->rand(5);
-        } while ($cnt--);
-        $end = time();
-        printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+        }
+        $end = Time::HiRes::time();
+        printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
         # Time its rand() to product 64-bit randoms
         if (exists($Config{'use64bitint'})) {
             # Reseed
             $rand = Math::Random::MT->new(@seed);
 
-            $cnt = $count-1;
-            $start = time();
-            do {
+            $cnt = $count;
+            $start = Time::HiRes::time();
+            while ($cnt--) {
                 (int($rand->rand(4294967296)) << 32) | int($rand->rand(4294967296));
-            } while ($cnt--);
-            $end = time();
-            printf("rand [64-bit]:\t%f secs. (%d)\n", $end - $start, $count);
+            }
+            $end = Time::HiRes::time();
+            printf("rand [64-bit]:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
         }
     }
 }

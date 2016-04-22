@@ -5,12 +5,12 @@ use warnings;
 
 use 5.006;   # 64-bit support
 use Config;
-use Scalar::Util qw/looks_like_number weaken/;
+use Scalar::Util 1.16 qw/looks_like_number weaken/;
 
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.33;
+our $VERSION = 1.34;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -430,33 +430,6 @@ sub DESTROY
 }
 
 
-### DEPRECATED ###
-
-# Random 32-bit ints
-sub rand32
-{
-    # OO interface
-    if (defined($_[0]) &&
-        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
-        $_[0]->isa(__PACKAGE__))
-    {
-        return ($_[0]->irand() & 0xFFFFFFFF);
-    }
-
-    # Standalone PRNG
-    return (mt_irand() & 0xFFFFFFFF);
-}
-
-
-# Random 32-bit ints
-sub mt_rand32
-{
-    # Standalone PRNG
-    return (mt_irand() & 0xFFFFFFFF);
-}
-
-
-
 ### Internal Subroutines ###
 
 my %_acq_dispatch = (
@@ -465,7 +438,7 @@ my %_acq_dispatch = (
     'win32'      => \&_acq_win32
 );
 
-# Acquire seed data from specifiec sources
+# Acquire seed data from specific sources
 sub _acq_seed
 {
     my $sources  = $_[0];
@@ -930,10 +903,6 @@ with this module.
 This function may also be accessed using the full path
 C<Math::Random::MT::Auto::mt_irand> (note the I<mt_> prefix).
 
-=item rand32  [DEPRECATED]
-
-Returns a random 32-bit integer.  Provided for backwards compatibility.
-
 =item gaussian
 
   my $gn = gaussian();
@@ -1156,10 +1125,6 @@ uniformly distributed in [0, $num).  ($num defaults to 1.)
 Returns a random integer.  For 32-bit integer Perl, the range is 0 to
 2^32-1 (0xFFFFFFFF) inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1
 inclusive.  This is the fastest method for obtaining pseudo-random numbers
-
-=item $obj->rand32  [DEPRECATED]
-
-Returns a random 32-bit integer.  Provided for backwards compatibility.
 
 =item $obj->gaussian
 
@@ -1384,9 +1349,9 @@ parent class's intialization routine:
 
 =head1 EXAMPLES
 
-=item Cloning the standalone PRNG to an object
-
 =over
+
+=item Cloning the standalone PRNG to an object
 
   use Math::Random::MT::Auto qw/rand irand state/;
 
@@ -1395,11 +1360,7 @@ parent class's intialization routine:
 The standalone PRNG and the PRNG object will now return the same sequence
 of pseudo-random numbers.
 
-=back
-
 =item Save state to file
-
-=over
 
   use Data::Dumper;
   use Math::Random::MT::Auto qw/rand irand state/;
@@ -1411,11 +1372,7 @@ of pseudo-random numbers.
       close($FH);
   }
 
-=back
-
 =item Use state as stored above
-
-=over
 
   use Math::Random::MT::Auto qw/rand irand state/;
 
@@ -1522,7 +1479,7 @@ and including Shawn Cokus's optimizations.
  Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
   All rights reserved.
  Copyright (C) 2005, Mutsuo Saito, All rights reserved.
- Copyright 2005 Jerry D. Hedden S<E<lt>jdhedden AT 1979 DOT usna DOT comE<gt>>
+ Copyright 2005 Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions
@@ -1552,8 +1509,8 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  Any feedback is very welcome.
- S<E<lt>m-mat AT math DOT sci DOT hiroshima-u DOT ac DOT jpE<gt>>
- L<http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html>
+ m-mat AT math DOT sci DOT hiroshima-u DOT ac DOT jp
+ http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
 
 - Gaussian Function Code -
 

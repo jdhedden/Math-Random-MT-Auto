@@ -140,7 +140,7 @@ typedef struct mt *Math__Random__MT__Auto;
 
 
 /* The guts of the Mersenne Twister algorithm */
-UV
+static UV
 _mt_algo(my_cxt_t *self)
 {
     UV *st = self->state;
@@ -168,7 +168,7 @@ _mt_algo(my_cxt_t *self)
 
 
 /* Seed the PRNG */
-void
+static void
 _mt_seed(my_cxt_t *self, UV *seed, int len)
 {
     int ii, jj, kk;
@@ -228,7 +228,7 @@ SA_prng()
         RETVAL
 
 UV
-mt_irand()
+mt_irand(...)
     PREINIT:
         dMY_CXT;
     CODE:
@@ -253,10 +253,11 @@ double
 mt_rand(...)
     PREINIT:
         dMY_CXT;
+        UV rand;
     CODE:
         /* Random number on [0,1) interval */
-        UV rand = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
-                                        : *MY_CXT.next++;
+        rand = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
+                                    : *MY_CXT.next++;
 #if UVSIZE == 8
         rand ^= (rand >> 29) & 0x5555555555555555ULL;
         rand ^= (rand << 17) & 0x71D67FFFEDA60000ULL;
@@ -326,7 +327,7 @@ rand(rand_obj, ...)
 
         /* Random number on [0,1) interval */
         rand = (--prng->left == 0) ? _mt_algo(prng)
-                                       : *prng->next++;
+                                   : *prng->next++;
 #if UVSIZE == 8
         rand ^= (rand >> 29) & 0x5555555555555555ULL;
         rand ^= (rand << 17) & 0x71D67FFFEDA60000ULL;
@@ -420,7 +421,7 @@ X_gaussian(prng, ...)
     CODE:
         /* Get random integer */
         y = (--prng->left == 0) ? _mt_algo(prng)
-                                     : *prng->next++;
+                                : *prng->next++;
 #if UVSIZE == 8
         y ^= (y >> 29) & 0x5555555555555555ULL;
         y ^= (y << 17) & 0x71D67FFFEDA60000ULL;

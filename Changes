@@ -1,14 +1,12 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+1.34  Mon Jul 11 09:00:00 2005
+	- Require Scalar::Util 1.16 or higher
+	- Removed deprecated rand32
+
 1.33  Fri Jul 08 13:20:00 2005
-	- Mandate >5.6.0 in Makefile.pl
-
-1.32  Fri Jul 08 11:53:25 2005
-	- Use $Config{'uvsize'} to determine 64-bit support
+	- Fix for determining 64-bit support by using $Config{'uvsize'}
 	- Mandate >5.6.0 (for the above)
-
-1.31  Fri Jul 08 10:45:30 2005
-	- Fix for when 'use64bitint' is 'undef'
 
 1.30  Thu Jul 07 20:16:00 2005
 	- Belated version bump for 64-bit support
@@ -28,7 +26,6 @@ Revision history for Perl extension Math::Random::MT::Auto.
 1.21  Fri Jul 01 14:43:30 2005
 	- Added gaussian() - Gaussian (normal) distributed random numbers
 	- Improved testing
-	- POD fixups
 
 1.20  Thu Jun 30 14:22:45 2005
 	- Full-blown OO interface that is also thread safe

@@ -1,9 +1,9 @@
-package Math::Random::MT::Auto::Range; {
-
-our $VERSION = '4.09.00';
-
 use strict;
 use warnings;
+
+package Math::Random::MT::Auto::Range; {
+
+our $VERSION = '4.10.00';
 
 use Carp ();
 use Scalar::Util qw(looks_like_number);
@@ -18,8 +18,8 @@ use base 'Math::Random::MT::Auto';
 # Object data is stored in these attribute hashes, and is keyed to the object
 # by a unique ID that is stored in the object's scalar reference.
 #
-# These hashes are declared with the 'Field' attribute which is defined in the
-# base class.
+# These hashes are declared (to the base class) using the attribute called
+# 'Field'.
 
 # Range information for our objects
 my %type_of   : Field;  # Type of return value:  INTEGER or DOUBLE

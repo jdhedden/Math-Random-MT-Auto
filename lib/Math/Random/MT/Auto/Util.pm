@@ -1,9 +1,9 @@
-package Math::Random::MT::Auto::Util; {
-
-our $VERSION = '4.09.00';
-
 use strict;
 use warnings;
+
+package Math::Random::MT::Auto::Util; {
+
+our $VERSION = '4.10.00';
 
 use Carp ();
 

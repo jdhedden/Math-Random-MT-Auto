@@ -44,6 +44,7 @@
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
+#define NEED_newRV_noinc
 #include "ppport.h"
 
 #include <math.h>
@@ -128,7 +129,7 @@
 #define PRNG_VARS   SV *addr
 
 #define PRNG_PREP   addr = SvRV(ST(0))
-#define GET_PRNG    INT2PTR(struct mt *, SvUV(addr));
+#define GET_PRNG    INT2PTR(struct mt *, SvUV(addr))
 
 /* Variable declarations for the dual (OO and functional) interface */
 #define DUAL_VARS                       \
@@ -792,8 +793,9 @@ free_prng(...)
         struct mt *prng;
     CODE:
         PRNG_PREP;
-        prng = GET_PRNG;
-        Safefree(prng);
+        if ((prng = GET_PRNG)) {
+            Safefree(prng);
+        }
 
 
 =item seed_prng

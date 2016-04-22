@@ -23,7 +23,7 @@ if ($@) {
     if ($@) {
         plan skip_all => "Failure contacting random.org: $@";
     } elsif ($res->is_success) {
-        plan tests => 90;
+        plan tests => 89;
     } else {
         plan skip_all => 'Failure getting data from random.org: ' . $res->status_line;
     }
@@ -38,7 +38,7 @@ BEGIN {
 }
 
 # Check for warnings
-if (! ok(! @WARN, 'Acquired seed data')) {
+if (@WARN) {
     diag('Seed warnings: ' . join(' | ', @WARN));
 }
 undef(@WARN);

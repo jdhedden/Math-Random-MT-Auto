@@ -1,15 +1,14 @@
 require 5.006;
 
-package Math::Random::MT::Auto; {
-
-our $VERSION = '4.09.00';
-
 use strict;
 use warnings;
 
+package Math::Random::MT::Auto; {
+
+our $VERSION = '4.10.00';
+
 use Carp ();
 use Scalar::Util qw(blessed looks_like_number weaken);
-use Attribute::Handlers;
 
 use base 'DynaLoader';
 bootstrap Math::Random::MT::Auto $VERSION;
@@ -25,10 +24,22 @@ import Math::Random::MT::Auto::Util qw(create_object);
 # actions (e.g., cloning, destruction).
 my @FIELDS;
 
-# This attribute handler adds the references for the object attribute hashes
-# to the attribute registry (i.e., @FIELDS)
-sub Field : ATTR(HASH) {
-    push(@FIELDS, $_[2]);
+# This attribute handler adds the references for object attribute hashes (in
+# both this class and any subclasses) to the attribute registry '@FIELDS'
+# above.  These hashes are marked with an attribute called 'Field'.  See
+# 'perldoc attributes' for details.
+sub MODIFY_HASH_ATTRIBUTES
+{
+    my ($package, $var_ref, @attrs) = @_;
+
+    # Add hash reference to the attribute registry
+    # if marked with the 'Field' attribute
+    if (grep { $_ eq 'Field' } @attrs) {
+        push(@FIELDS, $var_ref);
+    }
+
+    # Return any unused attributes
+    return (grep { $_ ne 'Field' } @attrs);
 }
 
 # Maintains weak references to PRNG objects for thread cloning
@@ -41,8 +52,7 @@ my %OBJECTS;
 # by a unique ID that is stored in the object's scalar reference.  For this
 # class, that ID is the address of the PRNG's internal memory.
 #
-# These hashes are declared with the 'Field' attribute for handling by the
-# Attribute::Handlers module.
+# These hashes are declared using the attribute called 'Field'.
 
 my %sources_for : Field;   # Sources from which to obtain random seed data
 my %seed_for    : Field;   # Last seed sent to the PRNG
@@ -401,17 +411,23 @@ sub clone
 sub DESTROY {
     my $self = $_[0];
 
-    # Delete the object from the attribute hashes.
-    # Handles attributes in subclasses, too.
-    for (@FIELDS) {
-        delete($_->{$$self});
+    if ($$self) {
+        # Delete the object from the attribute hashes.
+        # Handles attributes in subclasses, too.
+        for (@FIELDS) {
+            delete($_->{$$self});
+        }
+
+        # Delete the object from the thread cloning registry
+        delete($OBJECTS{$$self});
+
+        # Free the internal memory used by the PRNG
+        Math::Random::MT::Auto::_::free_prng($self);
+        # Unlock the object
+        Internals::SvREADONLY($$self, 0);
+        # Erase the object ID
+        $$self = undef;
     }
-
-    # Delete the object from the thread cloning registry
-    delete($OBJECTS{$$self});
-
-    # Free the internal memory used by the PRNG
-    Math::Random::MT::Auto::_::free_prng($self);
 }
 
 
@@ -699,7 +715,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 4.09.00.
+This documentation refers to Math::Random::MT::Auto version 4.10.00.
 
 =head1 SYNOPSIS
 
@@ -1312,10 +1328,9 @@ support sharing objects between threads via L<threads::shared>.
 =head1 IMPLEMENTING SUBCLASSES
 
 This package uses the I<inside-out> object model (see informational links
-under L</"SEE ALSO">).  This object model offers a number of advantages, but
-does require some extra programming when you create subclasses so as to
-support (among other things) oject cloning for thread safety (i.e., a CLONE
-subroutine), and oject destruction (i.e., a DESTROY subroutine).
+under L</"SEE ALSO">).  This object model offers a number of advantages, and
+the use of L<attributes> by this class eliminates the need to implement
+C<CLONE> and C<DESTROY> subroutines in subclasses.
 
 Further, the objects created are not the usual blessed hash references: In the
 case of this package, they are blessed, readonly scalar references that
@@ -1583,11 +1598,11 @@ This module uses the following 'standard' modules:
 
 =over
 
+=item attributes
+
 =item Carp
 
 =item Scalar::Util - Standard in 5.8; install from CPAN otherwise
-
-=item Attribute::Handlers - Standard in 5.8; install from CPAN otherwise
 
 =item Dynaloader
 
@@ -1604,6 +1619,8 @@ system's random data source, you need to install the L<Win32::API> module.
 =head1 BUGS AND LIMITATIONS
 
 There are no known bugs in this module.
+
+This module does not support multiple inheritance.
 
 Please submit any bugs, problems, suggestions, patches, etc. to:
 L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Math-Random-MT-Auto>
@@ -1649,11 +1666,14 @@ L<http://www.library.cornell.edu/nr/bookcpdf.html>
 
 Inside-out Object Model:
 L<http://www.perlmonks.org/index.pl?node_id=219378>,
-L<http://www.perlmonks.org/index.pl?node_id=483162>, and
+L<http://www.perlmonks.org/index.pl?node_id=483162>,
+L<http://www.perlmonks.org/index.pl?node_id=221145>, and
 Chapter 15 of I<Perl Best Practices> by Damian Conway
 
 L<Math::Random::MT::Auto::Range> - Subclass of Math::Random::MT::Auto that
 creates range-valued PRNGs
+
+L<attributes>
 
 L<LWP::UserAgent>
 

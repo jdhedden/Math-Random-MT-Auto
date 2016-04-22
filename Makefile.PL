@@ -53,11 +53,11 @@ WriteMakefile(
     'AUTHOR'        => 'Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>',
     'VERSION_FROM'  => 'lib/Math/Random/MT/Auto.pm',
     'ABSTRACT_FROM' => 'lib/Math/Random/MT/Auto.pm',
-    'PREREQ_PM'     => { 'Carp'                 => 0,
-                         'Scalar::Util'         => 0,
-                         'Attribute::Handlers'  => 0,
-                         'Dynaloader'           => 0,
-                         'Test::More'           => 0 },
+    'PREREQ_PM'     => { 'attributes'   => 0,
+                         'Carp'         => 0,
+                         'Scalar::Util' => 0,
+                         'Dynaloader'   => 0,
+                         'Test::More'   => 0 },
     'OBJECT'        => 'MRMA.o',
     (($ExtUtils::MakeMaker::VERSION < 6.25) ?
         ('PL_FILES' => { })            : ()),
@@ -70,7 +70,7 @@ WriteMakefile(
 sub MY::postamble
 {
     if (exists($Config{'osname'}) && $Config{'osname'} eq 'cygwin') {
-        return <<'_VCHECK_';
+        return <<'_EXTRAS_';
 # Check version strings in various files
 vcheck:
 	@echo "Version is $(VERSION)"
@@ -84,7 +84,14 @@ vcheck:
 chmod:
 	@$(CHMOD) 644 Build.PL `cat MANIFEST`
 	@$(CHMOD) 755 samples/*.pl
-_VCHECK_
+
+ppport:
+	@( cd /tmp; perl -e 'use Devel::PPPort; Devel::PPPort::WriteFile("ppport.h");' )
+	@if ! cmp -s ppport.h /tmp/ppport.h; then \
+	    ( tkdiff ppport.h /tmp/ppport.h & ); \
+	    perl /tmp/ppport.h; \
+	fi
+_EXTRAS_
     }
 }
 

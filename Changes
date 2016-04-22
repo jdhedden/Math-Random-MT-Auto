@@ -1,5 +1,10 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.10.00 Mon Sep 19 15:39:45 2005
+	- Use 'attributes' instead of 'Attribute::Handlers'
+	- Ensure PRNG memory is not freed twice
+	- Upgraded ppport.h
+
 4.09.00 Sat Sep 17 08:45:30 2005
 	- use Attribute::Handlers;
 	- Added 'Utils' module

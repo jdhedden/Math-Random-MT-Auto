@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.05 Mon Sep 10 17:17:30 2007
+	- Skip tests on random number sites when not available
+
 6.04 Mon Sep 10 15:43:55 2007
 	- POD spelling test (maintainer only)
 

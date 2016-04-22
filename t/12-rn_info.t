@@ -4,9 +4,24 @@ use strict;
 use warnings;
 
 use Test::More;
-eval { require LWP::UserAgent; };
+
+my $ua;
+eval {
+    require LWP::UserAgent;
+    $ua = LWP::UserAgent->new('timeout' => 5, 'env_proxy' => 1);
+};
 if ($@) {
     plan skip_all => 'LWP::UserAgent not available';
+}
+eval {
+    my $req = HTTP::Request->new('GET' => 'http://www.randomnumbers.info/cgibin/wqrng.cgi?limit=255&amount=4');
+    my $res = $ua->request($req);
+    die if ! $res->is_success();
+    my (@bytes) = $res->content =~ / ([\d]+)/g;
+    die if (@bytes < 4);
+};
+if ($@) {
+    plan skip_all => 'Seed from randomnumbers.info not available';
 } else {
     plan tests => 90;
 }

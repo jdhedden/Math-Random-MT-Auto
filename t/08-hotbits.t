@@ -4,9 +4,22 @@ use strict;
 use warnings;
 
 use Test::More;
-eval { require LWP::UserAgent; };
+
+my $ua;
+eval {
+    require LWP::UserAgent;
+    $ua = LWP::UserAgent->new('timeout' => 5, 'env_proxy' => 1);
+};
 if ($@) {
     plan skip_all => 'LWP::UserAgent not available';
+}
+eval {
+    my $req = HTTP::Request->new('GET' => 'http://www.fourmilab.ch/cgi-bin/uncgi/Hotbits?fmt=bin&nbytes=4');
+    my $res = $ua->request($req);
+    die if (push(my @rnd, unpack('L*', $res->content())) != 1);
+};
+if ($@) {
+    plan skip_all => 'Seed from HotBits not available';
 } else {
     plan tests => 90;
 }

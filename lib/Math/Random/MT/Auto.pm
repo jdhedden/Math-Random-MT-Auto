@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.04';
+our $VERSION = '6.05';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -664,7 +664,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.04
+This documentation refers to Math::Random::MT::Auto version 6.05
 
 =head1 SYNOPSIS
 
@@ -1691,7 +1691,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.04/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.05/lib/Math/Random/MT/Auto.pm>
 
 Source repository:
 L<http://code.google.com/p/mrma/>

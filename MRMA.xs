@@ -245,13 +245,13 @@ OO_prng()
         RETVAL
 
 U32
-rand32(rand_obj);
+rand32(rand_obj)
         HV *rand_obj
-    INIT:
+    CODE:
         /* Extract PRNG context from object */
         IV tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
         my_cxt_t *prng = INT2PTR(my_cxt_t *, tmp);
-    CODE:
+
         /* Random number on [0,0xFFFFFFFF] interval */
         RETVAL = (--prng->left == 0) ? _mt_algo(prng)
                                      : *prng->next++;
@@ -263,13 +263,13 @@ rand32(rand_obj);
         RETVAL
 
 double
-rand(rand_obj, ...);
+rand(rand_obj, ...)
         HV *rand_obj
-    INIT:
+    CODE:
         /* Extract PRNG context from object */
         IV tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
         my_cxt_t *prng = INT2PTR(my_cxt_t *, tmp);
-    CODE:
+
         /* Random number on [0,1) interval */
         U32 rand = (--prng->left == 0) ? _mt_algo(prng)
                                        : *prng->next++;

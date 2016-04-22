@@ -1,8 +1,13 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+1.22  Tue Jul 05 14:43:30 2005
+	- Subclass handling and documentation
+	- Fix for thread cloning for 5.7.2-5.8.6
+	- Documented as not thread-safe for < 5.7.2
+
 1.21  Fri Jul 01 14:43:30 2005
 	- Added gaussian() - Gaussian (normal) distributed random numbers
-	- improved testing
+	- Improved testing
 	- POD fixups
 
 1.20  Thu Jun 30 14:22:45 2005

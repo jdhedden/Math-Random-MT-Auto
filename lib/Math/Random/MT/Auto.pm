@@ -8,7 +8,7 @@ use Scalar::Util qw/looks_like_number weaken/;
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.21;
+our $VERSION = 1.22;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -18,7 +18,7 @@ bootstrap Math::Random::MT::Auto $VERSION;
 my @SOURCE;
 
 # Standalone PRNG data
-my %MRMA = (
+my %STANDALONE = (
     'PRNG'   => SA_prng(),      # Reference to the PRNG
     'SOURCE' => \@SOURCE,       # Uses global defaults sources
     'SEED'   => [],             # Last seed sent to PRNG
@@ -56,7 +56,7 @@ sub import
 
         } elsif ($sym =~ /(no|!)?auto/) {
             # To auto-seed or not
-            $MRMA{'AUTO'} = not defined($1);
+            $STANDALONE{'AUTO'} = not defined($1);
 
         } else {
             # User-specified seed acquisition sources
@@ -93,17 +93,17 @@ sub import
 
 
 # 2. Auto seed the standalone PRNG after the module is loaded.
-# Even when $MRMA{'AUTO'} is false, the PRNG is still seeded
+# Even when $STANDALONE{'AUTO'} is false, the PRNG is still seeded
 # using time and PID.
 {
     no warnings;
     INIT {
         # Automatically acquire seed from sources
-        _acq_seed(($MRMA{'AUTO'}) ? $MRMA{'SOURCE'} : ['none'],
-                  $MRMA{'SEED'},
-                  $MRMA{'WARN'});
+        _acq_seed(($STANDALONE{'AUTO'}) ? $STANDALONE{'SOURCE'} : ['none'],
+                  $STANDALONE{'SEED'},
+                  $STANDALONE{'WARN'});
         # Seed the PRNG
-        X_seed($MRMA{'PRNG'}, $MRMA{'SEED'});
+        X_seed($STANDALONE{'PRNG'}, $STANDALONE{'SEED'});
     }
 }
 
@@ -111,6 +111,7 @@ sub import
 ### Thread Cloning Support ###
 
 # Called before thread cloning starts
+# Supported in 5.8.7 and later
 sub CLONE_SKIP
 {
     # Save state for each PRNG object
@@ -128,11 +129,25 @@ sub CLONE_SKIP
 # Called after thread is cloned
 sub CLONE
 {
-    # Create new memory for each PRNG object and restore its state
     foreach my $self (@CLONING_LIST) {
         if ($self) {
+            # Create new memory for each PRNG object
             $self->{'PRNG'} = OO_prng();
-            X_set_state($self->{'PRNG'}, $self->{'STATE'});
+
+            if (exists($self->{'STATE'})) {
+                # Restore state, if present
+                X_set_state($self->{'PRNG'}, $self->{'STATE'});
+
+            } else {
+                # Acquire seed, if none provided
+                if (! exists($self->{'SEED'})) {
+                    $self->{'SEED'} = [];
+                    _acq_seed($self->{'SOURCE'}, $self->{'SEED'}, $self->{'WARN'});
+                }
+
+                # Seed the PRNG
+                X_seed($self->{'PRNG'}, $self->{'SEED'});
+            }
         }
     }
 }
@@ -148,13 +163,14 @@ sub srand
     # Generalize for both OO and standalone PRNGs
     my $obj;
     if (defined($_[0]) &&
-        (ref($_[0]) eq __PACKAGE__ || UNIVERSAL::isa($_[0], __PACKAGE__)))
+        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
+        $_[0]->isa(__PACKAGE__))
     {
         # OO interface
         $obj = $self = shift;
     } else {
         # Standalone interface
-        $obj = \%MRMA;
+        $obj = \%STANDALONE;
     }
 
     if (@_) {
@@ -186,13 +202,14 @@ sub seed
     # Generalize for both OO and standalone PRNGs
     my $obj;
     if (defined($_[0]) &&
-        (ref($_[0]) eq __PACKAGE__ || UNIVERSAL::isa($_[0], __PACKAGE__)))
+        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
+        $_[0]->isa(__PACKAGE__))
     {
         # OO interface
         $obj = shift;
     } else {
         # Standalone interface
-        $obj = \%MRMA;
+        $obj = \%STANDALONE;
     }
 
     # User requested the seed
@@ -219,13 +236,14 @@ sub state
     # Generalize for both OO and standalone PRNGs
     my $obj;
     if (defined($_[0]) &&
-        (ref($_[0]) eq __PACKAGE__ || UNIVERSAL::isa($_[0], __PACKAGE__)))
+        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
+        $_[0]->isa(__PACKAGE__))
     {
         # OO interface
         $obj = shift;
     } else {
         # Standalone interface
-        $obj = \%MRMA;
+        $obj = \%STANDALONE;
     }
 
     # Set state of PRNG, if supplied
@@ -245,13 +263,14 @@ sub warnings
     # Generalize for both OO and standalone PRNGs
     my $obj;
     if (defined($_[0]) &&
-        (ref($_[0]) eq __PACKAGE__ || UNIVERSAL::isa($_[0], __PACKAGE__)))
+        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
+        $_[0]->isa(__PACKAGE__))
     {
         # OO interface
         $obj = shift;
     } else {
         # Standalone interface
-        $obj = \%MRMA;
+        $obj = \%STANDALONE;
     }
 
     # If arg is true, then send warnings and clear the warnings array
@@ -272,13 +291,14 @@ sub gaussian
     # Generalize for both OO and standalone PRNGs
     my $obj;
     if (defined($_[0]) &&
-        (ref($_[0]) eq __PACKAGE__ || UNIVERSAL::isa($_[0], __PACKAGE__)))
+        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
+        $_[0]->isa(__PACKAGE__))
     {
         # OO interface
         $obj = shift;
     } else {
         # Standalone interface
-        $obj = \%MRMA;
+        $obj = \%STANDALONE;
     }
 
     return ((@_) ? X_gaussian($obj->{'PRNG'}, $_[0])
@@ -288,16 +308,35 @@ sub gaussian
 
 ### OO Methods ###
 
-# Create a new PRNG object, or 'clone' an existing one
+# Create a new PRNG object
 sub new
 {
-    my $class = shift;
+    my $thing = shift;
+    my $class = ref($thing) || $thing;
+    my $self = {};
+    bless($self, $class);
+    if (! $self->_init($thing, @_)) {
+        return;   # Failed to initialize
+    }
+    return ($self);
+}
 
-    # Initialize the new object with any user-supplied data
-    my $self = { @_ };
+
+# Initialize a new PRNG object
+sub _init
+{
+    my $self  = shift;
+    my $thing = shift;
+
+    # Initialize with any user-supplied data
+    my $no_args = 1;
+    while (my $key = shift) {
+        $self->{$key} = shift;
+        $no_args = 0;
+    }
 
     # - Fix user-supplied data -
-    # All keys to uppercase
+    # Convert all keys to uppercase
     foreach my $key (keys(%$self)) {
         if (! exists($self->{uc($key)})) {
             $self->{uc($key)} = $self->{$key};
@@ -309,7 +348,7 @@ sub new
         $self->{'SOURCE'} = $self->{'SOURCES'};
         delete($self->{'SOURCES'});
     }
-    # Make 'SOURCE' and array ref
+    # Turn 'SOURCE' into an array ref
     if (exists($self->{'SOURCE'}) && ref($self->{'SOURCE'}) ne 'ARRAY') {
         $self->{'SOURCE'} = [ $self->{'SOURCE'} ];
     }
@@ -318,27 +357,25 @@ sub new
     $self->{'PRNG'} = OO_prng();
     $self->{'WARN'} = [];
 
-    if (ref($class)) {
-        # 'Cloning' from another object
-        my $obj = $class;
-        $class = ref($obj);
-
-        # If $obj->new() called without args, then clone it
-        if (! @_) {
-            @{$self->{'SOURCE'}} = @{$obj->{'SOURCE'}};
-            if (exists($obj->{'SEED'})) {
-                @{$self->{'SEED'}} = @{$obj->{'SEED'}};
+    if (ref($thing)) {
+        # $thing->new(...) was called
+        if ($no_args) {
+            # $thing->new() called with no args - 'clone' the PRNG
+            @{$self->{'SOURCE'}} = @{$thing->{'SOURCE'}};
+            if (exists($thing->{'SEED'})) {
+                @{$self->{'SEED'}} = @{$thing->{'SEED'}};
             }
-            $self->{'STATE'} = X_get_state($obj->{'PRNG'});
+            $self->{'STATE'} = X_get_state($thing->{'PRNG'});
 
         } else {
             # Copy object's sources, if none provided
             if (! exists($self->{'SOURCE'})) {
-                @{$self->{'SOURCE'}} = @{$obj->{'SOURCE'}};
+                @{$self->{'SOURCE'}} = @{$thing->{'SOURCE'}};
             }
         }
 
     } else {
+        # CLASS->new(...) was called
         # Use default sources, if none provided
         if (! exists($self->{'SOURCE'})) {
             @{$self->{'SOURCE'}} = @SOURCE;
@@ -361,9 +398,6 @@ sub new
         X_seed($self->{'PRNG'}, $self->{'SEED'});
     }
 
-    # Bless the object into the class
-    bless($self, $class);
-
     # Save copy of reference for thread cloning
     my $ii;
     for ($ii=0; $ii < @CLONING_LIST; $ii++) {
@@ -374,8 +408,7 @@ sub new
     $CLONING_LIST[$ii] = $self;
     weaken($CLONING_LIST[$ii]);
 
-    # Done
-    return ($self);
+    return (1);
 }
 
 
@@ -671,8 +704,8 @@ for generating multiple PRNG objects.  The PRNGs are self-seeding,
 automatically acquiring a 624-long-integer random seed from user-selectable
 sources.
 
-This module is thread-safe with respect to its OO interface, but the
-standalone PRNG is not.
+This module is thread-safe with respect to its OO interface for Perl v5.7.2
+and beyond.  The standalone PRNG is not thread-safe.
 
 The code for this module has been optimized for speed, making it 50% faster
 than Math::Random::MT for the functional interface, and 25% faster for the
@@ -1129,11 +1162,30 @@ erased.
 
 =head2 Thread Support
 
-This module is thread-safe for PRNGs created through the OO interface.
-When a thread is created, any PRNG objects are cloned:  A parent's PRNG
-object and its child's cloned copy will work independently from one
-another, and will return identical random numbers from the point of
-cloning.
+This module is thread-safe for PRNGs created through the OO interface for
+Perl v5.7.2 and beyond.
+
+For Perl v5.8.7 and later, when a thread is created, any PRNG objects are
+cloned:  A parent's PRNG object and its child's cloned copy will work
+independently from one another, and will return identical random numbers
+from the point of cloning.
+
+For v5.7.2 through v5.8.6, when a thread is created, any PRNG objects are
+carried over to the new thread, but they are not cloned.  Cloning can be
+accomplished with the following workaround:  Prior to calling
+C<threads->create()>, execute the following for every PRNG object to be
+used inside the thread:
+
+  $prng->{'STATE'} = $prng->state();
+
+When the C<STATE> attribute is found (after the thread is created), it is
+used to make the thread's copy of the PRNG a clone of the parent's.  If not
+found, then the thread's copy of the PRNG is re-seeded either with the
+existing C<SEED> attribute if found, or with a newly acquired seed.
+
+Prior to v5.7.2, the PRNG objects created in the parent will be I<broken>
+in the thread once it is created.  Therefore, new PRNG objects must be
+created in the thread.
 
 The standalone PRNG, however, is not thread-safe, and hence should not be
 used in threaded applications.
@@ -1204,6 +1256,66 @@ sufficient:
       # Add seed sources to the import call, as desired.
       import Math::Random::MT::Auto;
   };
+
+=head2 Creating Subclasses
+
+In order to create a subclass of this module, you must implement your
+constructor along these lines:
+
+  use Math::Random::MT::Auto;
+  our @ISA = qw(Math::Random::MT::AUto);
+
+  # Create a new object
+  sub new
+  {
+      my $thing = shift;
+      my $class = ref($thing) || $thing;
+
+      my $self = {};
+      bless($self, $class)
+
+      if (! $self->_init($thing, @_)) {
+          # Failed to initialize
+          # Throw some sort of error, or
+          return;   # Returns 'undef'
+      }
+
+      return ($self);
+  }
+
+And you need an initialization routine that provides for proper use of the
+parent class's intialization routine:
+
+  # Initialize a new object
+  sub _init
+  {
+      my $self  = shift;
+      my $thing = shift;
+
+      # Separate '@_' into args for parent class and args for this subclass
+      my @parent_args = ...;
+      my @my_args     = ...;
+
+      # Perform parent class initialization
+      if (! $self->SUPER::_init($thing, @parent_args)) {
+          # Parent class initialization failed
+          return (0);
+      }
+
+      # Perform subclass initialization
+      # Making use of '@my_args', if any
+      if (ref($thing)) {
+          # $thing->new( ... ) was called
+          # Make use of '@my_args', if any
+          # And make use of object's data, if applicable
+
+      } else {
+          # CLASS->new( ... ) was called
+          # Make use of '@my_args', if any
+      }
+
+      return (1);
+  }
 
 =head1 EXAMPLES
 
@@ -1318,6 +1430,9 @@ L<http://blogs.msdn.com/michael_howard/archive/2005/01/14/353379.aspx>
 
 Gaussian distribution function code:
 L<http://home.online.no/~pjacklam/notes/invnorm/>
+
+Creating subclasses:
+L<perlobj> and L<http://www.perlmonks.org/?node_id=8177>
 
 L<LWP::UserAgent>
 

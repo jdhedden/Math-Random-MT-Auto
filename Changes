@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.05.00 Tue Aug 30 20:00:00 2005
+	- Proper localization of '__WARN__' handler
+
 4.04.00 Tue Aug 30 09:08:00 2005
 	- Improved check for 'C' compiler in Makefile.PL
 	- Removed Build.PL due to Module::Build bug under ActivePerl
@@ -17,7 +20,6 @@ Revision history for Perl extension Math::Random::MT::Auto.
 4.00.00 Fri Aug 26 14:26:30 2005
 	- Changed to "get_/set_" accessors for seed, state and warnings
 	- Removed 'mt_rand' and 'mt_srand'
-	- Improved module build scripts
 
 3.00.00 Mon Aug 22 15:27:10 2005
 	- Rewritten using inside-out object model

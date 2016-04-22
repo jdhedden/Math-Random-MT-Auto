@@ -9,7 +9,7 @@ use Carp ();
 
 use base 'DynaLoader';
 
-our $VERSION = '4.04.00';
+our $VERSION = '4.05.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -611,11 +611,12 @@ sub src_win32
     }
 
     eval {
-        # Suppress warning about Win32::API::Type's INIT block
-        local %SIG;
-        $SIG{__WARN__} = sub { if ($_[0] !~ /^Too late to run INIT block/) {
-                                    warn($_[0]);
-                               } };
+        # Suppress (harmless) warning about Win32::API::Type's INIT block
+        local $SIG{__WARN__} = sub {
+            if ($_[0] !~ /^Too late to run INIT block/) {
+                warn($_[0]);    # Output other warnings
+            }
+        };
 
         # Load Win32::API module
         require Win32::API;
@@ -676,9 +677,9 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 DESCRIPTION
 
-The Mersenne Twister is a fast pseudo-random number generator (PRNG) that
+The Mersenne Twister is a fast pseudorandom number generator (PRNG) that
 is capable of providing large volumes (> 10^6004) of "high quality"
-pseudo-random data to applications that may exhaust available "truly"
+pseudorandom data to applications that may exhaust available "truly"
 random data sources or system-provided PRNGs such as
 L<rand|perlfunc/"rand">.
 
@@ -1441,7 +1442,7 @@ package.  Execute the following to find the location of its source code file:
   my $prng = Math::Random::MT::Auto->new('STATE' => get_state());
 
 The standalone PRNG and the PRNG object will now return the same sequence
-of pseudo-random numbers.
+of pseudorandom numbers.
 
 =item Save state to file
 
@@ -1514,11 +1515,16 @@ consider using the Internet sources only as a secondary source.)
 
 =head1 SEE ALSO
 
-The Mersenne Twister is the (current) quintessential pseudo-random number
+The Mersenne Twister is the (current) quintessential pseudorandom number
 generator. It is fast, and has a period of 2^19937 - 1.  The Mersenne
 Twister algorithm was developed by Makoto Matsumoto and Takuji Nishimura.
 It is available in 32- and 64-bit integer versions.
 L<http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html>
+
+Wikipedia entries on the Mersenne Twister and pseudorandom number generators,
+in general:
+L<http://en.wikipedia.org/wiki/Mersenne_twister>, and
+L<http://en.wikipedia.org/wiki/Pseudorandom_number_generator>
 
 random.org generates random numbers from radio frequency noise.
 L<http://random.org/>

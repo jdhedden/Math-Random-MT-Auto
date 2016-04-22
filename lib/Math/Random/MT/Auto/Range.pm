@@ -8,7 +8,7 @@ use Scalar::Util 1.16 qw(weaken looks_like_number);
 # Declare ourself as a subclass
 use base 'Math::Random::MT::Auto';
 
-our $VERSION = '4.04.00';
+our $VERSION = '4.05.00';
 
 # Set ID() as alias for refaddr() function
 *ID = \&Scalar::Util::refaddr;
@@ -287,7 +287,7 @@ Math::Random::MT::Auto::Range - Range-valued PRNGs
 
 =head1 DESCRIPTION
 
-This module creates range-valued pseudo-random number generators (PRNGs) that
+This module creates range-valued pseudorandom number generators (PRNGs) that
 return random values between two specified limits.
 
 While useful in itself, the primary purpose of this module is to provide an

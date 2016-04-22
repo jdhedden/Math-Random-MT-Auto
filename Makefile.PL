@@ -62,7 +62,9 @@ WriteMakefile(
                          'XSLoader'          => 0,
                          'Test::More'        => 0,
                          'Scalar::Util'      => 1.18,
-                         'Data::Dumper'      => 0 },
+                         'Data::Dumper'      => 0,
+                         'Config'            => 0,
+                       },
     'OBJECT'        => 'MRMA.o',
     (($ExtUtils::MakeMaker::VERSION lt '6.25') ?
         ('PL_FILES' => { })            : ()),
@@ -71,8 +73,23 @@ WriteMakefile(
 );
 
 
+package MY;
+
+# Add to metafile target
+sub metafile
+{
+    my $inherited = shift->SUPER::metafile_target(@_);
+    $inherited .= <<'_MOREMETA_';
+	$(NOECHO) $(ECHO) 'recommends:' >>$(DISTVNAME)/META.yml
+	$(NOECHO) $(ECHO) '    LWP::UserAgent: 0' >>$(DISTVNAME)/META.yml
+	$(NOECHO) $(ECHO) '    Win32::API: 0' >>$(DISTVNAME)/META.yml
+_MOREMETA_
+
+    return $inherited;
+}
+
 # Additional 'make' targets
-sub MY::postamble
+sub postamble
 {
     return <<'_EXTRAS_';
 fixfiles:

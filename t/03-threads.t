@@ -72,4 +72,6 @@ for my $ii (10 .. 19) {
     ok($$rands[$ii] == $rand,    'Values equal: ' . $$rands[$ii] . ' ' . $rand);
 }
 
+exit(0);
+
 # EOF

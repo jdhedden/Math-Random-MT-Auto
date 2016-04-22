@@ -68,4 +68,6 @@ for (1 .. 500) {
 }
 is_deeply(\@rn, \@rn2, 'Same results after state restored');
 
+exit(0);
+
 # EOF

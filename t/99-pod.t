@@ -57,6 +57,8 @@ SKIP: {
     unlink("/home/$ENV{'USER'}/en.prepl", "/home/$ENV{'USER'}/en.pws");
 }
 
+exit(0);
+
 __DATA__
 
 Cokus's

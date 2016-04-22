@@ -93,4 +93,6 @@ is_deeply($thr_state, \@state => 'States equal');
 my @seed = get_seed();
 is_deeply(\@seed, [99,99,99] => 'SA seed');
 
+exit(0);
+
 # EOF

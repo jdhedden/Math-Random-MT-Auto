@@ -149,4 +149,6 @@ if (($dev > 3) && $loops--) {
 }
 ok($dev <= 3, 'Looks like a bell curve');
 
+exit(0);
+
 # EOF

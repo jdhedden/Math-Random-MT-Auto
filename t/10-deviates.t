@@ -317,4 +317,6 @@ for my $x (@$shuf) {
     }
 }
 
+exit(0);
+
 # EOF

@@ -9,4 +9,6 @@ if ($Math::Random::MT::Auto::VERSION) {
     diag('Testing Math::Random::MT::Auto ' . $Math::Random::MT::Auto::VERSION);
 }
 
+exit(0);
+
 # EOF

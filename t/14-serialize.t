@@ -466,6 +466,6 @@ foreach my $rand (@base_rint) {
     is($robj2->rrand, range($rand) => 'rrand');
 }
 
+exit(0);
 
-exit;
-
+# EOF

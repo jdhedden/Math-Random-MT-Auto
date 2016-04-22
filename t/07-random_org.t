@@ -50,4 +50,6 @@ for my $ii (0 .. 9) {
     }
 }
 
+exit(0);
+
 # EOF

@@ -1,5 +1,10 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.13 Tue Jun 10 16:45:22 2008
+	- Upgraded ppport.h to Devel::PPPort 3.14
+	- End all tests with exit(0)
+	- Recommended modules in META.yml
+
 6.12 Tue Feb 26 13:58:15 2008
 	- Read random devices in smaller chunks
 	- 'die' properly if no compiler

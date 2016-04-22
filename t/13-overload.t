@@ -98,4 +98,6 @@ is($x[0], range($rand[4])                       => ':Arrayify');
 my @results = map { range($_) } @rand[5..7];
 is_deeply(\@x, \@results                        => '->array()');
 
+exit(0);
+
 # EOF

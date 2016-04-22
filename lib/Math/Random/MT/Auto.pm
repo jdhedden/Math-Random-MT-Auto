@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.09';
+our $VERSION = '6.11';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -664,7 +664,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.09
+This documentation refers to Math::Random::MT::Auto version 6.11
 
 =head1 SYNOPSIS
 
@@ -1339,7 +1339,7 @@ L</"srand"> will be filtered out from the serialized results.
 =head2 Coercion
 
 Various forms of object coercion are supported through the L<overload>
-mechanism.  For instance, you want to use a PRNG object directly in a string:
+mechanism.  For instance, you can to use a PRNG object directly in a string:
 
  my $prng = Math::Random::MT::Auto->new();
  print("Here's a random integer: $prng\n");
@@ -1348,13 +1348,13 @@ The I<stringification> of the PRNG object is accomplished by calling
 C<-E<gt>irand()> on the object, and returning the integer so obtained as the
 I<coerced> result.
 
-Similarly, when used in a numeric context:
+A similar overload coercion is performed when the object is used in a numeric
+context:
 
  my $neg_rand = 0 - $prng;
 
-(NOTE:  There is a bug in the L<overload> module associated with 64-bit
-integer Perl that causes the integer returned by the C<-E<gt>irand()> call to
-be returned as a floating point number.)
+(See L</"BUGS AND LIMITATIONS"> regarding numeric overloading on 64-bit
+integer Perls prior to 5.10.)
 
 In a boolean context, the coercion returns true or false based on whether the
 call to C<-E<gt>irand()> returns an odd or even result:
@@ -1678,12 +1678,18 @@ module.
 
 =head1 BUGS AND LIMITATIONS
 
-There are no known bugs in this module.
-
 This module does not support multiple inheritance.
 
+For Perl prior to 5.10, there is a bug in the L<overload> code associated with
+64-bit integers that causes the integer returned by the C<-E<gt>irand()> call
+to be coerced into a floating-point number.  The workaround in this case is to
+call C<-E<gt>irand()> directly:
+
+ # my $neg_rand = 0 - $prng;          # Result is a floating-point number
+ my $neg_rand = 0 - $prng->irand();   # Result is an integer number
+
 Please submit any bugs, problems, suggestions, patches, etc. to:
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Math-Random-MT-Auto>
+L<http://rt.cpan.org/Public/Dist/Display.html?Name=Math-Random-MT-Auto>
 
 =head1 SEE ALSO
 
@@ -1691,7 +1697,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.09/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.11/lib/Math/Random/MT/Auto.pm>
 
 Source repository:
 L<http://code.google.com/p/mrma/>

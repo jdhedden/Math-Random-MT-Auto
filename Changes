@@ -1,5 +1,9 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.11 Wed Feb 20 17:36:53 2008
+	- POD updates
+	- Upgraded ppport.h to Devel::PPPort 3.13_01
+
 6.09 Sat Sep 15 12:02:30 2007
 	- More test fixes for Test::More 0.71
 

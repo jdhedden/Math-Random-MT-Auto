@@ -45,7 +45,8 @@ if (my $e = OIO->caught()) {
 is("$prng", $rand[0]                    => ':Stringify');
 SKIP: {
     my $rnd = 0+$prng;
-    skip('Overload bug', 1) if ($Config{'uvsize'} == 8);
+    skip('64-bit overload bug', 1)
+        if (($] < 5.010) && ($Config{'uvsize'} == 8));
     is($rnd, $rand[1]                   => ':Numerify');
 }
 is(($prng) ? 'odd' : 'even', 

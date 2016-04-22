@@ -5,7 +5,7 @@ use warnings;
 
 package Math::Random::MT::Auto; {
 
-our $VERSION = '4.12.00';
+our $VERSION = '4.13.00';
 
 use Carp ();
 use Scalar::Util 1.10 qw(blessed looks_like_number weaken);
@@ -108,7 +108,7 @@ sub import
                   exponential erlang poisson binomial
                   srand get_seed set_seed get_state set_state)} = undef;
 
-    my $auto_seed = 1;   # Flag for auto-seeding standalone PRNG
+    my $auto_seed = 1;   # Flag to auto-seed the standalone PRNG
 
     # Handle entries in the import list
     my $caller = caller();
@@ -136,6 +136,7 @@ sub import
 
     # Set up default seed sources, if none specified by user
     if (! @{$sources_for{$$SA}}) {
+        # If ActivePerl and Windows XP, add 'win32' source
         if ($^O eq 'MSWin32') {
             my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
             if (defined($minor) &&
@@ -624,7 +625,7 @@ my $_src_win32 = sub {
 
     # Check OS type and version
     if ($^O ne 'MSWin32') {
-        Carp::carp("Can't use 'win32' source: Not Win XP");
+        Carp::carp("Can't use 'win32' source: Not ActivePerl");
         return;
     }
     my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
@@ -753,7 +754,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 4.12.00.
+This documentation refers to Math::Random::MT::Auto version 4.13.00.
 
 =head1 SYNOPSIS
 
@@ -967,7 +968,8 @@ or specify multiple sources:
 
 =item Windows XP Random Data
 
-Under Windows XP, you can acquire random seed data from the system.
+Under ActivePerl on Windows XP, you can acquire random seed data from the
+system.
 
     use Math::Random::MT::Auto 'win32';
 
@@ -997,8 +999,8 @@ added, and the number of integers (64- or 32-bit as the case may be) needed.
 =back
 
 The default list of seeding sources is determined when the module is loaded
-(actually when the C<import> function is called).  Under Windows XP,
-C<win32> is added to the list.  Otherwise, F</dev/urandom> and then
+(actually when the C<import> function is called).  Under ActivePerl on Windows
+XP, C<win32> is added to the list.  Otherwise, F</dev/urandom> and then
 F</dev/random> are checked.  The first one found is added to the list.
 Finally, C<random_org> is added.
 
@@ -1522,14 +1524,14 @@ The L<HotBits|/"Internet Sites"> site has a quota on the amount of data you
 can request in a 24-hour period.  (I don't know how big the quota is.)
 Therefore, this source may fail to provide any data if used too often.
 
-=item * Can't use 'win32' source: Not Win XP
+=item * Can't use 'win32' source: Not ActivePerl
 
 =item * Can't use 'win32' source: Unable to determine Windows version
 
 =item * Can't use 'win32' source: Not Win XP ...
 
 The L<win32|/"Windows XP Random Data"> random data source is only available
-under Windows XP (and later).
+under ActivePerl on Windows XP (and later).
 
 =item * Failure acquiring Win XP random data: ...
 
@@ -1644,7 +1646,7 @@ This module uses the following 'standard' modules:
 
 =item Scalar::Util (1.10 or higher) - Standard in 5.8 or obtain from CPAN
 
-=item Dynaloader
+=item DynaLoader
 
 =back
 
@@ -1653,8 +1655,9 @@ This module uses the following 'standard' modules:
 To utilize the option of acquiring seed data from Internet sources, you need
 to install the L<LWP::UserAgent> module.
 
-Under Windows XP, to utilize the option of acquiring seed data from the
-system's random data source, you need to install the L<Win32::API> module.
+To utilize the option of acquiring seed data from the system's random data
+source under ActivePerl on Windows XP, you need to install the L<Win32::API>
+module.
 
 =head1 BUGS AND LIMITATIONS
 

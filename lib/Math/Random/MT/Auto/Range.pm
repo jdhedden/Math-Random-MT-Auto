@@ -3,7 +3,7 @@ use warnings;
 
 package Math::Random::MT::Auto::Range; {
 
-our $VERSION = '4.12.00';
+our $VERSION = '4.13.00';
 
 use Carp ();
 use Scalar::Util 1.10 qw(looks_like_number);

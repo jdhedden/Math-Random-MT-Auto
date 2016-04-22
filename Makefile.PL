@@ -56,7 +56,7 @@ WriteMakefile(
     'PREREQ_PM'     => { 'attributes'   => 0,
                          'Carp'         => 0,
                          'Scalar::Util' => 1.10,
-                         'Dynaloader'   => 0,
+                         'DynaLoader'   => 0,
                          'Test::More'   => 0 },
     'OBJECT'        => 'MRMA.o',
     (($ExtUtils::MakeMaker::VERSION < 6.25) ?

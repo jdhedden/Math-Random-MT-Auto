@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.13.00 Thu Sep 22 15:53:50 2005
+	- Fixed DynaLoader name in Makefile.PL
+
 4.12.00 Wed Sep 21 14:48:00 2005
 	- Added RandomNumbers.info
 

@@ -3,7 +3,7 @@ package Math::Random::MT::Auto::Range; {
 use strict;
 use warnings;
 
-our $VERSION = '6.19';
+our $VERSION = '6.21';
 $VERSION = eval $VERSION;
 
 use Scalar::Util 1.18;

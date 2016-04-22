@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.19';
+our $VERSION = '6.21';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -447,8 +447,8 @@ sub _acq_device :PRIVATE
     }
     binmode($FH);
 
-    # Try to set non-blocking mode (but not on Windows)
-    if ($^O ne 'MSWin32') {
+    # Try to set non-blocking mode (but not on Windows and Haiku)
+    if ($^O ne 'MSWin32' && $^O ne 'Haiku') {
         eval {
             require Fcntl;
 
@@ -668,7 +668,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.19
+This documentation refers to Math::Random::MT::Auto version 6.21
 
 =head1 SYNOPSIS
 

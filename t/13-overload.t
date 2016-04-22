@@ -5,7 +5,7 @@ use warnings;
 
 $| = 1;
 
-use Test::More 'no_plan';
+use Test::More 'tests' => 16;
 use Config;
 
 my @WARN;

@@ -16,7 +16,7 @@ BEGIN {
 }
 
 use threads;
-use Test::More 'no_plan';
+use Test::More 'tests' => 94;
 
 use Math::Random::MT::Auto;
 

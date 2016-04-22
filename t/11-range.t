@@ -17,7 +17,7 @@ BEGIN {
     }
 }
 
-use Test::More 'no_plan';
+use Test::More 'tests' => 227;
 
 use Math::Random::MT::Auto;
 use Math::Random::MT::Auto::Range;

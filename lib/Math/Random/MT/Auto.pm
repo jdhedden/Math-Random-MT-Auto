@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.15';
+our $VERSION = '6.16';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -668,7 +668,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.15
+This documentation refers to Math::Random::MT::Auto version 6.16
 
 =head1 SYNOPSIS
 
@@ -1700,12 +1700,6 @@ L<http://rt.cpan.org/Public/Dist/Display.html?Name=Math-Random-MT-Auto>
 
 Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
-
-Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.15/lib/Math/Random/MT/Auto.pm>
-
-Source repository:
-L<http://code.google.com/p/mrma/>
 
 The Mersenne Twister is the (current) quintessential pseudorandom number
 generator. It is fast, and has a period of 2^19937 - 1.  The Mersenne

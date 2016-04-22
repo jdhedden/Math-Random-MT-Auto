@@ -24,7 +24,7 @@ BEGIN {
 use threads;
 use threads::shared;
 
-use Test::More 'no_plan';
+use Test::More 'tests' => 89;
 
 BEGIN {
     $Math::Random::MT::Auto::shared = 1;

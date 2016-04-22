@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More 'no_plan';
+use Test::More 'tests' => 2007;
 use Data::Dumper;
 
 use_ok('Math::Random::MT::Auto', qw(irand get_state set_state));

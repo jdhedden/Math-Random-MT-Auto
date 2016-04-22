@@ -30,4 +30,5 @@ examples/erlang.pl
 examples/poisson.pl
 examples/binomial.pl
 examples/cards.pl
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

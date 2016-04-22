@@ -11,7 +11,7 @@ if ($@) {
 }
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand rand32 seed warnings/, 'hotbits');
+    use_ok('Math::Random::MT::Auto', qw/rand irand seed warnings/, 'hotbits');
 }
 
 # Check for warnings
@@ -40,10 +40,10 @@ ok(defined($rn),            'Got a random number');
 ok(looks_like_number($rn),  'Is a number: ' . $rn);
 ok($rn >= 0.0 && $rn < 1.0, 'In range: ' . $rn);
 
-# Test several values from rand32()
+# Test several values from irand()
 for (my $ii=0; $ii < 10; $ii++) {
-    eval { $rn[$ii] = rand32(); };
-    ok(! $@,                        'rand32() died: ' . $@);
+    eval { $rn[$ii] = irand(); };
+    ok(! $@,                        'irand() died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
     ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii],   'Integer: ' . $rn[$ii]);

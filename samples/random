@@ -10,7 +10,7 @@ use warnings;
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/rand rand32 srand seed warnings gaussian :!auto/;
+use Math::Random::MT::Auto qw/rand irand srand seed warnings gaussian :!auto/;
 use Time::HiRes 'time';
 
 MAIN:
@@ -97,14 +97,14 @@ MAIN:
         @seed = @{seed()};
     }
 
-    # Time our rand32()
+    # Time our irand()
     $cnt = $count-1;
     $start = time();
     do {
-        rand32();
+        irand();
     } while ($cnt--);
     $end = time();
-    printf("rand32:\t\t%f secs. (%d)\n", $end - $start, $count);
+    printf("irand:\t\t%f secs. (%d)\n", $end - $start, $count);
 
     # Reseed
     seed(\@seed);
@@ -176,14 +176,14 @@ MAIN:
     # Reseed
     $rand->seed(\@seed);
 
-    # Time our rand32()
+    # Time our irand()
     $cnt = $count-1;
     $start = time();
     do {
-        $rand->rand32();
+        $rand->irand();
     } while ($cnt--);
     $end = time();
-    printf("rand32:\t\t%f secs. (%d)\n", $end - $start, $count);
+    printf("irand:\t\t%f secs. (%d)\n", $end - $start, $count);
 
     # Reseed
     $rand->seed(\@seed);

@@ -4,11 +4,12 @@ use strict;
 use warnings;
 
 use Scalar::Util qw/looks_like_number weaken/;
+use Config;
 
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.22;
+our $VERSION = 1.23;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -41,7 +42,7 @@ sub import
 
     while (my $sym = shift) {
         # Exportable functions
-        if ($sym eq 'rand32' || $sym eq 'rand') {
+        if ($sym eq 'irand' || $sym eq 'rand') {
             no strict 'refs';
             *{"${pkg}::$sym"} = \&{"mt_$sym"};
 
@@ -49,7 +50,8 @@ sub import
                  $sym eq 'seed'     ||
                  $sym eq 'state'    ||
                  $sym eq 'warnings' ||
-                 $sym eq 'gaussian')
+                 $sym eq 'gaussian' ||
+                 $sym eq 'rand32')
         {
             no strict 'refs';
             *{"${pkg}::$sym"} = \&$sym;
@@ -169,7 +171,7 @@ sub srand
         # OO interface
         $obj = $self = shift;
     } else {
-        # Standalone interface
+        # Standalone PRNG
         $obj = \%STANDALONE;
     }
 
@@ -208,7 +210,7 @@ sub seed
         # OO interface
         $obj = shift;
     } else {
-        # Standalone interface
+        # Standalone PRNG
         $obj = \%STANDALONE;
     }
 
@@ -242,7 +244,7 @@ sub state
         # OO interface
         $obj = shift;
     } else {
-        # Standalone interface
+        # Standalone PRNG
         $obj = \%STANDALONE;
     }
 
@@ -269,7 +271,7 @@ sub warnings
         # OO interface
         $obj = shift;
     } else {
-        # Standalone interface
+        # Standalone PRNG
         $obj = \%STANDALONE;
     }
 
@@ -297,7 +299,7 @@ sub gaussian
         # OO interface
         $obj = shift;
     } else {
-        # Standalone interface
+        # Standalone PRNG
         $obj = \%STANDALONE;
     }
 
@@ -422,6 +424,33 @@ sub DESTROY
 }
 
 
+### DEPRECATED ###
+
+# Random 32-bit ints
+sub rand32
+{
+    # OO interface
+    if (defined($_[0]) &&
+        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
+        $_[0]->isa(__PACKAGE__))
+    {
+        return ($_[0]->irand() & 0xFFFFFFFF);
+    }
+
+    # Standalone PRNG
+    return (mt_irand() & 0xFFFFFFFF);
+}
+
+
+# Random 32-bit ints
+sub mt_rand32
+{
+    # Standalone PRNG
+    return (mt_irand() & 0xFFFFFFFF);
+}
+
+
+
 ### Internal Subroutines ###
 
 my %_acq_dispatch = (
@@ -438,7 +467,7 @@ sub _acq_seed
     my $warnings = $_[2];
 
     @$seed = ();
-    my $FULL_SEED = 624;
+    my $FULL_SEED = 2496 / $Config{'uvsize'};
 
     for (my $ii=0; $ii < @$sources; $ii++) {
         my $source = $$sources[$ii];
@@ -480,7 +509,7 @@ sub _acq_seed
         if (! @$sources) {
             push(@$warnings, 'No seed sources specified');
         } elsif ($$sources[0] ne 'none') {
-            push(@$warnings, 'Partial seed - only ' . scalar(@$seed) . ' long-ints');
+            push(@$warnings, 'Partial seed - only ' . scalar(@$seed) . ' of ' . $FULL_SEED);
         }
         if (! @$seed) {
             push(@$seed, time(), $$);  # Default seed
@@ -496,7 +525,7 @@ sub _acq_dev
     my $seed     = $_[1];
     my $need     = $_[2];
     my $warnings = $_[3];
-    my $bytes    = 4 * $need;
+    my $bytes    = $need * $Config{'uvsize'};
 
     # Try opening device/file
     my $FH;
@@ -534,8 +563,8 @@ sub _acq_dev
         if ($cnt < $bytes) {
             push(@$warnings, "$device exhausted");
         }
-        if ($cnt = int($cnt/4)) {
-            push(@$seed, unpack("L$cnt", $data));
+        if ($cnt = int($cnt / $Config{'uvsize'})) {
+            push(@$seed, unpack((exists($Config{'use64bitint'})) ? "Q$cnt" : "L$cnt", $data));
         }
     } else {
         push(@$warnings, "Failure reading from $device: $!");
@@ -549,7 +578,7 @@ sub _acq_random_org
     my $seed     = $_[0];
     my $need     = $_[1];
     my $warnings = $_[2];
-    my $bytes    = 4 * $need;
+    my $bytes    = $need * $Config{'uvsize'};
 
     # Load LWP::UserAgent module
     eval {
@@ -574,7 +603,7 @@ sub _acq_random_org
     if ($@) {
         push(@$warnings, "Failure contacting random.org: $@");
     } elsif ($res->is_success) {
-        push(@$seed, unpack('L*', $res->content));
+        push(@$seed, unpack((exists($Config{'use64bitint'})) ? 'Q*' : 'L*', $res->content));
     } else {
         push(@$warnings, 'Failure getting data from random.org: '
                             . $res->status_line);
@@ -588,7 +617,7 @@ sub _acq_hotbits
     my $seed     = $_[0];
     my $need     = $_[1];
     my $warnings = $_[2];
-    my $bytes    = 4 * $need;
+    my $bytes    = $need * $Config{'uvsize'};
 
     # Load LWP::UserAgent module
     eval {
@@ -607,7 +636,7 @@ sub _acq_hotbits
         # HotBits only allows 2048 bytes max.
         if ($bytes > 2048) {
             $bytes = 2048;
-            $need  = 512;
+            $need  = $bytes / $Config{'uvsize'};
         }
         # Create request for HotBits
         my $req = HTTP::Request->new(GET =>
@@ -621,7 +650,7 @@ sub _acq_hotbits
         if ($res->content =~ /exceeded your 24-hour quota/) {
             push(@$warnings, $res->content);
         } else {
-            push(@$seed, unpack('L*', $res->content));
+            push(@$seed, unpack((exists($Config{'use64bitint'})) ? 'Q*' : 'L*', $res->content));
         }
     } else {
         push(@$warnings, 'Failure getting data from HotBits: '
@@ -636,7 +665,7 @@ sub _acq_win32
     my $seed     = $_[0];
     my $need     = $_[1];
     my $warnings = $_[2];
-    my $bytes    = 4 * $need;
+    my $bytes    = $need * $Config{'uvsize'};
 
     # Load Win32::API::Prototype module
     eval {
@@ -657,7 +686,7 @@ sub _acq_win32
     # Acquire the random data
     my $buffer = chr(0) x $bytes;
     if (SystemFunction036($buffer, $bytes)) {
-        push(@$seed, unpack('V*', $buffer));
+        push(@$seed, unpack((exists($Config{'use64bitint'})) ? 'Q*' : 'V*', $buffer));
     } else {
         push(@$warnings, "Failure acquiring Win32 seed data: $^E");
     }
@@ -673,14 +702,14 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNG
 
 =head1 SYNOPSIS
 
-  use Math::Random::MT::Auto qw/rand32 rand gaussian/,
+  use Math::Random::MT::Auto qw/rand irand gaussian/,
                              '/dev/urandom' => 500,
                              'random_org';
 
   # Functional interface
   my $die_roll = 1 + int(rand(6));
 
-  my $coin_flip = (rand32() & 1) ? 'heads' : 'tails';
+  my $coin_flip = (irand() & 1) ? 'heads' : 'tails';
 
   my $rand_IQ = 100 + gaussian(15);
 
@@ -694,22 +723,27 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNG
 =head1 DESCRIPTION
 
 The Mersenne Twister is a fast pseudo-random number generator (PRNG) that
-is capable of providing large volumes (> 2.5 * 10^6004) of "high quality"
+is capable of providing large volumes (> 10^6004) of "high quality"
 pseudo-random data to applications that may exhaust available "truly"
-random data sources or system-provided PRNGs such as L<rand|perlfunc/"rand">.
+random data sources or system-provided PRNGs such as
+L<rand|perlfunc/"rand">.
 
 This module provides PRNGs that are based on the Mersenne Twister.  There
 is a functional interface to a single, standalone PRNG, and an OO interface
 for generating multiple PRNG objects.  The PRNGs are self-seeding,
-automatically acquiring a 624-long-integer random seed from user-selectable
+automatically acquiring a (19968-bit) random seed from user-selectable
 sources.
 
 This module is thread-safe with respect to its OO interface for Perl v5.7.2
 and beyond.  The standalone PRNG is not thread-safe.
 
-The code for this module has been optimized for speed, making it 50% faster
-than Math::Random::MT for the functional interface, and 25% faster for the
-OO interface.
+For Perl compiled to support 64-bit integers, this module will use a 64-bit
+version of the Mersenne Twister algorithm, thus providing 64-bit random
+integers (and 53-bit random doubles).  (32-bits otherwise.)
+
+The code for this module has been optimized for speed, making it 2.5 times
+faster than Math::Random::MT for the functional interface, and 2 times
+faster for the OO interface.
 
 =head2 Quickstart
 
@@ -720,7 +754,7 @@ application code:
   use Math::Random::MT::Auto qw/rand/;
 
 and then just use L</"rand"> as you would normally.  You don't even need to
-bother seeding the PRNG (i.e., you don't need to use L</"srand">), as that
+bother seeding the PRNG (i.e., you don't need to call L</"srand">), as that
 gets done automatically when the module is loaded by Perl.
 
 If you need multiple PRNGs, then use the OO interface:
@@ -731,16 +765,37 @@ If you need multiple PRNGs, then use the OO interface:
   my $prng2 = Math::Random::MT::Auto->new();
 
   my $rand_num = $prng1->rand();
-  my $rand_int = $prng2->rand32();
+  my $rand_int = $prng2->irand();
 
 B<CAUTION>: If you want to C<require> this module, see the
 L</"Delayed Importation"> section for important information.
 
+=head2 64-bit Support
+
+If Perl has been compiled to support 64-bit integers (do C<perl -V> and
+look for C<use64bitint=define>), then this module will use a 64-bit-integer
+version of the Mersenne Twister.  Otherwise, 32-bit integers will be used.
+The size of integers returned by L</"irand">, and used by L</"seed"> will
+be sized accordingly.
+
+Programmatically, the size of Perl's integers can be determined using the
+L<Config> module:
+
+  use Config;
+
+  if (exists($Config{'use64bitint')) {
+      print("Perl is using 64-bit ints\n");
+  } else {
+      print("Perl is using 32-bit ints\n");
+  }
+  print("Ints are $Config{'uvsize'} bytes in length\n");
+
 =head2 Seeding Sources
 
-Starting the PRNGs with a 624-long-integer random seed takes advantage of
-their full range of possible internal vectors states.  This module attempts
-to acquire such seeds using several user-selectable sources.
+Starting the PRNGs with a 19968-bit random seed (312 64-bit integers or 624
+32-bit integers) takes advantage of their full range of possible internal
+vectors states.  This module attempts to acquire such seeds using several
+user-selectable sources.
 
 =over
 
@@ -788,12 +843,13 @@ If you connect to the Internet through an HTTP proxy, then you must set
 the C<http_proxy> variable in your environment when using this source.
 (See L<LWP::UserAgent/"Proxy attributes">.)
 
-The HotBits site will only provide a maximum of 512 long-ints of data per
+The HotBits site will only provide a maximum of 2048 bytes of data per
 request.  If you want to get the full seed from HotBits, then specify
 the C<hotbits> source twice in the module declaration.
 
-  my $prng = Math::Random::MT::Auto->new('SOURCE' => ['hotbits',
-                                                      'hotbits' => 112]);
+  my $prng = Math::Random::MT::Auto->new(
+                        'SOURCE' => ['hotbits',
+                                     'hotbits' => 448 / $Config{'uvsize'}] );
 
 =item Windows XP Random Data
 
@@ -818,12 +874,12 @@ through the use of the L</"srand"> function.  Similarly for the OO interface,
 they can be overridden in the L</"new"> method when the PRNG is created, or
 later using the L</"srand"> method.
 
-Optionally, the maximum number of long-ints to be used from a source
-may be specified.
+Optionally, the maximum number of integers (64- or 32-bits as the case may
+be) to be used from a source may be specified:
 
-  # Get at most 500 long-ints from random.org
+  # Get at most 2000 bytes from random.org
   # Finish the seed using data from /dev/urandom
-  use Math::Random::MT::Auto 'random_org' => 500,
+  use Math::Random::MT::Auto 'random_org' => 2000 / $Config{'uvsize'},
                              '/dev/urandom';
 
 (I would be interested to hear about other random data sources if they
@@ -841,7 +897,7 @@ If you want to use the standalone PRNG, then you should specify the
 functions you want to use when you declare the module:
 
   use Math::Random::MT::Auto
-            qw/rand rand32 gaussian srand seed state warnings/;
+            qw/rand irand gaussian srand seed state warnings/;
 
 Without the above declarations, it is still possible to use the standalone
 PRNG by accessing the functions using their full module paths, as described
@@ -862,16 +918,21 @@ C<Math::Random::MT::Auto::mt_rand> (note the I<mt_> prefix).  (NOTE: If you
 still need to access Perl's built-in L<rand|perlfunc/"rand"> function, you
 can do so using C<CORE::rand()>.)
 
-=item rand32
+=item irand
 
-  my $int = rand32();
+  my $int = irand();
 
-Returns a 32-bit random integer between 0 and 2^32-1 (0xFFFFFFFF)
+Returns a random integer.  For 32-bit integer Perl, the range is 0 to
+2^32-1 (0xFFFFFFFF) inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1
 inclusive.  This is the fastest method for obtaining pseudo-random numbers
 with this module.
 
 This function may also be accessed using the full path
-C<Math::Random::MT::Auto::mt_rand32> (note the I<mt_> prefix).
+C<Math::Random::MT::Auto::mt_irand> (note the I<mt_> prefix).
+
+=item rand32  [DEPRECATED]
+
+Returns a random 32-bit integer.  Provided for backwards compatibility.
 
 =item gaussian
 
@@ -902,10 +963,10 @@ arguments).
 
   srand('hotbits', '/dev/random');
 
-If called with a subroutine reference, then that subroutine will be called
+If called with a subroutine reference, then the subroutine will be called
 to acquire the seeding data.  The subroutine will be passed two arguments:
 A array reference where seed data is to be added, and the number of
-long-integers needed.
+integers (64- or 32-bit as the case may be) needed.
 
   sub MySeeder
   {
@@ -913,18 +974,18 @@ long-integers needed.
       my $need = $_[1];
 
       while ($need--) {
-          my $long_int = ...;      # Get seed data from your source
-          push(@$seed, $long_int);
+          my $data = ...;      # Get seed data from your source
+          push(@$seed, $data);
       }
   }
 
-  # Call MySeeder for 256 long-ints, and
+  # Call MySeeder for 200 integers, and
   #  then get the rest from random.org.
-  srand(\&MySeeder => 256, 'random_org');
+  srand(\&MySeeder => 200, 'random_org');
 
-If called with long-integer data (single value or an array), or a reference
-to an array of long-integers, these data will be passed to L</"seed"> for
-use in reseeding the PRNG.
+If called with integer data (single value or an array), or a reference to
+an array of integers, these data will be passed to L</"seed"> for use in
+reseeding the PRNG.
 
 This function may also be accessed using the full path
 C<Math::Random::MT::Auto::srand>.  (NOTE: If you still need to access
@@ -943,9 +1004,8 @@ containing the seed last sent to the PRNG.  NOTE: Changing the data in the
 referenced array will not cause any changes in the PRNG (i.e., it will not
 reseed it).
 
-When called with long-integer data (single value or an array), or a
-reference to an array of long-integers, these data will be used to reseed
-the PRNG.
+When called with integer data (single value or an array), or a reference to
+an array of integers, these data will be used to reseed the PRNG.
 
 Together, this function may be useful for setting up identical sequences
 of random numbers based on the same seed.
@@ -968,13 +1028,13 @@ obtained state-vector array reference.
   my $state = state();
 
   # Run the PRNG some more
-  my $rand1 = rand32();
+  my $rand1 = irand();
 
   # Restore the previous state of the PRNG
   state($state);
 
   # Get another random number
-  my $rand2 = rand32();
+  my $rand2 = irand();
 
   # $rand1 and $rand2 will be equal.
 
@@ -1014,7 +1074,7 @@ loaded.  This behavior can be modified by supplying the C<:!auto> (or
 C<:noauto>) flag when the module is declared.  (The PRNG will still be
 seeded using time and PID just in case.)  When the C<:!auto> option is
 used, the L</"srand"> function should be imported, and then run before
-calling L</"rand"> or L</"rand32">.
+calling L</"rand"> or L</"irand">.
 
   use Math::Random::MT::Auto qw/rand srand :!auto/;
     ...
@@ -1089,12 +1149,17 @@ When provided, the C<SEED> and C<SOURCE> options behave as described above.
 Behaves like Perl's built-in L<rand|perlfunc/"rand">, returning a number
 uniformly distributed in [0, $num).  ($num defaults to 1.)
 
-=item $obj->rand32
+=item $obj->irand
 
-  my $int = $prng->rand32();
+  my $int = $prng->irand();
 
-Returns a 32-bit random integer between 0 and 2^32-1 (0xFFFFFFFF)
-inclusive.
+Returns a random integer.  For 32-bit integer Perl, the range is 0 to
+2^32-1 (0xFFFFFFFF) inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1
+inclusive.  This is the fastest method for obtaining pseudo-random numbers
+
+=item $obj->rand32  [DEPRECATED]
+
+Returns a random 32-bit integer.  Provided for backwards compatibility.
 
 =item $obj->gaussian
 
@@ -1120,9 +1185,9 @@ Optionally, seeding sources may be supplied as arguments.  (These will be
 saved and used again if the C<srand> method is subsequently called without
 arguments).
 
-If called with long-integer data (single value or an array), or a reference
-to an array of long-integers, these data will be passed to the C<seed>
-method for use in reseeding the PRNG.
+If called with integer data (single value or an array), or a reference to
+an array of integers, these data will be passed to the C<seed> method for
+use in reseeding the PRNG.
 
 =item $obj->seed
 
@@ -1323,7 +1388,7 @@ parent class's intialization routine:
 
 =over
 
-  use Math::Random::MT::Auto qw/rand rand32 state/;
+  use Math::Random::MT::Auto qw/rand irand state/;
 
   my $prng = Math::Random::MT::Auto->new('STATE' => state());
 
@@ -1337,7 +1402,7 @@ of pseudo-random numbers.
 =over
 
   use Data::Dumper;
-  use Math::Random::MT::Auto qw/rand rand32 state/;
+  use Math::Random::MT::Auto qw/rand irand state/;
 
   my $state = state();
   if (open(my $FH, '>/tmp/rand_state_data.tmp')) {
@@ -1352,7 +1417,7 @@ of pseudo-random numbers.
 
 =over
 
-  use Math::Random::MT::Auto qw/rand rand32 state/;
+  use Math::Random::MT::Auto qw/rand irand state/;
 
   our $state;
   my $rc = do('/tmp/rand_state_data.tmp');
@@ -1381,17 +1446,17 @@ If the module cannot acquire any seed data from the specified sources, then
 the time() and PID will be used to seed the PRNG.  Use L</"warnings"> to
 check for seed acquisition problems.
 
-It is possible to seed the PRNG with more than 624 long-integers of data
-(through the use of a seeding subroutine supplied to L</"srand">, or by
-supplying a large array ref of data to L</"seed">).  However, doing so does
-not make the PRNG "more random" as 624 long-integers more than covers all
-the possible PRNG state vectors.
+It is possible to seed the PRNG with more than 19968 bits of data (through
+the use of a seeding subroutine supplied to L</"srand">, or by supplying a
+large array ref of data to L</"seed">).  However, doing so does not make
+the PRNG "more random" as 19968 bits more than covers all the possible PRNG
+state vectors.
 
 =head1 PERFORMANCE
 
-This module is 50% faster than Math::Random::MT when using the functional
-interface to the standalone PRNG, and 25% faster when using the OO
-interface.  The file F<samples/random>, included in this module's
+This module is 2.5 times faster than Math::Random::MT when using the
+functional interface to the standalone PRNG, and 2 times faster when using
+the OO interface.  The file F<samples/random>, included in this module's
 distribution, can be used to compare timing results.
 
 Depending on your connnection speed, acquiring seed data from the Internet
@@ -1408,6 +1473,7 @@ source.)
 The Mersenne Twister is the (current) quintessential pseudo-random number
 generator. It is fast, and has a period of 2^19937 - 1.  The Mersenne
 Twister algorithm was developed by Makoto Matsumoto and Takuji Nishimura.
+It is available in 32- and 64-bit integer versions.
 L<http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html>
 
 random.org generates random numbers from radio frequency noise.
@@ -1448,11 +1514,11 @@ Jerry D. Hedden, S<E<lt>jdhedden AT 1979 DOT usna DOT comE<gt>>
 
 - Mersenne Twister PRNG -
 
-A C-program for MT19937, with initialization improved 2002/1/26.
-Coded by Takuji Nishimura and Makoto Matsumoto, and including
-Shawn Cokus's optimizations.
+A C-Program for MT19937 (32- and 64-bit versions), with initialization
+improved 2002/1/26.  Coded by Takuji Nishimura and Makoto Matsumoto,
+and including Shawn Cokus's optimizations.
 
- Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
+ Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
   All rights reserved.
  Copyright (C) 2005, Mutsuo Saito, All rights reserved.
  Copyright 2005 Jerry D. Hedden S<E<lt>jdhedden AT 1979 DOT usna DOT comE<gt>>

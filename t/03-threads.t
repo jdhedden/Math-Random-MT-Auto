@@ -30,7 +30,7 @@ if (! ok(! $@, '->new worked')) {
     diag('->new died: ' . $@);
 }
 isa_ok($prng, 'Math::Random::MT::Auto');
-can_ok($prng, qw/rand rand32 gaussian srand seed state warnings/);
+can_ok($prng, qw/rand irand gaussian srand seed state warnings/);
 
 # Thread cloning workaround for < 5.8.7
 if ($] < 5.008007) {
@@ -43,7 +43,7 @@ my $rands = threads->create(
                         sub {
                             my @rands;
                             for (my $ii=0; $ii<10; $ii++) {
-                                my $rand = $prng->rand32();
+                                my $rand = $prng->irand();
                                 push(@rands, $rand);
                             }
                             return (\@rands);
@@ -53,8 +53,8 @@ my $rands = threads->create(
 # Check that parent gets the same numbers
 my $rand;
 for (my $ii=0; $ii<10; $ii++) {
-    eval { $rand = $prng->rand32(); };
-    ok(! $@,                     'rand32() died: ' . $@);
+    eval { $rand = $prng->irand(); };
+    ok(! $@,                     'irand() died: ' . $@);
     ok(defined($rand),           'Got a random number');
     ok(looks_like_number($rand), 'Is a number: ' . $rand);
     ok(int($rand) == $rand,      'Integer: ' . $rand);

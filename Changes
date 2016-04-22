@@ -1,6 +1,11 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
-1.22  Tue Jul 05 14:43:30 2005
+1.23  Thu Jul 07 11:41:00 2005
+	- 64-bit algorithm on Perls with 'use64bitint' (66% faster)
+	- Added irand for random integers
+	- rand32 deprecated (see POD)
+
+1.22  Tue Jul 05 15:06:00 2005
 	- Subclass handling and documentation
 	- Fix for thread cloning for 5.7.2-5.8.6
 	- Documented as not thread-safe for < 5.7.2

@@ -1,10 +1,10 @@
 /* Mersenne Twister PRNG
 
-   A c-Program for MT19937, with initialization improved 2002/1/26.
-   Coded by Takuji Nishimura and Makoto Matsumoto, and including
-   Shawn Cokus's optimizations.
+   A C-Program for MT19937 (32- and 64-bit versions), with initialization
+   improved 2002/1/26.  Coded by Takuji Nishimura and Makoto Matsumoto,
+   and including Shawn Cokus's optimizations.
 
-   Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
+   Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
    All rights reserved.
    Copyright (C) 2005, Mutsuo Saito, All rights reserved.
    Copyright 2005 Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>
@@ -99,30 +99,55 @@
 #define P_HIGH  0.97575
 
 /* Constants related to the Mersenne Twister */
-#define N 624
-#define M 397
+#if UVSIZE == 8
+#   define N 312
+#   define M 156
+
+#   define MIXBITS(u,v) ( ((u) & 0xFFFFFFFF80000000ULL) | ((v) & 0x7FFFFFFFULL) )
+#   define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? 0xB5026F5AA96619E9ULL : 0ULL))
+
+#   define BIT_SHIFT 62
+
+#   define MAGIC1 6364136223846793005ULL
+#   define MAGIC2 3935559000370003845ULL
+#   define MAGIC3 2862933555777941757ULL
+
+#   define HI_BIT 1ULL<<63
+#else
+#   define N 624
+#   define M 397
+
+#   define MIXBITS(u,v) ( ((u) & 0x80000000) | ((v) & 0x7FFFFFFF) )
+#   define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? 0x9908B0DF : 0UL))
+
+#   define BIT_SHIFT 30
+
+#   define MAGIC1 1812433253
+#   define MAGIC2 1664525
+#   define MAGIC3 1566083941
+
+#   define HI_BIT 0x80000000
+#endif
 
 struct mt {
-    U32 state[N];
-    U32 *next;
+    UV state[N];
+    UV *next;
     int left;
 };
 
 typedef struct mt my_cxt_t;
 typedef struct mt *Math__Random__MT__Auto;
 
-#define MIXBITS(u,v) ( ((u) & 0x80000000) | ((v) & 0x7FFFFFFF) )
-#define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? 0x9908B0DF : 0UL))
 
 /* The guts of the Mersenne Twister algorithm */
-U32
+UV
 _mt_algo(my_cxt_t *self)
 {
-    U32 *st = self->state;
-    U32 *sn = &st[2];
-    U32 *sx = &st[M];
-    U32 n0 = st[0];
-    U32 n1 = st[1];
+    UV *st = self->state;
+    UV *sn = &st[2];
+    UV *sx = &st[M];
+    UV n0 = st[0];
+    UV n1 = st[1];
     int kk;
 
     for (kk = N-M+1;  --kk;  n0 = n1, n1 = *sn++) {
@@ -144,21 +169,21 @@ _mt_algo(my_cxt_t *self)
 
 /* Seed the PRNG */
 void
-_mt_seed(my_cxt_t *self, U32 *seed, int len)
+_mt_seed(my_cxt_t *self, UV *seed, int len)
 {
     int ii, jj, kk;
-    U32 *st = self->state;
+    UV *st = self->state;
 
     /* Initialize */
     st[0]= 19650218;
     for (ii=1; ii<N; ii++) {
-        st[ii] = (1812433253 * (st[ii-1] ^ (st[ii-1] >> 30)) + ii);
+        st[ii] = (MAGIC1 * (st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) + ii);
     }
 
     /* Add supplied seed */
     ii=1; jj=0;
     for (kk = ((N>len) ? N : len); kk; kk--) {
-        st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> 30)) * 1664525))
+        st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) * MAGIC2))
                         + seed[jj] + jj;
         if (++ii >= N) { st[0] = st[N-1]; ii=1; }
         if (++jj >= len) jj=0;
@@ -166,12 +191,12 @@ _mt_seed(my_cxt_t *self, U32 *seed, int len)
 
     /* Final shuffle */
     for (kk=N-1; kk; kk--) {
-        st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> 30)) * 1566083941)) - ii;
+        st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) * MAGIC3)) - ii;
         if (++ii >= N) { st[0] = st[N-1]; ii=1; }
     }
 
     /* Guarantee non-zero initial state */
-    st[0] = 0x80000000;
+    st[0] = HI_BIT;
 
     /* Forces twist when first random is requested */
     self->left = 1;
@@ -196,24 +221,31 @@ SA_prng()
         dMY_CXT;
     CODE:
         /* These initializations ensure that the PRNG is 'safe' */
-        MY_CXT.state[0] = 0x80000000;
+        MY_CXT.state[0] = HI_BIT;
         MY_CXT.left = 1;
         RETVAL = &MY_CXT;
     OUTPUT:
         RETVAL
 
-U32
-mt_rand32()
+UV
+mt_irand()
     PREINIT:
         dMY_CXT;
     CODE:
         /* Random number on [0,0xFFFFFFFF] interval */
         RETVAL = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
                                       : *MY_CXT.next++;
+#if UVSIZE == 8
+        RETVAL ^= (RETVAL >> 29) & 0x5555555555555555ULL;
+        RETVAL ^= (RETVAL << 17) & 0x71D67FFFEDA60000ULL;
+        RETVAL ^= (RETVAL << 37) & 0xFFF7EEE000000000ULL;
+        RETVAL ^= (RETVAL >> 43);
+#else
         RETVAL ^= (RETVAL >> 11);
         RETVAL ^= (RETVAL << 7)  & 0x9D2C5680;
         RETVAL ^= (RETVAL << 15) & 0xEFC60000;
         RETVAL ^= (RETVAL >> 18);
+#endif
     OUTPUT:
         RETVAL
 
@@ -223,12 +255,20 @@ mt_rand(...)
         dMY_CXT;
     CODE:
         /* Random number on [0,1) interval */
-        U32 rand = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
+        UV rand = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
                                         : *MY_CXT.next++;
+#if UVSIZE == 8
+        rand ^= (rand >> 29) & 0x5555555555555555ULL;
+        rand ^= (rand << 17) & 0x71D67FFFEDA60000ULL;
+        rand ^= (rand << 37) & 0xFFF7EEE000000000ULL;
+        rand ^= (rand >> 43);
+        RETVAL = (double)(rand >> 11) / 9007199254740991.0;
+#else
         rand ^= (rand >> 11);
         rand ^= (rand << 7)  & 0x9D2C5680;
         rand ^= (rand << 15) & 0xEFC60000;
         RETVAL = (double)(rand ^ (rand >> 18)) / 4294967296.0;
+#endif
         if (items >= 1) {
             /* Random number on [0,X) interval */
             RETVAL *= SvNV(ST(0));
@@ -244,8 +284,8 @@ OO_prng()
     OUTPUT:
         RETVAL
 
-U32
-rand32(rand_obj)
+UV
+irand(rand_obj)
         HV *rand_obj
     CODE:
         /* Extract PRNG context from object */
@@ -255,10 +295,17 @@ rand32(rand_obj)
         /* Random number on [0,0xFFFFFFFF] interval */
         RETVAL = (--prng->left == 0) ? _mt_algo(prng)
                                      : *prng->next++;
+#if UVSIZE == 8
+        RETVAL ^= (RETVAL >> 29) & 0x5555555555555555ULL;
+        RETVAL ^= (RETVAL << 17) & 0x71D67FFFEDA60000ULL;
+        RETVAL ^= (RETVAL << 37) & 0xFFF7EEE000000000ULL;
+        RETVAL ^= (RETVAL >> 43);
+#else
         RETVAL ^= (RETVAL >> 11);
         RETVAL ^= (RETVAL << 7)  & 0x9D2C5680;
         RETVAL ^= (RETVAL << 15) & 0xEFC60000;
         RETVAL ^= (RETVAL >> 18);
+#endif
     OUTPUT:
         RETVAL
 
@@ -271,12 +318,20 @@ rand(rand_obj, ...)
         my_cxt_t *prng = INT2PTR(my_cxt_t *, tmp);
 
         /* Random number on [0,1) interval */
-        U32 rand = (--prng->left == 0) ? _mt_algo(prng)
+        UV rand = (--prng->left == 0) ? _mt_algo(prng)
                                        : *prng->next++;
+#if UVSIZE == 8
+        rand ^= (rand >> 29) & 0x5555555555555555ULL;
+        rand ^= (rand << 17) & 0x71D67FFFEDA60000ULL;
+        rand ^= (rand << 37) & 0xFFF7EEE000000000ULL;
+        rand ^= (rand >> 43);
+        RETVAL = (double)(rand >> 11) / 9007199254740991.0;
+#else
         rand ^= (rand >> 11);
         rand ^= (rand << 7)  & 0x9D2C5680;
         rand ^= (rand << 15) & 0xEFC60000;
         RETVAL = (double)(rand ^ (rand >> 18)) / 4294967296.0;
+#endif
         if (items >= 2) {
             /* Random number on [0,X) interval */
             RETVAL *= SvNV(ST(1));
@@ -303,7 +358,7 @@ X_seed(prng, seed)
         /* Length of the seed */
         int len = av_len(seed)+1;
         /* Copy the seed */
-        U32 *buff = (U32 *)malloc(len * sizeof(U32));
+        UV *buff = (UV *)malloc(len * sizeof(UV));
         int ii;
         for (ii=0; ii < len; ii++) {
             buff[ii] = SvUV(*av_fetch(seed, ii, 0));
@@ -350,8 +405,17 @@ X_gaussian(prng, ...)
         double p, q, r;
 
         /* Get random integer */
-        U32 y = (--prng->left == 0) ? _mt_algo(prng)
+        UV y = (--prng->left == 0) ? _mt_algo(prng)
                                      : *prng->next++;
+#if UVSIZE == 8
+        y ^= (y >> 29) & 0x5555555555555555ULL;
+        y ^= (y << 17) & 0x71D67FFFEDA60000ULL;
+        y ^= (y << 37) & 0xFFF7EEE000000000ULL;
+        y ^= (y >> 43);
+
+        /* Convert to (0, 1) */
+        p = ((double)(y>>12) + 0.5) / 4503599627370496.0;
+#else
         y ^= (y >> 11);
         y ^= (y << 7)  & 0x9D2C5680;
         y ^= (y << 15) & 0xEFC60000;
@@ -359,6 +423,7 @@ X_gaussian(prng, ...)
 
         /* Convert to (0, 1) */
         p = ((double)(y) + 0.5) / 4294967296.0;
+#endif
 
         /* Normal distribution with SD = 1 */
         if (p < P_LOW) {

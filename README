@@ -1,16 +1,27 @@
-Math-Random-MT-Auto version 1.22
+Math-Random-MT-Auto version 1.23
 ================================
 
-This module provides two random number functions (rand32 and a
-replacement for Perl's builtin rand) that are based on the Mersenne
-Twister pseudorandom number generator (PRNG).
+This module provides pseudorandom number generators (PRNGs) that are based
+on the Mersenne Twister algorithm.  There is a functional interface to a
+single, standalone PRNG, and an OO interface for generating multiple PRNG
+objects.
 
-The PRNG is self-seeding, automatically acquiring a 624-long-int
-random seed from user-selectable sources when the module is loaded.
-The seed source include local random devices (/dev/random and
-/dev/urandom), and Internet sources (random.org and HotBits).
+The PRNGs are self-seeding, automatically acquiring a (19968-bit) random
+seed from user-selectable sources.  Seed sources include local random
+devices (/dev/random and /dev/urandom), Internet sources (random.org and
+HotBits), and Win32 XP system random data.  Users can also provide their
+own seed sources.
 
-This module is 50% faster than Math::Random::MT.
+This module is thread-safe with respect to its OO interface for Perl v5.7.2
+and beyond.  The standalone PRNG is not thread-safe.
+
+For Perl compiled to support 64-bit integers, this module will use a 64-bit
+version of the Mersenne Twister algorithm, thus providing 64-bit random
+integers (and 53-bit random doubles).  (32-bits otherwise.)
+
+The code for this module has been optimized for speed, making it 2.5 times
+faster than Math::Random::MT for the functional interface, and 2 times
+faster for the OO interface.
 
 INSTALLATION
 
@@ -37,11 +48,11 @@ COPYRIGHT AND LICENCE
 
 - Mersenne Twister PRNG -
 
-A C-program for MT19937, with initialization improved 2002/1/26.
-Coded by Takuji Nishimura and Makoto Matsumoto, and including
-Shawn Cokus's optimizations.
+A C-Program for MT19937 (32- and 64-bit versions), with initialization
+improved 2002/1/26.  Coded by Takuji Nishimura and Makoto Matsumoto,
+and including Shawn Cokus's optimizations.
 
-Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
+Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
 All rights reserved.
 Copyright (C) 2005, Mutsuo Saito, All rights reserved.
 Copyright 2005 Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>

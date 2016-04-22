@@ -10,7 +10,7 @@ use warnings;
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/rand rand32 srand seed warnings :!auto/;
+use Math::Random::MT::Auto qw/rand rand32 srand seed warnings gaussian :!auto/;
 use Time::HiRes 'time';
 
 MAIN:
@@ -130,6 +130,14 @@ MAIN:
     $end = time();
     printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
 
+    # Time gaussian()
+    $cnt = $count-1;
+    $start = time();
+    do {
+        gaussian();
+    } while ($cnt--);
+    $end = time();
+    printf("gaussian:\t%f secs. (%d)\n", $end - $start, $count);
 
     # Time OO interface
     print("\n- Math::Random::MT::Auto - OO Interface -\n");

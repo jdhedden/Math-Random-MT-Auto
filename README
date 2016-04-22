@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 1.20
+Math-Random-MT-Auto version 1.21
 ================================
 
 This module provides two random number functions (rand32 and a
@@ -29,11 +29,13 @@ the following module is needed:
   LWP::UserAgent
 
 On Windows XP, to utilize the option of acquiring seed data from
-the system's random number source, the following module is needed:
+the system's random data source, the following module is needed:
 
   Win32::API::Prototypes
 
 COPYRIGHT AND LICENCE
+
+- Mersenne Twister PRNG -
 
 A C-program for MT19937, with initialization improved 2002/1/26.
 Coded by Takuji Nishimura and Makoto Matsumoto, and including
@@ -41,8 +43,7 @@ Shawn Cokus's optimizations.
 
 Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
 All rights reserved.
-Copyright (C) 2005, Mutsuo Saito,
-All rights reserved.
+Copyright (C) 2005, Mutsuo Saito, All rights reserved.
 Copyright 2005 Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>
 
 Redistribution and use in source and binary forms, with or without
@@ -75,5 +76,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Any feedback is very welcome.
 <m-mat AT math DOT sci DOT hiroshima-u DOT ac DOT jp>
 http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
+
+- Gaussian Function Code -
+
+Author: Peter J. Acklam
+http://home.online.no/~pjacklam/notes/invnorm/
+C implementation by V. Natarajan
+Released to public domain
 
 # EOF

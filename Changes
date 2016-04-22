@@ -1,8 +1,13 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+1.21  Fri Jul 01 14:43:30 2005
+	- Added gaussian() - Gaussian (normal) distributed random numbers
+	- improved testing
+	- POD fixups
+
 1.20  Thu Jun 30 14:22:45 2005
 	- Full-blown OO interface that is also thread safe
-	- Replaced @errors array with warnings() function
+	- Replaced @errors array with warnings() function/method
 	- Win32 XP random seed source
 
 1.11  Fri Jun 24 12:36:30 2005
@@ -12,7 +17,7 @@ Revision history for Perl extension Math::Random::MT::Auto.
 
 1.10  Thu Jun 23 16:09:45 2005
 	- Generalized random device support
-	- Support for user supplied seeding functions
+	- Support for user-supplied seeding functions
 	- Support for fetching and restoring PRNG state vector
 
 1.00  Wed Jun 22 15:54:26 2005

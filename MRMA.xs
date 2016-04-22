@@ -1,12 +1,12 @@
-/*
-   a c-Program for MT19937, with initialization improved 2002/1/26.
+/* Mersenne Twister PRNG
+
+   A c-Program for MT19937, with initialization improved 2002/1/26.
    Coded by Takuji Nishimura and Makoto Matsumoto, and including
    Shawn Cokus's optimizations.
 
    Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
    All rights reserved.
-   Copyright (C) 2005, Mutsuo Saito
-   All rights reserved.
+   Copyright (C) 2005, Mutsuo Saito, All rights reserved.
    Copyright 2005 Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>
 
    Redistribution and use in source and binary forms, with or without
@@ -41,13 +41,64 @@
    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
 */
 
+/* Gaussian Function
+
+   Lower tail quantile for standard normal distribution function.
+
+   This function returns an approximation of the inverse cumulative
+   standard normal distribution function.  I.e., given P, it returns
+   an approximation to the X satisfying P = Pr{Z <= X} where Z is a
+   random variable from the standard normal distribution.
+
+   The algorithm uses a minimax approximation by rational functions
+   and the result has a relative error whose absolute value is less
+   than 1.15e-9.
+
+   Author: Peter J. Acklam
+   http://home.online.no/~pjacklam/notes/invnorm/
+   C implementation by V. Natarajan
+   Released to public domain
+ */
+
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
 #include "ppport.h"
 
 #include <stdlib.h>
+#include <math.h>
 
+/* Constants used in X_gaussian() */
+#define  A1  (-3.969683028665376e+01)
+#define  A2    2.209460984245205e+02
+#define  A3  (-2.759285104469687e+02)
+#define  A4    1.383577518672690e+02
+#define  A5  (-3.066479806614716e+01)
+#define  A6    2.506628277459239e+00
+
+#define  B1  (-5.447609879822406e+01)
+#define  B2    1.615858368580409e+02
+#define  B3  (-1.556989798598866e+02)
+#define  B4    6.680131188771972e+01
+#define  B5  (-1.328068155288572e+01)
+
+#define  C1  (-7.784894002430293e-03)
+#define  C2  (-3.223964580411365e-01)
+#define  C3  (-2.400758277161838e+00)
+#define  C4  (-2.549732539343734e+00)
+#define  C5    4.374664141464968e+00
+#define  C6    2.938163982698783e+00
+
+#define  D1    7.784695709041462e-03
+#define  D2    3.224671290700398e-01
+#define  D3    2.445134137142996e+00
+#define  D4    3.754408661907416e+00
+
+#define P_LOW   0.02425
+/* P_high = 1 - p_low*/
+#define P_HIGH  0.97575
+
+/* Constants related to the Mersenne Twister */
 #define N 624
 #define M 397
 
@@ -291,3 +342,45 @@ X_set_state(prng, state)
         if (prng->left > 1) {
             prng->next = &prng->state[(N+1) - prng->left];
         }
+
+double
+X_gaussian(prng, ...)
+        Math::Random::MT::Auto prng
+    CODE:
+        double p, q, r;
+
+        /* Get random integer */
+        U32 y = (--prng->left == 0) ? _mt_algo(prng)
+                                     : *prng->next++;
+        y ^= (y >> 11);
+        y ^= (y << 7)  & 0x9D2C5680;
+        y ^= (y << 15) & 0xEFC60000;
+        y ^= (y >> 18);
+
+        /* Convert to (0, 1) */
+        p = ((double)(y) + 0.5) / 4294967296.0;
+
+        /* Normal distribution with SD = 1 */
+        if (p < P_LOW) {
+            q = sqrt(-2*log(p));
+            RETVAL = (((((C1*q+C2)*q+C3)*q+C4)*q+C5)*q+C6) /
+                      ((((D1*q+D2)*q+D3)*q+D4)*q+1);
+
+        } else if ((P_LOW <= p) && (p <= P_HIGH)){
+            q = p - 0.5;
+            r = q*q;
+            RETVAL = (((((A1*r+A2)*r+A3)*r+A4)*r+A5)*r+A6)*q /
+                     (((((B1*r+B2)*r+B3)*r+B4)*r+B5)*r+1);
+
+        } else {
+            q = sqrt(-2*log(1-p));
+            RETVAL = -(((((C1*q+C2)*q+C3)*q+C4)*q+C5)*q+C6) /
+                       ((((D1*q+D2)*q+D3)*q+D4)*q+1);
+        }
+
+        if (items >= 2) {
+            /* Normal distribution with SD = X */
+            RETVAL *= SvNV(ST(1));
+        }
+    OUTPUT:
+        RETVAL

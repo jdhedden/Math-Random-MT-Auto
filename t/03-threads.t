@@ -9,7 +9,7 @@ use threads;
 if (! $Config{useithreads}) {
     plan(skip_all => 'Threads not supported');
 } else {
-    plan(tests => 52);
+    plan(tests => 53);
 }
 
 BEGIN {
@@ -19,8 +19,11 @@ BEGIN {
 # Create PRNG
 my $prng;
 eval { $prng = Math::Random::MT::Auto->new(); };
-ok(! $@, 'Creating rand obj failed: ' . $@);
-ok(ref($prng), 'Got rand obj');
+if (! ok(! $@, '->new worked')) {
+    diag('->new died: ' . $@);
+}
+isa_ok($prng, 'Math::Random::MT::Auto');
+can_ok($prng, qw/rand rand32 gaussian srand seed state warnings/);
 
 # Get random numbers from thread
 my $rands = threads->create(

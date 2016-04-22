@@ -1,6 +1,6 @@
 # Verify state() Function Part 1: The Saving
 
-use Test::More tests => 4003;
+use Test::More tests => 2005;
 use Scalar::Util 'looks_like_number';
 use Data::Dumper;
 
@@ -21,21 +21,16 @@ for (my $ii=0; $ii < 500; $ii++) {
 
 
 # Get state
-my $state;
+our $state;
 eval { $state = state(); };
 ok(! $@, 'Get state() died: ' . $@);
 ok(ref($state) eq 'ARRAY', 'State is array ref');
 
 
 # Get some numbers to save
-my @rn;
+our @rn;
 for (my $ii=0; $ii < 500; $ii++) {
-    eval { $rn = rand32(); };
-    ok(! $@,                  'rand32() died: ' . $@);
-    ok(defined($rn),          'Got a random number');
-    ok(looks_like_number($rn),'Is a number: ' . $rn);
-    ok(int($rn) == $rn,       'Integer: ' . $rn);
-    push(@rn, $rn);
+    push(@rn, rand32());
 }
 
 
@@ -47,5 +42,24 @@ if (open(FH, '>state_data.tmp')) {
 } else {
     diag('Failure writing state to file');
 }
+
+# Clear vars
+undef($state);
+undef(@rn);
+
+# Read state and numbers from file
+my $rc = do('state_data.tmp');
+unlink('state_data.tmp');
+
+# Set state
+eval { state($state); };
+ok(! $@, 'Set state() died: ' . $@);
+
+# Compare numbers after restoration of state
+my @rn2;
+for (my $ii=0; $ii < 500; $ii++) {
+    push(@rn2, rand32());
+}
+is_deeply(\@rn, \@rn2, 'Same results after state restored');
 
 # EOF

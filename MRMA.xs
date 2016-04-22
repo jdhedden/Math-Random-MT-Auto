@@ -114,12 +114,12 @@ BOOT:
 }
 
 void
-_seed_prng(seed)
+_init(seed)
         AV *seed
     PREINIT:
         dMY_CXT;
     CODE:
-        /* Seeds the PRNG with values from input array ref */
+        /* Initialize the PRNG with seed values from input array ref */
 
         int ii, jj, kk;
         int len=av_len(seed)+1;

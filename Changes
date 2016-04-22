@@ -1,5 +1,10 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+1.11  Fri Jun 24 12:36:30 2005
+	- Fixed bug associated with processing the :!auto flag
+	- Better arg handling in srand() and seed()
+	- Added cautionary note to POD concerning the use of 'require'
+
 1.10  Thu Jun 23 16:09:45 2005
 	- Generalized random device support
 	- Support for user supplied seeding functions

@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.02 Tue May 15 16:32:10 2007
+	- More checks on /dev/random in test suite
+
 6.01 Tue May 15 12:29:08 2007
 	- Standalone PRNG is now an (internal) object
 

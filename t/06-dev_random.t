@@ -4,10 +4,25 @@ use strict;
 use warnings;
 
 use Test::More;
-if (! -e '/dev/random') {
-    plan skip_all => '/dev/random not available';
+if (-e '/dev/random') {
+    my $FH;
+    if (open($FH, '</dev/random')) {
+        binmode($FH);
+        my $data;
+        my $cnt = read($FH, $data, 8);
+        if (! defined($cnt)) {
+            plan skip_all => "Couldn't read from /dev/random: $!";
+        } elsif ($cnt == 8) {
+            plan tests => 91;
+        } else {
+            plan skip_all => "/dev/random exhausted ($cnt of 8 bytes)";
+        }
+        close($FH);
+    } else {
+        plan skip_all => "/dev/random not usable: $!";
+    }
 } else {
-    plan tests => 91;
+    plan skip_all => '/dev/random not available';
 }
 
 my @WARN;

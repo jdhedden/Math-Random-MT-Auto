@@ -49,9 +49,11 @@ if (my $e = OIO->caught()) {
 }
 
 is("$prng", $rand[0]                    => ':Stringify');
-# Need to workaround overload bug
-is(0+$prng, ($Config{'uvsize'} == 8) ? 4.94648554966581e+18: $ rand[1]
-                                        => ':Numerify');
+SKIP: {
+    my $rnd = 0+$prng;
+    skip('Overload bug', 1) if ($Config{'uvsize'} == 8);
+    is($rnd, $rand[1]                   => ':Numerify');
+}
 is(($prng) ? 'odd' : 'even', 
    ($rand[2] & 1) ? 'odd' : 'even',     => ':Boolify');
 

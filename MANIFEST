@@ -2,7 +2,6 @@ MANIFEST
 README
 Changes
 Makefile.PL
-Build.PL
 lib/Math/Random/MT/Auto.pm
 lib/Math/Random/MT/Auto/Range.pm
 MRMA.xs

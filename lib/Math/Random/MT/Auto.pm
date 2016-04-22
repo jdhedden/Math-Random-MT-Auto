@@ -9,7 +9,7 @@ use Carp ();
 
 use base 'DynaLoader';
 
-our $VERSION = '4.03.00';
+our $VERSION = '4.04.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 

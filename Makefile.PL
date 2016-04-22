@@ -3,7 +3,6 @@
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
-use Config ();
 use File::Spec ();
 
 # First, check for manatory Perl version
@@ -19,7 +18,7 @@ sub check_cc
     if (-x $cmd or MM->maybe_command($cmd)) {
         return (1);       # CC command found
     }
-    for my $dir ((split /$Config::Config{path_sep}/, $ENV{PATH}), '.') {
+    for my $dir (File::Spec->path(), '.') {
         my $abs = File::Spec->catfile($dir, $cmd);
         if (-x $abs or MM->maybe_command($abs)) {
             return (1);   # CC command found
@@ -30,6 +29,10 @@ sub check_cc
 
 sub have_cc
 {
+    eval { require Config_m; };     # ExtUtils::FakeConfig (+ ActivePerl)
+    if ($@) {
+        eval { require Config; };   # Everyone else
+    }
     my @chunks = split(/ /, $Config::Config{cc});
     # $Config{cc} may contain args; try to find out the program part
     while (@chunks) {
@@ -54,6 +57,10 @@ WriteMakefile(
     'ABSTRACT_FROM' => 'lib/Math/Random/MT/Auto.pm',
     'PREREQ_PM'     => { 'Scalar::Util' => '1.16' },
     'OBJECT'        => 'MRMA.o',
+    (($ExtUtils::MakeMaker::VERSION < 6.25) ?
+        ('PL_FILES'      => { })                : ()),
+    (($ExtUtils::MakeMaker::VERSION > 6.30) ?
+        ('LICENSE'       => 'unrestricted')     : ()),
 );
 
 

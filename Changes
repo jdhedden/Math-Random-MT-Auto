@@ -1,6 +1,10 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
-4.03.00 Mon Aug 30 09:34:25 2005
+4.04.00 Tue Aug 30 09:08:00 2005
+	- Improved check for 'C' compiler in Makefile.PL
+	- Removed Build.PL due to Module::Build bug under ActivePerl
+
+4.03.00 Mon Aug 29 09:34:25 2005
 	- Speed improvements for OO interface to non-uniform deviates
 
 4.02.00 Sun Aug 28 11:20:00 2005

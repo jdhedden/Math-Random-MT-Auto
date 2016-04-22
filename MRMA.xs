@@ -355,6 +355,20 @@ shuffle(...)
             ary = (AV*)SvRV(ST(idx));
             RETVAL = newRV_inc((SV *)ary);
 
+        } else if (GIMME_V == G_ARRAY) {
+            /* If called in array context, shuffle directly on stack */
+            for (ii = items-1 ; ii > 0 ; ii--) {
+                /* Pick a random element from the beginning
+                   of the array to the current element */
+                IRAND(rand, prng);
+                jj = rand % (ii + 1);
+                /* Swap elements */
+                SV *elem = ST(jj);
+                ST(jj) = ST(ii);
+                ST(ii) = elem;
+            }
+            XSRETURN(items);
+
         } else {
             /* Create an array from user supplied values */
             ary = newAV();

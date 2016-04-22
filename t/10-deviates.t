@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More 'tests' => 934;
+use Test::More 'tests' => 950;
 
 my @WARN;
 BEGIN {
@@ -128,6 +128,85 @@ my $shuf;
 eval { $shuf = shuffle(@data); };
 ok(! $@, 'shuffle okay');
 for my $x (@$shuf) {
+    my $found = 0;
+    for my $y (@data) {
+        if (ref($x) eq 'CODE') {
+            if (ref($y) eq 'CODE') {
+                pass('shuffle - code ref okay');
+                $found = 1;
+                last;
+            }
+        } elsif (ref($x) eq 'ARRAY') {
+            if (ref($y) eq 'ARRAY') {
+                is_deeply($x, $y, 'shuffle - array okay');
+                $found = 1;
+                last;
+            }
+        } elsif (ref($x) eq 'HASH') {
+            if (ref($y) eq 'HASH') {
+                is_deeply($x, $y, 'shuffle - hash okay');
+                $found = 1;
+                last;
+            }
+        } elsif (Scalar::Util::looks_like_number($x)) {
+            if (Scalar::Util::looks_like_number($y) && ($x == $y)) {
+                pass("shuffle - $x okay");
+                $found = 1;
+                last;
+            }
+        } elsif (! ref($y) && ! Scalar::Util::looks_like_number($y) && ($x eq $y)) {
+            pass("shuffle - $x okay");
+            $found = 1;
+            last;
+        }
+    }
+    if (! $found) {
+        fail('shuffle element not found');
+    }
+}
+my @shuf;
+eval { @shuf = shuffle(@data); };
+ok(! $@, 'shuffle okay');
+for my $x (@shuf) {
+    my $found = 0;
+    for my $y (@data) {
+        if (ref($x) eq 'CODE') {
+            if (ref($y) eq 'CODE') {
+                pass('shuffle - code ref okay');
+                $found = 1;
+                last;
+            }
+        } elsif (ref($x) eq 'ARRAY') {
+            if (ref($y) eq 'ARRAY') {
+                is_deeply($x, $y, 'shuffle - array okay');
+                $found = 1;
+                last;
+            }
+        } elsif (ref($x) eq 'HASH') {
+            if (ref($y) eq 'HASH') {
+                is_deeply($x, $y, 'shuffle - hash okay');
+                $found = 1;
+                last;
+            }
+        } elsif (Scalar::Util::looks_like_number($x)) {
+            if (Scalar::Util::looks_like_number($y) && ($x == $y)) {
+                pass("shuffle - $x okay");
+                $found = 1;
+                last;
+            }
+        } elsif (! ref($y) && ! Scalar::Util::looks_like_number($y) && ($x eq $y)) {
+            pass("shuffle - $x okay");
+            $found = 1;
+            last;
+        }
+    }
+    if (! $found) {
+        fail('shuffle element not found');
+    }
+}
+eval { shuffle(\@data); };
+ok(! $@, 'shuffle okay');
+for my $x (@data) {
     my $found = 0;
     for my $y (@data) {
         if (ref($x) eq 'CODE') {

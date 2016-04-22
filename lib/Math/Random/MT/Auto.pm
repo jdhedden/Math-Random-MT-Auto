@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.21';
+our $VERSION = '6.22';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -668,7 +668,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.21
+This documentation refers to Math::Random::MT::Auto version 6.22
 
 =head1 SYNOPSIS
 
@@ -683,7 +683,7 @@ This documentation refers to Math::Random::MT::Auto version 6.21
 
  my $coin_flip = (irand() & 1) ? 'heads' : 'tails';
 
- my $deck = shuffle(1 .. 52);
+ my @deck = shuffle(1 .. 52);
 
  my $rand_IQ = gaussian(15, 100);
 
@@ -1089,11 +1089,15 @@ This is the fastest way to obtain random numbers using this module.
 
 =item shuffle
 
+ my @shuffled = shuffle($data, ...);
+ my @shuffled = shuffle(@data);
+
+Returns an array of the random ordering of the supplied arguments (i.e.,
+shuffled) by using the Fisher-Yates shuffling algorithm.  It can also be
+called to return an array reference:
+
  my $shuffled = shuffle($data, ...);
  my $shuffled = shuffle(@data);
-
-Returns an array reference containing a random ordering of the supplied
-arguments (i.e., shuffled) by using the Fisher-Yates shuffling algorithm.
 
 If called with a single array reference (fastest method), the contents of the
 array are shuffled in situ:

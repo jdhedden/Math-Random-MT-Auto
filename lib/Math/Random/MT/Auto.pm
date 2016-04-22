@@ -9,7 +9,7 @@ use Carp ();
 
 use base 'DynaLoader';
 
-our $VERSION = '4.01.00';
+our $VERSION = '4.02.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -36,15 +36,18 @@ my $SA = do { \(my $prng = Math::Random::MT::Auto::_internal::get_sa_prng()) };
 $SOURCE{$$SA} = [];  # Global default sources - set up in import()
 $SEED{$$SA}   = [];
 $WARN{$$SA}   = [];
-my $SA_AUTO   = 1;   # Flag for auto-seeding standalone PRNG during INIT block
+
 
 ### Module Initialization ###
 
-# 1. Handles importation of random functions,
-# and specification of seeding sources by user.
+# Handles importation of random functions,
+# specification of seeding sources by the user,
+# and auto-seeding of the standalone PRNG.
 sub import
 {
     my $class = shift;   # Not used
+
+    my $auto_seed = 1;   # Flag for auto-seeding standalone PRNG
 
     # Exportable functions
     my %SYMS;
@@ -62,7 +65,7 @@ sub import
 
         } elsif ($sym =~ /^:(no|!)?auto$/i) {
             # To auto-seed (:auto is default) or not (:!auto or :noauto)
-            $SA_AUTO = not defined($1);
+            $auto_seed = not defined($1);
 
         } else {
             # User-specified seed acquisition sources
@@ -95,27 +98,21 @@ sub import
         }
         push(@{$SOURCE{$$SA}}, 'random_org');
     }
-}
 
 
-# 2. Auto seed the standalone PRNG after the module is loaded.
-# Even when $SA_AUTO is false, the PRNG is still seeded using internal data.
-{
-    no warnings;
-    INIT {
-        if ($SA_AUTO) {
-            # Automatically acquire seed from sources
-            Math::Random::MT::Auto::_internal::acq_seed($SOURCE{$$SA},
-                                                        $SEED{$$SA},
-                                                        $WARN{$$SA});
-        } else {
-            # Minimal seed when ':!auto' specified
-            push(@{$SEED{$$SA}}, $$, time(), $$SA);
-        }
-
-        # Seed the PRNG
-        Math::Random::MT::Auto::_internal::seed_prng($SA, $SEED{$$SA});
+    # Auto seed the standalone PRNG.
+    if ($auto_seed) {
+        # Automatically acquire seed from sources
+        Math::Random::MT::Auto::_internal::acq_seed($SOURCE{$$SA},
+                                                    $SEED{$$SA},
+                                                    $WARN{$$SA});
+    } else {
+        # Minimal seed when ':!auto' specified
+        push(@{$SEED{$$SA}}, $$, time(), $$SA);
     }
+
+    # Seed the PRNG
+    Math::Random::MT::Auto::_internal::seed_prng($SA, $SEED{$$SA});
 }
 
 
@@ -614,6 +611,12 @@ sub src_win32
     }
 
     eval {
+        # Suppress warning about Win32::API::Type's INIT block
+        local %SIG;
+        $SIG{__WARN__} = sub { if ($_[0] !~ /^Too late to run INIT block/) {
+                                    warn($_[0]);
+                               } };
+
         # Load Win32::API module
         require Win32::API;
 
@@ -1393,29 +1396,14 @@ but an issue with Perl's threading model in general.)
 
 =head2 Delayed Importation
 
-When this module is imported via L<use|perlfunc/"use">, the standalone PRNG is
-initialized via an L<INIT|perlmod/"BEGIN, CHECK, INIT and END"> block that is
-executed right after the module is loaded.
-
-However, if you want to delay the importation of this module using
-L<require|perlfunc/"require"> and want to use the standalone PRNG, then you
-must import L</"srand">, and execute it so that the PRNG gets initialized:
+If you want to delay the importation of this module using
+L<require|perlfunc/"require">, then you need to execute its C<import> function
+to complete the module's initialization:
 
   eval {
       require Math::Random::MT::Auto;
-      # Add other symbols to the import call, as desired.
-      import Math::Random::MT::Auto qw(srand);
-      # Add seed sources to the srand() call, as desired.
-      srand();
-  };
-
-If you're only going to use the OO interface, then the following is
-sufficient:
-
-  eval {
-      require Math::Random::MT::Auto;
-      # Add seed sources to the import call, as desired.
-      import Math::Random::MT::Auto;
+      # Add symbols to the import call, as desired.
+      import Math::Random::MT::Auto qw(rand random_org);
   };
 
 =head2 Implementing Subclasses

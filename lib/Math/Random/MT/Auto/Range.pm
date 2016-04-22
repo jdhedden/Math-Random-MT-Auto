@@ -8,7 +8,7 @@ use Scalar::Util 1.16 qw(weaken looks_like_number);
 # Declare ourself as a subclass
 use base 'Math::Random::MT::Auto';
 
-our $VERSION = '4.01.00';
+our $VERSION = '4.02.00';
 
 # Set ID() as alias for refaddr() function
 *ID = \&Scalar::Util::refaddr;

@@ -23,11 +23,11 @@ t/13-overload.t
 t/14-serialize.t
 t/15-shared.t
 t/99-pod.t
-samples/timings.pl
-samples/bell.pl
-samples/decay.pl
-samples/erlang.pl
-samples/poisson.pl
-samples/binomial.pl
-samples/cards.pl
+examples/timings.pl
+examples/bell.pl
+examples/decay.pl
+examples/erlang.pl
+examples/poisson.pl
+examples/binomial.pl
+examples/cards.pl
 META.yml                                 Module meta-data (added by MakeMaker)

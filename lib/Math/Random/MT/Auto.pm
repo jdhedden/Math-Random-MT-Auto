@@ -5,13 +5,15 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = 5.04;
+our $VERSION = '5.05';
+my $XS_VERSION = $VERSION;
+$VERSION = eval $VERSION;
 
 use Carp ();
 use Scalar::Util 1.18;
 
-use XSLoader;
-XSLoader::load('Math::Random::MT::Auto', $VERSION);
+use XSLoader ();
+XSLoader::load('Math::Random::MT::Auto', $XS_VERSION);
 
 use Object::InsideOut 2.06 ':hash_only';
 use Object::InsideOut::Util 'shared_copy';
@@ -536,7 +538,7 @@ sub _acq_www :PRIVATE
 
         if ($content =~ /exceeded your 24-hour quota/) {
             # Complain about exceeding Hotbits quota
-            Carp::carp($content);
+            Carp::carp('You have exceeded your 24-hour quota for HotBits.');
         } else {
             # Add data to seed array
             push(@{$seed_for{$$prng}}, unpack("$UNPACK_CODE*", $content));
@@ -700,7 +702,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 5.04
+This documentation refers to Math::Random::MT::Auto version 5.05
 
 =head1 SYNOPSIS
 
@@ -737,8 +739,8 @@ This module provides PRNGs that are based on the Mersenne Twister.  There
 is a functional interface to a single, standalone PRNG, and an OO interface
 (based on the inside-out object model as implemented by the
 L<Object::InsideOut> module) for generating multiple PRNG objects.  The PRNGs
-are self-seeding, automatically acquiring a (19968-bit) random seed from
-user-selectable sources.
+are normally self-seeding, automatically acquiring a (19968-bit) random seed
+from user-selectable sources.  (I<Manual> seeding is optionally available.)
 
 =over
 
@@ -1104,12 +1106,14 @@ This is the fastest way to obtain random numbers using this module.
 
  my $shuffled = shuffle($data, ...);
  my $shuffled = shuffle(@data);
- my $shuffled = shuffle(\@data);
 
 Returns an array reference containing a random ordering of the supplied
-arguments (i.e., shuffled) by using the Fisher-Yates shuffling algorithm.  If
-called with a single array reference (fastest method), the contents of the
-array are shuffled in situ.
+arguments (i.e., shuffled) by using the Fisher-Yates shuffling algorithm.
+
+If called with a single array reference (fastest method), the contents of the
+array are shuffled in situ:
+
+ shuffle(\@data);
 
 =item gaussian
 
@@ -1651,9 +1655,7 @@ This module uses the following 'standard' modules:
 
 =item Fcntl
 
-=item DynaLoader
-
-=item Exporter
+=item XSLoader
 
 =back
 
@@ -1695,7 +1697,10 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-5.04/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-5.05/lib/Math/Random/MT/Auto.pm>
+
+Source repository:
+L<http://code.google.com/p/mrma/>
 
 The Mersenne Twister is the (current) quintessential pseudorandom number
 generator. It is fast, and has a period of 2^19937 - 1.  The Mersenne
@@ -1762,7 +1767,7 @@ and including Shawn Cokus's optimizations.
  Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
   All rights reserved.
  Copyright (C) 2005, Mutsuo Saito, All rights reserved.
- Copyright 2005, 2006 Jerry D. Hedden <jdhedden AT cpan DOT org>
+ Copyright 2005 - 2007 Jerry D. Hedden <jdhedden AT cpan DOT org>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions

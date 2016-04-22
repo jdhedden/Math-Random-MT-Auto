@@ -24,6 +24,10 @@ if (grep { /exhausted/ } @WARN) {
     diag('/dev/random exhausted');
     undef(@WARN);
 }
+if (grep { /unavailable/ } @WARN) {
+    diag('/dev/random unavailable');
+    undef(@WARN);
+}
 if (! ok(! @WARN, 'Acquired seed data')) {
     diag('Seed warnings: ' . join(' | ', @WARN));
 }

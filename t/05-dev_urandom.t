@@ -16,8 +16,12 @@ BEGIN {
 # Check for warnings
 my @warnings;
 eval { @warnings = warnings(1); };
-ok(! $@, 'warnings(1) died: ' . $@);
-ok(! @warnings, 'Seed errors: ' . join("\n", @warnings));
+if (! ok(! $@, 'Get warnings')) {
+    diag('warnings(1) died: ' . $@);
+}
+if (! ok(! @warnings, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @warnings));
+}
 
 my ($rn, @rn);
 

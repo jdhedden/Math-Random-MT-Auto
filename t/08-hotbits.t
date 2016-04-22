@@ -17,7 +17,9 @@ BEGIN {
 # Check for warnings
 my @warnings;
 eval { @warnings = warnings(1); };
-ok(! $@, 'warnings(1) died: ' . $@);
+if (! ok(! $@, 'Get warnings')) {
+    diag('warnings(1) died: ' . $@);
+}
 if (@warnings) {
     if ($warnings[0] =~ /exceeded your 24-hour quota/) {
         diag(shift(@warnings));
@@ -25,7 +27,9 @@ if (@warnings) {
     if ($warnings[0] =~ /Partial seed/) {
         shift(@warnings);
     }
-    ok(! @warnings, 'Seed errors: ' . join("\n", @warnings));
+    if (! ok(! @warnings, 'Acquired seed data')) {
+        diag('Seed warnings: ' . join(' | ', @warnings));
+    }
 } else {
     ok(@warnings, 'No short seed error');
     diag('seed: ' . scalar(@{seed()}));

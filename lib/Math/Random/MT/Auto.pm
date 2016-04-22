@@ -10,7 +10,7 @@ use Scalar::Util 1.16 qw/looks_like_number weaken/;
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.34;
+our $VERSION = 1.35;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -84,7 +84,7 @@ sub import
             if (defined($minor) &&
                 (($id > 2) ||
                  ($id == 2 && $major > 5) ||
-                 ($id == 2 && $major == 5 && $id >= 1)))
+                 ($id == 2 && $major == 5 && $minor >= 1)))
             {
                 push(@SOURCE, 'win32');
             }
@@ -514,24 +514,23 @@ sub _acq_dev
     }
     binmode($FH);
 
-    # Set non-blocking mode
-    eval { use Fcntl; };
-    if ($@) {
-        close($FH);
-        push(@$warnings, "Failure importing Fcntl module: $@");
-        return;
-    }
-    my $flags = 0;
-    if (! fcntl($FH, F_GETFL, $flags)) {
-        push(@$warnings, "Failure getting filehandle flags: $!");
-        close($FH);
-        return;
-    }
-    $flags |= O_NONBLOCK;
-    if (! fcntl($FH, F_SETFL, $flags)) {
-        push(@$warnings, "Failure setting filehandle flags: $!");
-        close($FH);
-        return;
+    # Try to set non-blocking mode (but not on Windows)
+    if ($^O ne 'MSWin32') {
+        eval {
+            require Fcntl;
+
+            my $flags = 0;
+            if (! fcntl($FH, &Fcntl::F_GETFL, $flags)) {
+                die("Failed getting filehandle flags: $!\n");
+            }
+            $flags |= &Fcntl::O_NONBLOCK;
+            if (! fcntl($FH, &Fcntl::F_SETFL, $flags)) {
+                die("Failed setting filehandle flags: $!\n");
+            }
+        };
+        if ($@) {
+            push(@$warnings, "Failure setting non-blocking mode: $@");
+        }
     }
 
     # Read data
@@ -638,7 +637,7 @@ sub _acq_hotbits
 }
 
 
-# Acquire seed data from HotBits
+# Acquire seed data from Win XP random source
 sub _acq_win32
 {
     my $seed     = $_[0];
@@ -646,28 +645,44 @@ sub _acq_win32
     my $warnings = $_[2];
     my $bytes    = $need * $INT_SIZE;
 
-    # Load Win32::API::Prototype module
+    # Check OS type and version
+    if ($^O ne 'MSWin32') {
+        push(@$warnings, "Can't use 'win32' source: Not Win XP");
+        return;
+    }
+    my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
+    if (! defined($minor)) {
+        push(@$warnings, "Can't use 'win32' source: Unable to determine Windows version");
+        return;
+    }
+    if (($id < 2) ||
+        ($id == 2 && $major < 5) ||
+        ($id == 2 && $major == 5 && $minor < 1))
+    {
+        push(@$warnings, "Can't use 'win32' source: Not Win XP [ID: $id, MAJ: $major, MIN: $minor]");
+        return;
+    }
+
     eval {
-        require Win32::API::Prototype;
-        import Win32::API::Prototype;
+        # Load Win32::API module
+        require Win32::API;
+        import Win32::API;
+
+        # Import the random source function
+        my $func = Win32::API->new('ADVAPI32.DLL', 'SystemFunction036', 'PN', 'I');
+        if (! define($func)) {
+            die("Failure importing 'SystemFunction036': $!\n");
+        }
+
+        # Acquire the random data
+        my $buffer = chr(0) x $bytes;
+        if (! $func->Call($buffer, $bytes)) {
+            die("'SystemFunction036' failed: $^E\n");
+        }
+        push(@$seed, unpack("$UNPACK_CODE*", $buffer));
     };
     if ($@) {
-        push(@$warnings, "Failure importing Win32::API::Prototype: $@");
-        return;
-    }
-
-    # Acquire the random number function
-    if (! ApiLink('ADVAPI32.DLL', 'BOOLEAN SystemFunction036(PVOID b, ULONG n)')) {
-        push(@$warnings, "Failure acquiring Win32 random function: $^E");
-        return;
-    }
-
-    # Acquire the random data
-    my $buffer = chr(0) x $bytes;
-    if (SystemFunction036($buffer, $bytes)) {
-        push(@$seed, unpack("$UNPACK_CODE*", $buffer));
-    } else {
-        push(@$warnings, "Failure acquiring Win32 seed data: $^E");
+        push(@$warnings, "Failure acquiring Win XP random data: $@");
     }
 }
 

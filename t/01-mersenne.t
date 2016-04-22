@@ -851,7 +851,7 @@ if (! ok(! $@, 'srand(\&sub) works')) {
 # Check for warnings
 my @warnings;
 eval { @warnings = warnings(1); };
-if (! ok(! $@, 'warnings(1) works')) {
+if (! ok(! $@, 'Get warnings')) {
     diag('warnings(1) died: ' . $@);
 }
 if ($warnings[0] =~ /Partial seed/) {
@@ -949,14 +949,18 @@ isa_ok($prng, 'Math::Random::MT::Auto');
 
 # Check for warnings
 eval { @warnings = $prng->warnings(); };
-ok(! $@, '$prng->warnings() died: ' . $@);
+if (! ok(! $@, 'Get warnings')) {
+    diag('$prng->warnings(1) died: ' . $@);
+}
 if ($warnings[0] eq 'seed_data.tmp exhausted') {
     shift(@warnings);
 }
 if ($warnings[0] =~ /Partial seed/) {
     shift(@warnings);
 }
-ok(! @warnings, 'Seed errors: ' . join("\n", @warnings));
+if (! ok(! @warnings, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @warnings));
+}
 
 # Fetch and verify seed
 eval { @seed = @{$prng->seed()}; };

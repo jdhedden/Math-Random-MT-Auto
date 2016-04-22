@@ -5,10 +5,10 @@ use Scalar::Util 'looks_like_number';
 use Config;
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/gaussian srand warnings :!auto/);
+    use_ok('Math::Random::MT::Auto', qw/gaussian srand :!auto/);
 };
 
-can_ok('Math::Random::MT::Auto', qw/gaussian srand warnings/);
+can_ok('Math::Random::MT::Auto', qw/gaussian srand/);
 
 # Known test values for gaussian()
 my @base_gaus = ($Config{'uvsize'} == 8) ?

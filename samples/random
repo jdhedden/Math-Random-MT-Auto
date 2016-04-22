@@ -79,9 +79,9 @@ MAIN:
     my @warnings = warnings(1); # Clear any existing error messages
 
     if ($^O eq 'MSWin32') {
-        # Call srand to load Win32::API::Prototype
+        # Call srand to load Win32::API
         srand('win32');
-        # If errors, then ignore (probably not XP or no Win32::API::Prototype)
+        # If errors, then ignore (probably not XP or no Win32::API)
         @warnings = warnings(1);
         if (! @warnings) {
             # Time our srand() for win32
@@ -181,7 +181,7 @@ MAIN:
         $start = Time::HiRes::time();
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['win32']);
         $end = Time::HiRes::time();
-        # If errors, then ignore (probably not XP or no Win32::API::Prototype)
+        # If errors, then ignore (probably not XP or no Win32::API)
         @warnings = $rand->warnings(1);
         if (! @warnings) {
             printf("new:\t\t%f secs. (Win32 XP)\n", $end - $start);

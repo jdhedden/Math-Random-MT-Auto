@@ -1,11 +1,13 @@
 /*
    A C-program for MT19937, with initialization improved 2002/1/26.
-   Coded by Takuji Nishimura and Makoto Matsumoto.
+   Coded by Takuji Nishimura and Makoto Matsumoto, and including
+   Shawn Cokus's optimizations.
 
    Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
    All rights reserved.
    Copyright (C) 2005, Mutsuo Saito
    All rights reserved.
+   Copyright 2005 Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
@@ -25,8 +27,8 @@
    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+   A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER
+   OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
    EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
    PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
    PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
@@ -35,17 +37,8 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
    Any feedback is very welcome.
+   <m-mat AT math DOT sci DOT hiroshima-u DOT ac DOT jp>
    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
-   email: m-mat @ math.sci.hiroshima-u.ac.jp (remove space)
-
-   Adaptations by:
-
-   Copyright 2001 Abhijit Menon-Sen. All rights reserved.
-
-   This software is distributed under the terms of the Artistic License
-   http://ams.wiw.org/code/artistic.txt
-
-   Copyright 2005 Jerry D. Hedden <jdhedden@1979.usna.com>
 */
 
 #ifndef _MT19937AR_H_
@@ -65,12 +58,16 @@
 #define M 397
 
 struct mt {
-    uint32_t mt[N];
-    int mti;
+    uint32_t state[N];
+    uint32_t *next;
+    int left;
 };
+typedef struct mt   my_cxt_t;
 
-struct mt *genrand_init_by_array(uint32_t init_key[], int key_length);
-uint32_t genrand_rand32(struct mt *self);
-void genrand_free(struct mt *self);
+void
+mt_seed(struct mt *self, uint32_t seed[], int seed_len);
+
+uint32_t
+mt_rand32(struct mt *self);
 
 #endif

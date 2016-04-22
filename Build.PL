@@ -46,8 +46,8 @@ $mod_build->new(
     'xs_files' => { 'MRMA.xs' => 'lib/Math/Random/MT/Auto.xs' },
 
     # Module::Build doesn't generate VERSION/XS_VERSION, so we have to
-    'extra_compiler_flags' => [ '-DVERSION="4.00.00"',
-                                '-DXS_VERSION="4.00.00"' ]
+    'extra_compiler_flags' => [ '-DVERSION="4.01.00"',
+                                '-DXS_VERSION="4.01.00"' ]
 )->create_build_script();
 
 # EOF

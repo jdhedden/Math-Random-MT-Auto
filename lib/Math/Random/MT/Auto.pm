@@ -9,7 +9,7 @@ use Carp ();
 
 use base 'DynaLoader';
 
-our $VERSION = '4.00.00';
+our $VERSION = '4.01.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -619,7 +619,7 @@ sub src_win32
 
         # Import the random source function
         my $func = Win32::API->new('ADVAPI32.DLL', 'SystemFunction036', 'PN', 'I');
-        if (! define($func)) {
+        if (! defined($func)) {
             die("Failure importing 'SystemFunction036': $!\n");
         }
 
@@ -750,13 +750,13 @@ L</"Delayed Importation"> section for important information.
 
 If Perl has been compiled to support 64-bit integers (do
 L<perl -V|perlrun/"-V"> and look for
-L<use64bitint=define|Config/"use64bitint">), then this module will use a
+C<use64bitint=define>), then this module will use a
 64-bit-integer version of the Mersenne Twister.  Otherwise, 32-bit integers
 will be used.  The size of integers returned by L</"irand">, and used by
 L</"get_seed"> and L</"set_seed"> will be sized accordingly.
 
 Programmatically, the size of Perl's integers can be determined using the
-L<Config> module:
+C<Config> module:
 
   use Config;
 
@@ -1557,7 +1557,7 @@ L<http://www.library.cornell.edu/nr/bookcpdf.html>
 Inside-out Object Model:
 L<http://www.perlmonks.org/index.pl?node_id=219378>,
 L<http://www.perlmonks.org/index.pl?node_id=483162>, and
-Chapter 15 of "Perl Best Practices" by Damian Conway
+Chapter 15 of I<Perl Best Practices> by Damian Conway
 
 L<LWP::UserAgent>
 

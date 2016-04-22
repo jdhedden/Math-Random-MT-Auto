@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.01.00 Sun Aug 28 09:46:00 2005
+	- Bug fix for WinXP random source
+
 4.00.00 Fri Aug 26 14:26:30 2005
 	- Changed to "get_/set_" accessors for seed, state and warnings
 	- Removed 'mt_rand' and 'mt_srand'

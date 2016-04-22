@@ -8,7 +8,7 @@ use Scalar::Util 1.16 qw(weaken looks_like_number);
 # Declare ourself as a subclass
 use base 'Math::Random::MT::Auto';
 
-our $VERSION = '4.00.00';
+our $VERSION = '4.01.00';
 
 # Set ID() as alias for refaddr() function
 *ID = \&Scalar::Util::refaddr;
@@ -277,12 +277,12 @@ Math::Random::MT::Auto::Range - Range-valued PRNGs
   use Math::Random::MT::Auto::Range;
 
   # Integer random number range
-  my $die = Math::Random::MT::Auto::Range(LO => 1, HI => 6);
+  my $die = Math::Random::MT::Auto::Range->new(LO => 1, HI => 6);
   my $roll = $die->rrand();
 
   # Floating-point random number range
-  my $compass = Math::Random::MT::Auto::Range(LO => 0, HI => 360,
-                                              TYPE => 'DOUBLE');
+  my $compass = Math::Random::MT::Auto::Range->new(LO => 0, HI => 360,
+                                                   TYPE => 'DOUBLE');
   my $course = $compass->rrand();
 
 =head1 DESCRIPTION
@@ -358,6 +358,16 @@ from the referenced PRNG.
 With no options, the new PRNG will be a complete clone of the referenced
 PRNG.
 
+=item $obj->rrand
+
+Returns a random number of the configured type within the configured range.
+
+  my $rand = $prng->rrand();
+
+If the C<TYPE> for the PRNG is C<INTEGER>, then the range will be C<LOW> to
+C<HIGH> inclusive (i.e., [LOW, HIGH]).  If C<DOUBLE>, then C<LOW> inclusive to
+C<HIGH> exclusive (i.e., [LOW, HIGH)).
+
 =item $obj->set_range_type
 
 Sets the numeric type for the random numbers returned by the PRNG.
@@ -384,16 +394,6 @@ Sets the limits for the PRNG's return value range.
 Returns a list of the PRNG's range limits.
 
   my ($lo, $hi) = $prng->get_range();
-
-=item $obj->rrand
-
-Returns a random number of the configured type within the configured range.
-
-  my $rand = $prng->rrand();
-
-If the C<TYPE> for the PRNG is C<INTEGER>, then the range will be C<LOW> to
-C<HIGH> inclusive (i.e., [LOW, HIGH]).  If C<DOUBLE>, then C<LOW> inclusive to
-C<HIGH> exclusive (i.e., [LOW, HIGH)).
 
 =back
 

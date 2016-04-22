@@ -4,18 +4,24 @@
 #                                               $obj->get_/set_state()
 # Test PRNG 'cloning'
 
-use Test::More tests => 34;
+use strict;
+use warnings;
+
+use Test::More tests => 32;
 use Scalar::Util 'looks_like_number';
 use Config;
 
+my @WARN;
 BEGIN {
+    # Warning signal handler
+    $SIG{__WARN__} = sub { push(@WARN, @_); };
+
     use_ok('Math::Random::MT::Auto', qw/rand irand srand get_seed set_seed
-                                        get_state set_state get_warnings
-                                        :!auto/);
+                                        get_state set_state :!auto/);
 };
 
 can_ok('Math::Random::MT::Auto', qw/rand irand srand get_seed set_seed
-                                    get_state set_state get_warnings/);
+                                    get_state set_state/);
 
 # Known test values for irand()
 my @base_rint = ($Config{'uvsize'} == 8) ?
@@ -852,17 +858,11 @@ if (! ok(! $@, 'srand(\&sub) works')) {
 
 
 # Check for warnings
-my @warnings;
-eval { @warnings = get_warnings(1); };
-if (! ok(! $@, 'Get warnings')) {
-    diag('warnings(1) died: ' . $@);
+@WARN = grep { $_ !~ /Partial seed/ } @WARN;
+if (! ok(! @WARN, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @WARN));
 }
-if ($warnings[0] =~ /Partial seed/) {
-    shift(@warnings);
-}
-if (! ok(! @warnings, 'Acquired seed data')) {
-    diag('Seed warnings: ' . join(' | ', @warnings));
-}
+undef(@WARN);
 
 # Fetch and verify seed
 my @seed;
@@ -881,8 +881,7 @@ if (! ok(! $@, 'SA cloning works')) {
 }
 isa_ok($prng2, 'Math::Random::MT::Auto');
 can_ok($prng2, qw/rand irand gaussian exponential erlang poisson binomial
-                  shuffle srand get_seed set_seed get_state set_state
-                  get_warnings/);
+                  shuffle srand get_seed set_seed get_state set_state/);
 
 
 # Test for known output from PRNG for irand()
@@ -953,19 +952,11 @@ if (! ok(! $@, '->new works')) {
 isa_ok($prng, 'Math::Random::MT::Auto');
 
 # Check for warnings
-eval { @warnings = $prng->get_warnings(); };
-if (! ok(! $@, 'Get warnings')) {
-    diag('$prng->warnings(1) died: ' . $@);
+@WARN = grep { $_ !~ /exhausted/  &&  $_ !~ /Partial seed/ } @WARN;
+if (! ok(! @WARN, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @WARN));
 }
-if ($warnings[0] eq 'seed_data.tmp exhausted') {
-    shift(@warnings);
-}
-if ($warnings[0] =~ /Partial seed/) {
-    shift(@warnings);
-}
-if (! ok(! @warnings, 'Acquired seed data')) {
-    diag('Seed warnings: ' . join(' | ', @warnings));
-}
+undef(@WARN);
 
 # Fetch and verify seed
 eval { @seed = @{$prng->get_seed()}; };

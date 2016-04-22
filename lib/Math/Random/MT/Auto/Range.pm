@@ -8,7 +8,7 @@ use Scalar::Util 1.16 qw(weaken looks_like_number);
 # Declare ourself as a subclass
 use base 'Math::Random::MT::Auto';
 
-our $VERSION = '4.06.00';
+our $VERSION = '4.07.00';
 
 # Set ID() as alias for refaddr() function
 *ID = \&Scalar::Util::refaddr;
@@ -135,7 +135,7 @@ sub set_range_type
     # Check argument
     my $type = $_[0];
     if (! defined($type) || $type !~ /^[ID]/i) {
-        Carp::croak('Arg to $obj->set_range_type() must be \'INTEGER\' or \'DOUBLE\'');
+        Carp::croak('Arg to ->set_range_type() must be \'INTEGER\' or \'DOUBLE\'');
     }
 
     $TYPE{ID($self)} = ($type =~ /^I/i) ? 'INTEGER' : 'DOUBLE';
@@ -158,7 +158,7 @@ sub set_range
     # Check for arguments
     my ($lo, $hi) = @_;
     if (! looks_like_number($lo) || ! looks_like_number($hi)) {
-        Carp::croak('$obj->range() requires two numeric args');
+        Carp::croak('->range() requires two numeric args');
     }
 
     # Ensure arguments are of the proper type
@@ -323,12 +323,12 @@ Available options are:
 
 =item 'HIGH' => $num
 
-Sets the limits over which the values return by the PRNG will range.  If the
-C<TYPE> for the PRNG is C<INTEGER>, then the range will be C<LOW> to C<HIGH>
-inclusive (i.e., [LOW, HIGH]).  If C<DOUBLE>, then C<LOW> inclusive to C<HIGH>
-exclusive (i.e., [LOW, HIGH)).
+Sets the limits over which the values return by the PRNG will range.  These
+arguments are mandatory, and C<LOW> must not be equal to C<HIGH>.
 
-C<LOW> and C<HIGH> must be specified when calling C<new> as a class method.
+If the C<TYPE> for the PRNG is C<INTEGER>, then the range will be C<LOW> to
+C<HIGH> inclusive (i.e., [LOW, HIGH]).  If C<DOUBLE>, then C<LOW> inclusive to
+C<HIGH> exclusive (i.e., [LOW, HIGH)).
 
 C<LO> and C<HI> can be used as synonyms for C<LOW> and C<HIGH>, respectively.
 
@@ -401,6 +401,8 @@ Sets the limits for the PRNG's return value range.
 
   $prng->set_range($lo, $hi);
 
+C<$lo> must not be equal to C<$hi>.
+
 =item $obj->get_range
 
 Returns a list of the PRNG's range limits.
@@ -408,6 +410,34 @@ Returns a list of the PRNG's range limits.
   my ($lo, $hi) = $prng->get_range();
 
 =back
+
+=head1 DIAGNOSTICS
+
+=over
+
+=item * Missing parameter: LOW
+
+=item * Missing parameter: HIGH
+
+The L<LOW and HIGH|/"'LOW' =E<gt> $num"> values for the range must be
+specified to L<-E<gt>new()|/"Math::Random::MT::Auto::Range-E<gt>new">.
+
+=item * Arg to ->set_range_type() must be 'INTEGER' or 'DOUBLE'
+
+Self explanatory.
+
+=item * ->range() requires two numeric args
+
+Self explanatory.
+
+=item * Invalid arguments: LOW and HIGH are equal
+
+You cannot specify a range of zero width.
+
+=back
+
+This module will reverse the range limits if they are specified in the
+wrong order (i.e., it makes sure that C<LOW < HIGH>).
 
 =head1 SEE ALSO
 

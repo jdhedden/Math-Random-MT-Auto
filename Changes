@@ -1,8 +1,12 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.07.00 Thu Sep 08 12:44:10 2005
+	- Output warnings using Carp - removed 'get_warnings'
+	- Warnings and errors documented in POD
+	- Proper postamble in Makefile.PL
+
 4.06.00 Wed Sep 07 10:41:40 2005
 	- Added ->clone() method - removed cloning via ->new()
-	- Supply 'warn' array ref to user-defined seed source subroutines
 	- Made object's ref 'readonly'
 	- More speed improvements
 	- POD reorganization

@@ -1,5 +1,8 @@
 # Tests for Windows XP random source
 
+use strict;
+use warnings;
+
 use Scalar::Util 'looks_like_number';
 
 use Test::More;
@@ -12,25 +15,25 @@ if ($^O ne 'MSWin32') {
          ($id == 2 && $major > 5) ||
          ($id == 2 && $major == 5 && $minor >= 1)))
     {
-        plan(tests => 91);
+        plan(tests => 90);
     } else {
         plan(skip_all => 'Not Win XP');
     }
 }
 
+my @WARN;
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand irand get_warnings/, 'win32');
+    # Warning signal handler
+    $SIG{__WARN__} = sub { push(@WARN, @_); };
+
+    use_ok('Math::Random::MT::Auto', qw/rand irand/, 'win32');
 }
 
 # Check for warnings
-my @warnings;
-eval { @warnings = get_warnings(1); };
-if (! ok(! $@, 'Get warnings')) {
-    diag('get_warnings(1) died: ' . $@);
+if (! ok(! @WARN, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @WARN));
 }
-if (! ok(! @warnings, 'Acquired seed data')) {
-    diag('Seed warnings: ' . join(' | ', @warnings));
-}
+undef(@WARN);
 
 my ($rn, @rn);
 

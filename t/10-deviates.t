@@ -5,23 +5,23 @@ use warnings;
 
 use Scalar::Util 'looks_like_number';
 
-use Test::More 'tests' => 935;
+use Test::More 'tests' => 933;
 
+my @WARN;
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/get_warnings exponential erlang poisson
+    # Warning signal handler
+    $SIG{__WARN__} = sub { push(@WARN, @_); };
+
+    use_ok('Math::Random::MT::Auto', qw/exponential erlang poisson
                                         binomial shuffle/);
 }
 can_ok('Math::Random::MT::Auto', qw/exponential erlang poisson binomial shuffle/);
 
 # Check for warnings
-my @warnings;
-eval { @warnings = get_warnings(1); };
-if (! ok(! $@, 'Get warnings')) {
-    diag('get_warnings(1) died: ' . $@);
+if (! ok(! @WARN, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @WARN));
 }
-if (! ok(! @warnings, 'Acquired seed data')) {
-    diag('Seed warnings: ' . join(' | ', @warnings));
-}
+undef(@WARN);
 
 my (@rn);
 
@@ -173,14 +173,13 @@ if (! ok(! $@, '->new works')) {
 }
 isa_ok($prng, 'Math::Random::MT::Auto');
 can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
-                 shuffle get_seed set_seed get_state set_state get_warnings/);
-eval { @warnings = $prng->get_warnings(1); };
-if (! ok(! $@, 'Get warnings')) {
-    diag('$prng->get_warnings(1) died: ' . $@);
+                 shuffle get_seed set_seed get_state set_state/);
+
+# Check for warnings
+if (! ok(! @WARN, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @WARN));
 }
-if (! ok(! @warnings, 'Acquired seed data')) {
-    diag('Seed warnings: ' . join(' | ', @warnings));
-}
+undef(@WARN);
 
 # Test several values from exponential()
 undef(@rn);

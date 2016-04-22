@@ -1,27 +1,30 @@
 # Tests for /dev/urandom
 
+use strict;
+use warnings;
+
 use Scalar::Util 'looks_like_number';
 
 use Test::More;
 if (! -e '/dev/urandom') {
     plan skip_all => '/dev/urandom not available';
 } else {
-    plan tests => 91;
+    plan tests => 90;
 }
 
+my @WARN;
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand irand get_warnings/, '/dev/urandom');
+    # Warning signal handler
+    $SIG{__WARN__} = sub { push(@WARN, @_); };
+
+    use_ok('Math::Random::MT::Auto', qw/rand irand/, '/dev/urandom');
 }
 
 # Check for warnings
-my @warnings;
-eval { @warnings = get_warnings(1); };
-if (! ok(! $@, 'Get warnings')) {
-    diag('get_warnings(1) died: ' . $@);
+if (! ok(! @WARN, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @WARN));
 }
-if (! ok(! @warnings, 'Acquired seed data')) {
-    diag('Seed warnings: ' . join(' | ', @warnings));
-}
+undef(@WARN);
 
 my ($rn, @rn);
 

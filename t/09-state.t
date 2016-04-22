@@ -1,5 +1,8 @@
 # Verify state() Function Part 1: The Saving
 
+use strict;
+use warnings;
+
 use Test::More tests => 2005;
 use Scalar::Util 'looks_like_number';
 use Data::Dumper;

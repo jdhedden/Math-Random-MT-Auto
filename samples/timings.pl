@@ -12,10 +12,14 @@ no warnings 'void';
 
 $| = 1;
 
-use Math::Random::MT::Auto qw(rand irand srand get_seed set_seed get_warnings
-                              gaussian exponential :!auto);
+use Math::Random::MT::Auto qw(rand irand gaussian exponential
+                              srand get_seed set_seed :!auto);
 use Time::HiRes;
 use Config;
+
+# Warning signal handler
+my @WARN;
+$SIG{__WARN__} = sub { push(@WARN, @_); };
 
 MAIN:
 {
@@ -88,16 +92,14 @@ MAIN:
 
     my @seed = @{get_seed()};       # Copy of existing seed
 
-    my @warnings = get_warnings(1); # Clear any existing error messages
-
     print("\n- Math::Random::MT::Auto - Standalone PRNG -\n");
 
     if ($^O eq 'MSWin32') {
         # Call srand to load Win32::API
+        undef(@WARN);
         srand('win32');
         # If errors, then ignore (probably not XP or no Win32::API)
-        @warnings = get_warnings(1);
-        if (! @warnings) {
+        if (! @WARN) {
             # Time our srand() for win32
             $start = Time::HiRes::time();
             srand('win32');
@@ -109,15 +111,14 @@ MAIN:
     } else {
         # Run srand once to load fcntl
         srand('/dev/random');
-        @warnings = get_warnings(1);
 
         # Time our srand() for /dev/random
+        undef(@WARN);
         $start = Time::HiRes::time();
         srand('/dev/random');
         $end = Time::HiRes::time();
         # If errors, then ignore (probably no /dev/random)
-        @warnings = get_warnings(1);
-        if (! @warnings) {
+        if (! @WARN) {
             printf("srand:\t\t%f secs. (/dev/random)\n", $end - $start);
             @seed = @{get_seed()};
         }
@@ -125,11 +126,10 @@ MAIN:
 
     if (! $local) {
         # Call srand to load LWP::UserAgent
-        @warnings = get_warnings(1);
+        undef(@WARN);
         srand('random_org');
         # If errors, then ignore (probably no LWP::UserAgent)
-        @warnings = get_warnings(1);
-        if (! @warnings) {
+        if (! @WARN) {
             # Time our srand() for random.org
             $start = Time::HiRes::time();
             srand('random_org');
@@ -228,34 +228,34 @@ MAIN:
     # Time OO interface
     my $rand;
     if ($^O eq 'MSWin32') {
+        undef(@WARN);
         $start = Time::HiRes::time();
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['win32']);
         $end = Time::HiRes::time();
         # If errors, then ignore (probably not XP or no Win32::API)
-        @warnings = $rand->get_warnings(1);
-        if (! @warnings) {
+        if (! @WARN) {
             printf("new:\t\t%f secs. (Win32 XP)\n", $end - $start);
         }
 
     } else {
+        undef(@WARN);
         $start = Time::HiRes::time();
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['/dev/random']);
         $end = Time::HiRes::time();
         # If errors, then ignore (probably no /dev/random)
-        @warnings = $rand->get_warnings(1);
-        if (! @warnings) {
+        if (! @WARN) {
             printf("new:\t\t%f secs. (/dev/random)\n", $end - $start);
         }
     }
 
     if (! $local) {
         # Time our srand() for random.org
+        undef(@WARN);
         $start = Time::HiRes::time();
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['random_org']);
         $end = Time::HiRes::time();
         # If errors, then ignore (probably no LWP::UserAgent)
-        @warnings = $rand->get_warnings(1);
-        if (! @warnings) {
+        if (! @WARN) {
             printf("new:\t\t%f secs. (random.org)\n", $end - $start);
         }
     }

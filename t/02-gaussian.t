@@ -1,10 +1,10 @@
 # Test gaussian()
+
 use strict;
 use warnings;
 
 use Test::More tests => 6;
 use Scalar::Util 'looks_like_number';
-use Config;
 
 my $CNT = 500000;
 
@@ -106,8 +106,7 @@ if (! ok(! $@, '->new() worked')) {
     diag('->new() died: ' . $@);
 }
 can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
-                 shuffle srand get_seed set_seed get_state set_state
-                 get_warnings/);
+                 shuffle srand get_seed set_seed get_state set_state/);
 
 # Get random numbers and put them in bins
 $loops = 3;

@@ -1,5 +1,8 @@
 # Tests for OO thread safety
 
+use strict;
+use warnings;
+
 use Scalar::Util 'looks_like_number';
 
 use Test::More;
@@ -29,8 +32,7 @@ if (! ok(! $@, '->new worked')) {
 }
 isa_ok($prng, 'Math::Random::MT::Auto');
 can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
-                 shuffle srand get_seed set_seed get_state set_state
-                 get_warnings/);
+                 shuffle srand get_seed set_seed get_state set_state/);
 
 # Get random numbers from thread
 my $rands = threads->create(

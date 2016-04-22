@@ -9,7 +9,7 @@ use Carp ();
 
 use base 'DynaLoader';
 
-our $VERSION = '4.06.00';
+our $VERSION = '4.07.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -25,7 +25,6 @@ bootstrap Math::Random::MT::Auto $VERSION;
 
 my %SOURCE;     # Random seed sources
 my %SEED;       # Last seed sent to PRNG
-my %WARN;       # Seeding error messages
 
 # Maintains weak references to PRNG objects for thread cloning
 my %REGISTRY;
@@ -36,7 +35,6 @@ my %REGISTRY;
 my $SA = do { \(my $prng = Math::Random::MT::Auto::_::sa_prng()) };
 $SOURCE{$$SA} = [];  # Global default sources - set up in import()
 $SEED{$$SA}   = [];
-$WARN{$$SA}   = [];
 
 ### Forward Declarations for Internal Subroutines ###
 
@@ -59,8 +57,7 @@ sub import
     my %EXPORT_OK;
     @EXPORT_OK{qw(rand irand shuffle gaussian
                   exponential erlang poisson binomial
-                  srand get_warnings get_seed
-                  set_seed get_state set_state)} = undef;
+                  srand get_seed set_seed get_state set_state)} = undef;
 
     my $auto_seed = 1;   # Flag for auto-seeding standalone PRNG
 
@@ -151,7 +148,6 @@ sub CLONE
             # Relocate object data
             $SOURCE{$$obj} = delete($SOURCE{$old_id});
             $SEED{$$obj}   = delete($SEED{$old_id});
-            $WARN{$$obj}   = delete($WARN{$old_id});
 
             # Save weak reference to this cloned object
             weaken($REGISTRY{$$obj} = $obj);
@@ -188,24 +184,6 @@ sub srand
 
     # Seed the PRNG
     Math::Random::MT::Auto::_::seed_prng($obj, $SEED{$$obj});
-}
-
-
-# Returns list of warnings generated while acquiring seed data
-sub get_warnings
-{
-    # Generalize for both OO and standalone PRNGs
-    my $obj = (blessed($_[0])) ? shift : $SA;
-
-    # If arg is true, then send warnings and clear the warnings array
-    if ($_[0]) {
-        my @warnings = @{$WARN{$$obj}};
-        $WARN{$$obj} = [];
-        return (@warnings);
-    }
-
-    # Just send a copy of the warnings
-    return (@{$WARN{$$obj}});
 }
 
 
@@ -282,7 +260,7 @@ sub new
     # Handle user-supplied arguments
     my $state;
     while (my $arg = shift) {
-        if ($arg =~ /^(source|src)s?$/i) {
+        if ($arg =~ /^(?:source|src)s?$/i) {
             my $src = shift;
             # Make sure source is saved as an array ref
             $SOURCE{$$self} = (ref($src) eq 'ARRAY') ? $src : [ $src ];
@@ -296,11 +274,12 @@ sub new
             $state = shift;
             # Make sure state is an array ref
             if (ref($state) ne 'ARRAY') {
-                Carp::croak('Invalid argument to '.__PACKAGE__.'::new(): value for \'STATE\' is not an array ref');
+                Carp::croak('Invalid argument to ' . __PACKAGE__ .
+                            '->new(): Value for \'STATE\' is not an array ref');
             }
 
         } else {
-            Carp::croak('Invalid argument to '.__PACKAGE__."::new(): $arg");
+            Carp::croak('Invalid argument to '.__PACKAGE__."->new(): $arg");
         }
     }
 
@@ -338,7 +317,7 @@ sub clone
     # Create a new 'uninitialized' object
     my $self = &$new_object($class);
 
-    # Copy attributes (except warnings) from the parent object
+    # Copy attributes from the parent object
     @{$SOURCE{$$self}} = @{$SOURCE{$$parent}};
     @{$SEED{$$self}}   = @{$SEED{$$parent}};
 
@@ -375,7 +354,6 @@ sub DESTROY {
     Math::Random::MT::Auto::_::free_prng($self);
     delete($SOURCE{$$self});
     delete($SEED{$$self});
-    delete($WARN{$$self});
 
     # Remove object from thread cloning registry
     delete($REGISTRY{$$self});
@@ -404,7 +382,7 @@ my $_src_device = sub {
     # Try opening device/file
     my $FH;
     if (! open($FH, '<', $device)) {
-        push(@{$WARN{$$prng}}, "Failure opening $device $!");
+        Carp::carp("Failure opening random device '$device': $!");
         return;
     }
     binmode($FH);
@@ -421,7 +399,7 @@ my $_src_device = sub {
                 or die("Failed setting filehandle flags: $!\n");
         };
         if ($@) {
-            push(@{$WARN{$$prng}}, "Failure setting non-blocking mode: $@");
+            Carp::carp("Failure setting non-blocking mode on random device '$device': $@");
         }
     }
 
@@ -433,14 +411,14 @@ my $_src_device = sub {
     if (defined($cnt)) {
         # Complain if we didn't get all the data we asked for
         if ($cnt < $bytes) {
-            push(@{$WARN{$$prng}}, "$device exhausted");
+            Carp::carp("Random device '$device' exhausted");
         }
         # Add data to seed array
         if ($cnt = int($cnt / $INT_SIZE)) {
             push(@{$SEED{$$prng}}, unpack("$UNPACK_CODE$cnt", $data));
         }
     } else {
-        push(@{$WARN{$$prng}}, "Failure reading from $device: $!");
+        Carp::carp("Failure reading from random device '$device': $!");
     }
 };
 
@@ -456,7 +434,7 @@ my $_src_random_org = sub {
         require LWP::UserAgent;
     };
     if ($@) {
-        push(@{$WARN{$$prng}}, "Failure loading LWP::UserAgent: $@");
+        Carp::carp("Failure loading LWP::UserAgent: $@");
         return;
     }
 
@@ -471,13 +449,12 @@ my $_src_random_org = sub {
         $res = $ua->request($req);
     };
     if ($@) {
-        push(@{$WARN{$$prng}}, "Failure contacting random.org: $@");
+        Carp::carp("Failure contacting random.org: $@");
     } elsif ($res->is_success) {
         # Add data to seed array
         push(@{$SEED{$$prng}}, unpack("$UNPACK_CODE*", $res->content));
     } else {
-        push(@{$WARN{$$prng}}, 'Failure getting data from random.org: '
-                           . $res->status_line);
+        Carp::carp('Failure getting data from random.org: ' . $res->status_line);
     }
 };
 
@@ -493,7 +470,7 @@ my $_src_hotbits = sub {
         require LWP::UserAgent;
     };
     if ($@) {
-        push(@{$WARN{$$prng}}, "Failure loading LWP::UserAgent: $@");
+        Carp::carp("Failure loading LWP::UserAgent: $@");
         return;
     }
 
@@ -513,18 +490,17 @@ my $_src_hotbits = sub {
         $res = $ua->request($req);
     };
     if ($@) {
-        push(@{$WARN{$$prng}}, "Failure contacting HotBits: $@");
+        Carp::carp("Failure contacting HotBits: $@");
     } elsif ($res->is_success) {
         if ($res->content =~ /exceeded your 24-hour quota/) {
             # Complain about exceeding Hotbits quota
-            push(@{$WARN{$$prng}}, $res->content);
+            Carp::carp($res->content);
         } else {
             # Add data to seed array
             push(@{$SEED{$$prng}}, unpack("$UNPACK_CODE*", $res->content));
         }
     } else {
-        push(@{$WARN{$$prng}}, 'Failure getting data from HotBits: '
-                            . $res->status_line);
+        Carp::carp('Failure getting data from HotBits: ' . $res->status_line);
     }
 };
 
@@ -537,19 +513,19 @@ my $_src_win32 = sub {
 
     # Check OS type and version
     if ($^O ne 'MSWin32') {
-        push(@{$WARN{$$prng}}, "Can't use 'win32' source: Not Win XP");
+        Carp::carp("Can't use 'win32' source: Not Win XP");
         return;
     }
     my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
     if (! defined($minor)) {
-        push(@{$WARN{$$prng}}, "Can't use 'win32' source: Unable to determine Windows version");
+        Carp::carp("Can't use 'win32' source: Unable to determine Windows version");
         return;
     }
     if (($id < 2) ||
         ($id == 2 && $major < 5) ||
         ($id == 2 && $major == 5 && $minor < 1))
     {
-        push(@{$WARN{$$prng}}, "Can't use 'win32' source: Not Win XP [ID: $id, MAJ: $major, MIN: $minor]");
+        Carp::carp("Can't use 'win32' source: Not Win XP [ID: $id, MAJ: $major, MIN: $minor]");
         return;
     }
 
@@ -557,7 +533,7 @@ my $_src_win32 = sub {
         # Suppress (harmless) warning about Win32::API::Type's INIT block
         local $SIG{__WARN__} = sub {
             if ($_[0] !~ /^Too late to run INIT block/) {
-                warn($_[0]);    # Output other warnings
+                Carp::carp($_[0]);    # Output other warnings
             }
         };
 
@@ -580,7 +556,7 @@ my $_src_win32 = sub {
         push(@{$SEED{$$prng}}, unpack("$UNPACK_CODE*", $buffer));
     };
     if ($@) {
-        push(@{$WARN{$$prng}}, "Failure acquiring Win XP random data: $@");
+        Carp::carp("Failure acquiring Win XP random data: $@");
     }
 };
 
@@ -619,7 +595,7 @@ $acq_seed = sub {
 
         if (ref($src) eq 'CODE') {
             # User-supplied seeding subroutine
-            &$src($seed, $need, $WARN{$$prng});
+            &$src($seed, $need);
 
         } elsif (defined($_DISPATCH{lc($src)})) {
             # Module defined seeding source
@@ -631,23 +607,24 @@ $acq_seed = sub {
             &$_src_device($src, $prng, $need);
 
         } else {
-            push(@{$WARN{$$prng}}, "Unknown seeding source: $src");
+            Carp::croak("Unknown seeding source: $src");
         }
     }
 
     if (! @{$seed}) {
+        # Die if no sources
+        if (@{$sources}) {
+            Carp::croak('No seed sources specified');
+        }
+
         # Complain about not getting any seed data,
         # and provide a minimal seed
-        my $warn = (@{$sources})
-                    ? 'No seed data obtained from sources'
-                    : 'No seed sources specified';
-        push(@{$WARN{$$prng}}, $warn . ' - Setting minimal seed using PID and time');
+        Carp::carp('No seed data obtained from sources - Setting minimal seed using PID and time');
         push(@{$seed}, $$, time());
 
     } elsif (@{$seed} < $FULL_SEED) {
         # Complain about not getting a full seed
-        push(@{$WARN{$$prng}}, 'Partial seed - only ' . scalar(@{$seed})
-                                                      . ' of ' . $FULL_SEED);
+        Carp::carp('Partial seed - only ' . scalar(@{$seed}) . ' of ' . $FULL_SEED);
     }
 };
 
@@ -671,7 +648,6 @@ $new_object = sub {
     # Empty attribute initializations
     $SOURCE{$$self} = [];
     $SEED{$$self}   = [];
-    $WARN{$$self}   = [];
 
     return ($self);
 };
@@ -688,7 +664,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 4.06.00.
+This documentation refers to Math::Random::MT::Auto version 4.07.00.
 
 =head1 SYNOPSIS
 
@@ -815,8 +791,7 @@ subroutines you want to use when you declare the module:
 
   use Math::Random::MT::Auto qw(rand irand shuffle gaussian
                                 exponential erlang poisson binomial
-                                srand get_warnings get_seed
-                                set_seed get_state set_state);
+                                srand get_seed set_seed get_state set_state);
 
 Without the above declarations, it is still possible to use the standalone
 PRNG by accessing the subroutines using their fully-qualified names.  For
@@ -904,21 +879,15 @@ installed.
 
 A subroutine reference may be specified as a seeding source.  When called, it
 will be passed three arguments:  A array reference where seed data is to be
-added, and the number of integers (64- or 32-bit as the case may be) needed,
-and a array reference for adding warning messages, if any.
+added, and the number of integers (64- or 32-bit as the case may be) needed.
 
   sub MySeeder
   {
       my $seed = $_[0];
       my $need = $_[1];
-      my $warn = $_[2];
 
       while ($need--) {
           my $data = ...;      # Get seed data from your source
-          ...
-          if ($error) {
-              push(@{$warn}, 'Warning message');
-          }
           ...
           push(@{$seed}, $data);
       }
@@ -1218,26 +1187,6 @@ L</"set_seed"> for use in reseeding the PRNG.
 NOTE: If you still need to access Perl's built-in L<srand|perlfunc/"srand">
 function, you can do so using C<CORE::srand($seed)>.
 
-=item get_warnings
-
-  my @warnings = get_warnings();
-  my @warnings = get_warnings('CLEAR');
-
-Returns an array containing any error messages that were generated while
-trying to acquire seed data for the PRNG.
-
-The C<get_warning> subroutine can be called after the module is loaded, or
-after calling L</"srand"> to see if there where any problems getting the seed
-for the standalone PRNG.  The C<get_warning> method can similarly be called
-after an object is created, or after calling its L</"srand"> method.
-
-If called with any I<true> argument, the stored error messages will also be
-deleted.
-
-B<NOTE>: These warnings are not critical in nature.  The PRNG will still be
-seeded (at a minimum using data such as L<time()|perlfunc/"time"> and PID
-(L<$$|perlvar/"$$">)), and can be used safely.
-
 =item get_seed
 
   my $seed = get_seed();
@@ -1260,6 +1209,11 @@ reseed the PRNG.
 
 Together with L</"get_seed">, C<set_seed> may be useful for setting up
 identical sequences of random numbers based on the same seed.
+
+It is possible to seed the PRNG with more than 19968 bits of data (312 64-bit
+integers or 624 32-bit integers).  However, doing so does not make the PRNG
+"more random" as 19968 bits more than covers all the possible PRNG state
+vectors.
 
 =item get_state
 
@@ -1421,28 +1375,169 @@ random number deviates and other features supported by this module.
 
 =head1 DIAGNOSTICS
 
-This module sets a 10 second timeout for Internet connections so that if
-something goes awry when trying to get seed data from an Internet source,
-your application will not hang for an inordinate amount of time.
+=head2 WARNINGS
+
+Warnings are generated by this module primarily when problems are encountered
+while trying to obtain random seed data for the PRNGs.  This may occur after
+the module is loaded, after a PRNG object is created, or after calling
+L</"srand">.
+
+These seed warnings are not critical in nature.  The PRNG will still be seeded
+(at a minimum using data such as L<time()|perlfunc/"time"> and PID
+(L<$$|perlvar/"$$">)), and can be used safely.
+
+The following illustrates how such warnings can be trapped for programmatic
+handling:
+
+  my @WARNINGS;
+  BEGIN {
+      $SIG{__WARN__} = sub { push(@WARNINGS, @_); };
+  }
+
+  use Math::Random::MT::Auto;
+
+  # Check for standalone PRNG warnings
+  if (@WARNINGS) {
+      # Handle warnings as desired
+      ...
+      # Clear warnings
+      undef(@WARNINGS);
+  }
+
+  my $prng = Math::Random::MT::Auto->new();
+
+  # Check for PRNG object warnings
+  if (@WARNINGS) {
+      # Handle warnings as desired
+      ...
+      # Clear warnings
+      undef(@WARNINGS);
+  }
+
+=over
+
+=item * Failure opening random device '...': ...
+
+The specified device (e.g., /dev/random) could not be opened by the module.
+Further diagnostic information should be included with this warning message
+(e.g., device does not exist, permission problem, etc.).
+
+=item * Failure setting non-blocking mode on random device '...': ...
+
+The specified device could not be set to I<non-blocking> mode.  Further
+diagnostic information should be included with this warning message
+(e.g., permission problem, etc.).
+
+=item * Failure reading from random device '...': ...
+
+A problem occurred while trying to read from the specified device.  Further
+diagnostic information should be included with this warning message.
+
+=item * Random device '...' exhausted
+
+The specified device did not supply the requested number of random numbers for
+the seed.  It could possibly occur if F</dev/random> is used too frequently.
+It will occur if the specified device is a file, and it does not have enough
+data in it.
+
+=item * Failure loading LWP::UserAgent: ...
+
+To utilize the option of acquiring seed data from Internet sources, you need
+to install the L<LWP::UserAgent> module.
+
+=item * Failure contacting random.org: ...
+
+=item * Failure contacting HotBits: ...
+
+=item * Failure getting data from random.org: 500 Can't connect to www.random.org:80 (connect: timeout)
+
+=item * Failure getting data from HotBits: 500 Can't connect to www.fourmilab.ch:80 (connect: timeout)
+
+You need to have an Internet connection to utilize
+L<random.org or HotBits|/"Internet Sites"> as random seed sources.
 
 If you connect to the Internet through an HTTP proxy, then you must set the
 L<http_proxy|LWP/"http_proxy"> variable in your environment when using the
 Internet seed sources.  (See L<LWP::UserAgent/"Proxy attributes">.)
 
-The HotBits site has a quota on the amount of data you can request in a
-24-hour period.  (I don't know how big the quota is.)  Therefore, this
-source may fail to provide any data if used too often.
+This module sets a 10 second timeout for Internet connections so that if
+something goes awry when trying to get seed data from an Internet source,
+your application will not hang for an inordinate amount of time.
+
+=item * You have exceeded your 24-hour quota for HotBits.
+
+The L<HotBits|/"Internet Sites"> site has a quota on the amount of data you
+can request in a 24-hour period.  (I don't know how big the quota is.)
+Therefore, this source may fail to provide any data if used too often.
+
+=item * Can't use 'win32' source: Not Win XP
+
+=item * Can't use 'win32' source: Unable to determine Windows version
+
+=item * Can't use 'win32' source: Not Win XP ...
+
+The L<win32|/"Windows XP Random Data"> random data source is only available
+under Windows XP (and later).
+
+=item * Failure acquiring Win XP random data: ...
+
+A problem occurred while trying to acquire seed data from the Window XP random
+source.  Further diagnostic information should be included with this warning
+message.
+
+=item * No seed data obtained from sources - Setting minimal seed using PID and time
+
+This message will occur in combination with some other message(s) above.
 
 If the module cannot acquire any seed data from the specified sources, then
 data such as L<time()|perlfunc/"time"> and PID (L<$$|perlvar/"$$">) will be
-used to seed the PRNG.  Use L</"get_warnings"> to check for seed acquisition
-problems.
+used to seed the PRNG.
 
-It is possible to seed the PRNG with more than 19968 bits of data (through
-the use of a seeding subroutine supplied to L</"srand">, or by supplying a
-large array ref of data to L</"set_seed">).  However, doing so does not make
-the PRNG "more random" as 19968 bits more than covers all the possible PRNG
-state vectors.
+=item * Partial seed - only X of Y
+
+This message will occur in combination with some other message(s) above.  It
+informs you of how much seed data was needed and acquired.
+
+=back
+
+=head2 ERRORS
+
+These errors indicate that there is something I<fubar> in you code.
+
+=over
+
+=item * Missing argument to 'set_seed'
+
+L</"set_seed"> must be called with an array ref, or a list of integer seed
+data.
+
+=item * 'set_state' requires an array ref
+
+L</"set_state"> must be called with an array reference previously obtained
+using L</"get_state">.
+
+=item * Invalid argument to Math::Random::MT::Auto->new(): Value for 'STATE' is not an array ref
+
+The L<'STATE'|/"'STATE' =E<gt> $prng_state"> argument must be an array
+reference previously obtained using L</"get_state">.
+
+=item * No seed sources specified - Setting minimal seed using PID and time
+
+This message occurs when you L<require|perlfunc/"require"> this module, but
+fail to execute its C<import> function.  See L</"Delayed Importation"> for
+details.
+
+=item * Invalid argument to Math::Random::MT::Auto->new(): ...
+
+Something is messed up with your argument list to
+L<-E<gt>new()|/"Math::Random::MT::Auto-E<gt>new">.
+
+=item * Unknown seeding source: ...
+
+The specified seeding source is not recognized by this module.  See
+L</"Seeding Sources"> for more information.
+
+=back
 
 =head1 PERFORMANCE
 

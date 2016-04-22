@@ -1,5 +1,8 @@
 # Tests for HotBits site
 
+use strict;
+use warnings;
+
 use Scalar::Util 'looks_like_number';
 
 use Test::More;
@@ -7,33 +10,32 @@ eval { require LWP::UserAgent; };
 if ($@) {
     plan skip_all => 'LWP::UserAgent not available';
 } else {
-    plan tests => 90;
+    plan tests => 89;
 }
 
+my @WARN;
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand irand get_seed get_warnings/, 'hotbits');
+    # Warning signal handler
+    $SIG{__WARN__} = sub { push(@WARN, @_); };
+
+    use_ok('Math::Random::MT::Auto', qw/rand irand get_seed/, 'hotbits');
 }
 
 # Check for warnings
-my @warnings;
-eval { @warnings = get_warnings(1); };
-if (! ok(! $@, 'Get warnings')) {
-    diag('get_warnings(1) died: ' . $@);
-}
-if (@warnings) {
-    if ($warnings[0] =~ /exceeded your 24-hour quota/) {
-        diag(shift(@warnings));
+if (@WARN) {
+    if (my ($exceeded) = grep { $_ =~ /exceeded your 24-hour quota/ } @WARN) {
+        diag($exceeded);
     }
-    if ($warnings[0] =~ /Partial seed/) {
-        shift(@warnings);
-    }
-    if (@warnings) {
-        diag('Seed warnings: ' . join(' | ', @warnings));
+    @WARN = grep { $_ !~ /exceeded your 24-hour quota/ &&
+                   $_ !~ /Partial seed/ } @WARN;
+    if (@WARN) {
+        diag('Seed warnings: ' . join(' | ', @WARN));
     }
 } else {
-    ok(@warnings, 'No short seed error');
+    ok(@WARN, 'No short seed error');
     diag('seed: ' . scalar(@{get_seed()}));
 }
+undef(@WARN);
 
 my ($rn, @rn);
 

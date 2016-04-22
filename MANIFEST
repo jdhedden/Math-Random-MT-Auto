@@ -15,5 +15,12 @@ t/06-dev_random.t
 t/07-random_org.t
 t/08-hotbits.t
 t/09-state.t
-samples/random
+t/10-deviates.t
+samples/timings.pl
+samples/bell.pl
+samples/decay.pl
+samples/erlang.pl
+samples/poisson.pl
+samples/binomial.pl
+samples/cards.pl
 META.yml                                 Module meta-data (added by MakeMaker)

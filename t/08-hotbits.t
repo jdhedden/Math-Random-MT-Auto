@@ -7,7 +7,7 @@ eval { require LWP::UserAgent; };
 if ($@) {
     plan skip_all => 'LWP::UserAgent not available';
 } else {
-    plan tests => 91;
+    plan tests => 90;
 }
 
 BEGIN {
@@ -27,7 +27,7 @@ if (@warnings) {
     if ($warnings[0] =~ /Partial seed/) {
         shift(@warnings);
     }
-    if (! ok(! @warnings, 'Acquired seed data')) {
+    if (@warnings) {
         diag('Seed warnings: ' . join(' | ', @warnings));
     }
 } else {

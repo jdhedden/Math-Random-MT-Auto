@@ -1,5 +1,5 @@
-Math-Random-MT-Auto version 1.37
-================================
+Math-Random-MT-Auto version 2.0.0
+=================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
 on the Mersenne Twister algorithm.  There is a functional interface to a
@@ -11,6 +11,18 @@ seed from user-selectable sources.  Seed sources include local random
 devices (/dev/random and /dev/urandom), Internet sources (random.org and
 HotBits), and Win32 XP system random data.  Users can also provide their
 own seed sources.
+
+In addition to integer and floating-point uniformly-distributed random number
+deviates, this module also implements the following non-uniform deviates as
+found in 'Numerical Recipes in C':
+    Gaussian (normal)
+    Exponential
+    Erlang (gamma of integer order)
+    Poisson
+    Binomial
+
+This module also provides a function/method for shuffling data based on the
+Fisher-Yates shuffling algorithm.
 
 This module is thread-safe with respect to its OO interface for Perl v5.7.2
 and beyond.  The standalone PRNG is not thread-safe.
@@ -51,8 +63,6 @@ the system's random data source, the following module is needed:
 
 COPYRIGHT AND LICENCE
 
-- Mersenne Twister PRNG -
-
 A C-Program for MT19937 (32- and 64-bit versions), with initialization
 improved 2002/1/26.  Coded by Takuji Nishimura and Makoto Matsumoto,
 and including Shawn Cokus's optimizations.
@@ -92,12 +102,5 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Any feedback is very welcome.
 <m-mat AT math DOT sci DOT hiroshima-u DOT ac DOT jp>
 http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
-
-- Gaussian Function Code -
-
-Author: Peter J. Acklam
-http://home.online.no/~pjacklam/notes/invnorm/
-C implementation by V. Natarajan
-Released to public domain
 
 # EOF

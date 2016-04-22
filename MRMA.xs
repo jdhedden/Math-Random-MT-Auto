@@ -41,25 +41,6 @@
    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
 */
 
-/* Gaussian Function
-
-   Lower tail quantile for standard normal distribution function.
-
-   This function returns an approximation of the inverse cumulative
-   standard normal distribution function.  I.e., given P, it returns
-   an approximation to the X satisfying P = Pr{Z <= X} where Z is a
-   random variable from the standard normal distribution.
-
-   The algorithm uses a minimax approximation by rational functions
-   and the result has a relative error whose absolute value is less
-   than 1.15e-9.
-
-   Author: Peter J. Acklam
-   http://home.online.no/~pjacklam/notes/invnorm/
-   C implementation by V. Natarajan
-   Released to public domain
- */
-
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
@@ -67,37 +48,6 @@
 
 #include <stdlib.h>
 #include <math.h>
-
-
-/* Constants used in X_gaussian() */
-#define  A1  (-3.969683028665376e+01)
-#define  A2    2.209460984245205e+02
-#define  A3  (-2.759285104469687e+02)
-#define  A4    1.383577518672690e+02
-#define  A5  (-3.066479806614716e+01)
-#define  A6    2.506628277459239e+00
-
-#define  B1  (-5.447609879822406e+01)
-#define  B2    1.615858368580409e+02
-#define  B3  (-1.556989798598866e+02)
-#define  B4    6.680131188771972e+01
-#define  B5  (-1.328068155288572e+01)
-
-#define  C1  (-7.784894002430293e-03)
-#define  C2  (-3.223964580411365e-01)
-#define  C3  (-2.400758277161838e+00)
-#define  C4  (-2.549732539343734e+00)
-#define  C5    4.374664141464968e+00
-#define  C6    2.938163982698783e+00
-
-#define  D1    7.784695709041462e-03
-#define  D2    3.224671290700398e-01
-#define  D3    2.445134137142996e+00
-#define  D4    3.754408661907416e+00
-
-#define P_LOW   0.02425
-/* P_HIGH = 1 - P_LOW */
-#define P_HIGH  0.97575
 
 
 /* Constants related to the Mersenne Twister */
@@ -121,12 +71,19 @@
 #   define MAGIC3 2862933555777941757ULL
 #   define HI_BIT 1ULL<<63
 
-#   define TWOeMINUS52 2.22044604925031308085e-016
-    /* Make a double between 0 (inclusive) and 1 (exclusive) */
-#   define MAKE_0_1(x) (((x) >> 12) * TWOeMINUS52)
+    /* Various powers of 2 */
+#   define TWOeMINUS51 4.44089209850062616169452667236328125e-16
+#   define TWOeMINUS52 2.220446049250313080847263336181640625e-16
+#   define TWOeMINUS53 1.1102230246251565404236316680908203125e-16
 
+    /* Make a double between 0 (inclusive) and 1 (exclusive) */
+#   define RAND_0i_1x(x) (((NV)((x) >> 12)) * TWOeMINUS52)
     /* Make a double between 0 and 1 (exclusive) */
-#   define BETWEEN_0_1(x) ((((x) >> 12) * TWOeMINUS52) + (TWOeMINUS52 / 2))
+#   define RAND_0x_1x(x)   (RAND_0i_1x(x) + TWOeMINUS53)
+    /* Make a double between 0 (exclusive) and 1 (inclusive) */
+#   define RAND_0x_1i(x) (((NV)(((x) >> 12) + 1)) * TWOeMINUS52)
+    /* Make a double between -1 and 1 (exclusive) */
+#   define RAND_NEG1x_1x(x) ((((NV)(((IV)(x)) >> 11)) * TWOeMINUS52) + TWOeMINUS53)
 
 #else
 #   define N 624
@@ -148,24 +105,56 @@
 #   define MAGIC3 1566083941
 #   define HI_BIT 0x80000000
 
-#   define TWOeMINUS32 2.32830643653869628906e-010
-    /* Make a double between 0 (inclusive) and 1 (exclusive) */
-#   define MAKE_0_1(x) ((double)(x) * TWOeMINUS32)
+    /* Various powers of 2 */
+#   define TWOeMINUS31 4.656612873077392578125e-10
+#   define TWOeMINUS32 2.3283064365386962890625e-10
+#   define TWOeMINUS33 1.16415321826934814453125e-10
 
+    /* Make a double between 0 (inclusive) and 1 (exclusive) */
+#   define RAND_0i_1x(x) ((NV)(x) * TWOeMINUS32)
     /* Make a double between 0 and 1 (exclusive) */
-#   define BETWEEN_0_1(x) (((double)(x) + 0.5) * TWOeMINUS32)
+#   define RAND_0x_1x(x)   (RAND_0i_1x(x) + TWOeMINUS33)
+    /* Make a double between 0 (exclusive) and 1 (inclusive) */
+#   define RAND_0x_1i(x) ((((NV)(x)) + 1.0) * TWOeMINUS32)
+    /* Make a double between -1 and 1 (exclusive) */
+#   define RAND_NEG1x_1x(x) ((((NV)((IV)(x))) * TWOeMINUS31) + TWOeMINUS32)
 #endif
 
 /* Get next element from the PRNG */
 #define NEXT_ELEM(x) ((--x.left == 0) ? _mt_algo(&x) : *x.next++)
 #define NEXT_ELEM_PTR(x) ((--x->left == 0) ? _mt_algo(x) : *x->next++)
 
+/* Get PRNG struct from object */
+#define EXTRACT_PRNG(obj)                                       \
+        tmp = SvIV((SV*)SvRV(*hv_fetch(obj, "PRNG", 4, 0)));    \
+        prng = INT2PTR(my_cxt_t *, tmp)
+
 
 /* The PRNG state structure */
 struct mt {
     UV state[N];
     UV *next;
-    int left;
+    IV left;
+
+    struct {
+        IV have;
+        NV value;
+    } gaussian;
+
+    struct {
+        NV mean;
+        NV log_mean;
+        NV sqrt2mean;
+        NV term;
+    } poisson;
+
+    struct {
+        IV trials;
+        NV term;
+        NV prob;
+        NV plog;
+        NV pclog;
+    } binomial;
 };
 
 typedef struct mt my_cxt_t;
@@ -174,9 +163,9 @@ typedef struct mt *Math__Random__MT__Auto;
 
 /* The guts of the Mersenne Twister algorithm */
 static UV
-_mt_algo(my_cxt_t *self)
+_mt_algo(my_cxt_t *prng)
 {
-    UV *st = self->state;
+    UV *st = prng->state;
     UV *sn = &st[2];
     UV *sx = &st[M];
     UV n0 = st[0];
@@ -186,15 +175,15 @@ _mt_algo(my_cxt_t *self)
     for (kk = N-M+1;  --kk;  n0 = n1, n1 = *sn++) {
         *st++ = *sx++ ^ TWIST(n0, n1);
     }
-    sx = self->state;
+    sx = prng->state;
     for (kk = M;      --kk;  n0 = n1, n1 = *sn++) {
         *st++ = *sx++ ^ TWIST(n0, n1);
     }
-    n1 = *self->state;
+    n1 = *prng->state;
     *st = *sx ^ TWIST(n0, n1);
 
-    self->next = &self->state[1];
-    self->left = N;
+    prng->next = &prng->state[1];
+    prng->left = N;
 
     return (n1);
 }
@@ -202,10 +191,10 @@ _mt_algo(my_cxt_t *self)
 
 /* Seed the PRNG */
 static void
-_mt_seed(my_cxt_t *self, UV *seed, int len)
+_mt_seed(my_cxt_t *prng, UV *seed, int len)
 {
     int ii, jj, kk;
-    UV *st = self->state;
+    UV *st = prng->state;
 
     /* Initialize */
     st[0]= 19650218;
@@ -232,7 +221,39 @@ _mt_seed(my_cxt_t *self, UV *seed, int len)
     st[0] = HI_BIT;
 
     /* Forces twist when first random is requested */
-    self->left = 1;
+    prng->left = 1;
+}
+
+
+/* Helper function to get next random double */
+static NV
+_rand(my_cxt_t *prng)
+{
+    UV x = NEXT_ELEM_PTR(prng);
+    TEMPER_ELEM(x);
+    return (RAND_0x_1x(x));
+}
+
+
+/* Helper function - returns the value ln(gamma(x)) for x > 0 */
+/* Optimized from 'Numerical Recipes in C', Chapter 6.1 */
+static NV
+_ln_gamma(NV x)
+{
+    NV qq, ser;
+
+    qq  = x + 4.5;
+    qq -= (x - 0.5) * log(qq);
+
+    ser = 1.000000000190015
+        + (76.18009172947146     / x)
+        - (86.50532032941677     / (x + 1.0))
+        + (24.01409824083091     / (x + 2.0))
+        - (1.231739572450155     / (x + 3.0))
+        + (0.1208650973866179e-2 / (x + 4.0))
+        - (0.5395239384953e-5    / (x + 5.0));
+
+    return (log(2.5066282746310005 * ser) - qq);
 }
 
 
@@ -254,8 +275,20 @@ SA_prng()
         dMY_CXT;
     CODE:
         /* These initializations ensure that the PRNG is 'safe' */
-        MY_CXT.state[0] = HI_BIT;
-        MY_CXT.left = 1;
+        MY_CXT.state[0]         = HI_BIT;
+        MY_CXT.left             = 1;
+        MY_CXT.gaussian.have     = 0;
+        MY_CXT.gaussian.value    = 0.0;
+        MY_CXT.poisson.mean      = -1;
+        MY_CXT.poisson.log_mean  = 0.0;
+        MY_CXT.poisson.sqrt2mean = 0.0;
+        MY_CXT.poisson.term      = 0.0;
+        MY_CXT.binomial.trials   = -1;
+        MY_CXT.binomial.term     = 0.0;
+        MY_CXT.binomial.prob     = -1.0;
+        MY_CXT.binomial.plog     = 0.0;
+        MY_CXT.binomial.pclog    = 0.0;
+
         RETVAL = &MY_CXT;
     OUTPUT:
         RETVAL
@@ -271,7 +304,7 @@ mt_irand(...)
     OUTPUT:
         RETVAL
 
-double
+NV
 mt_rand(...)
     PREINIT:
         dMY_CXT;
@@ -280,7 +313,7 @@ mt_rand(...)
         /* Random number on [0,1) interval */
         rand = NEXT_ELEM(MY_CXT);
         TEMPER_ELEM(rand);
-        RETVAL = MAKE_0_1(rand);
+        RETVAL = RAND_0i_1x(rand);
         if (items >= 1) {
             /* Random number on [0,X) interval */
             RETVAL *= SvNV(ST(0));
@@ -292,7 +325,10 @@ Math::Random::MT::Auto
 OO_prng()
     CODE:
         /* Create new PRNG for OO interface */
-        RETVAL = malloc(sizeof(my_cxt_t));
+        RETVAL = calloc(1, sizeof(my_cxt_t));
+        RETVAL->poisson.mean     = -1;
+        RETVAL->binomial.trials  = -1;
+        RETVAL->binomial.prob    = -1.0;
     OUTPUT:
         RETVAL
 
@@ -304,8 +340,7 @@ irand(rand_obj)
         my_cxt_t *prng;
     CODE:
         /* Extract PRNG context from object */
-        tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
-        prng = INT2PTR(my_cxt_t *, tmp);
+        /* prng = */ EXTRACT_PRNG(rand_obj);
 
         /* Random number on [0,0xFFFFFFFF] interval */
         RETVAL = NEXT_ELEM_PTR(prng);
@@ -313,7 +348,7 @@ irand(rand_obj)
     OUTPUT:
         RETVAL
 
-double
+NV
 rand(rand_obj, ...)
         HV *rand_obj
     PREINIT:
@@ -322,13 +357,12 @@ rand(rand_obj, ...)
         UV rand;
     CODE:
         /* Extract PRNG context from object */
-        tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
-        prng = INT2PTR(my_cxt_t *, tmp);
+        /* prng = */ EXTRACT_PRNG(rand_obj);
 
         /* Random number on [0,1) interval */
         rand = NEXT_ELEM_PTR(prng);
         TEMPER_ELEM(rand);
-        RETVAL = MAKE_0_1(rand);
+        RETVAL = RAND_0i_1x(rand);
         if (items >= 2) {
             /* Random number on [0,X) interval */
             RETVAL *= SvNV(ST(1));
@@ -381,7 +415,18 @@ X_get_state(prng)
             av_push(state, newSVuv(prng->state[ii]));
         }
         av_push(state, newSViv(prng->left));
-        RETVAL = newRV((SV *)state);
+        av_push(state, newSViv(prng->gaussian.have));
+        av_push(state, newSVnv(prng->gaussian.value));
+        av_push(state, newSVnv(prng->poisson.mean));
+        av_push(state, newSVnv(prng->poisson.log_mean));
+        av_push(state, newSVnv(prng->poisson.sqrt2mean));
+        av_push(state, newSVnv(prng->poisson.term));
+        av_push(state, newSViv(prng->binomial.trials));
+        av_push(state, newSVnv(prng->binomial.term));
+        av_push(state, newSVnv(prng->binomial.prob));
+        av_push(state, newSVnv(prng->binomial.plog));
+        av_push(state, newSVnv(prng->binomial.pclog));
+        RETVAL = newRV_noinc((SV *)state);
     OUTPUT:
         RETVAL
 
@@ -396,58 +441,125 @@ X_set_state(prng, state)
         for (ii=0; ii<N; ii++) {
             prng->state[ii] = SvUV(*av_fetch(state, ii, 0));
         }
-        prng->left = SvIV(*av_fetch(state, N, 0));
+        prng->left = SvIV(*av_fetch(state, ii, 0)); ii++;
         if (prng->left > 1) {
             prng->next = &prng->state[(N+1) - prng->left];
         }
+        prng->gaussian.have     = SvIV(*av_fetch(state, ii, 0)); ii++;
+        prng->gaussian.value    = SvNV(*av_fetch(state, ii, 0)); ii++;
+        prng->poisson.mean      = SvNV(*av_fetch(state, ii, 0)); ii++;
+        prng->poisson.log_mean  = SvNV(*av_fetch(state, ii, 0)); ii++;
+        prng->poisson.sqrt2mean = SvNV(*av_fetch(state, ii, 0)); ii++;
+        prng->poisson.term      = SvNV(*av_fetch(state, ii, 0)); ii++;
+        prng->binomial.trials   = SvIV(*av_fetch(state, ii, 0)); ii++;
+        prng->binomial.term     = SvNV(*av_fetch(state, ii, 0)); ii++;
+        prng->binomial.prob     = SvNV(*av_fetch(state, ii, 0)); ii++;
+        prng->binomial.plog     = SvNV(*av_fetch(state, ii, 0)); ii++;
+        prng->binomial.pclog    = SvNV(*av_fetch(state, ii, 0));
 
-double
+SV *
+shuffle(...)
+    PREINIT:
+        dMY_CXT;
+        HV *rand_obj;
+        IV tmp;
+        my_cxt_t *prng;
+        int idx = 0;
+        AV *ary;
+        I32 ii, jj;
+        UV rand;
+        SV *elem;
+    CODE:
+        if (items && SvROK(ST(0)) && SvTYPE(SvRV(ST(0)))==SVt_PVHV) {
+            /* OO interface */
+            rand_obj = (HV*)SvRV(ST(0));
+            /* prng = */ EXTRACT_PRNG(rand_obj);
+
+            items--;
+            idx = 1;
+
+        } else {
+            /* Standalone PRNG */
+            prng = &MY_CXT;
+        }
+
+        /* Handle arguments */
+        if (items == 1 && SvROK(ST(idx)) && SvTYPE(SvRV(ST(idx)))==SVt_PVAV) {
+            /* User supplied array reference */
+            ary = (AV*)SvRV(ST(idx));
+            RETVAL = newRV_inc((SV *)ary);
+        } else {
+            /* Create an array from user supplied values */
+            ary = newAV();
+            while (items--) {
+                av_push(ary, newSVsv(ST(idx++)));
+            }
+            RETVAL = newRV_noinc((SV *)ary);
+        }
+
+        /*** Fisher-Yates shuffle ***/
+        /* Process elements from last to second */
+        for (ii=av_len(ary); ii > 0; ii--) {
+            /* Pick a random element from the beginning
+               of the array to the current element */
+            rand = NEXT_ELEM_PTR(prng);
+            TEMPER_ELEM(rand);
+            jj = rand % (ii + 1);
+            /* Swap elements */
+            elem = AvARRAY(ary)[ii];
+            AvARRAY(ary)[ii] = AvARRAY(ary)[jj];
+            AvARRAY(ary)[jj] = elem;
+        }
+    OUTPUT:
+        RETVAL
+
+NV
 gaussian(...)
     PREINIT:
         dMY_CXT;
         HV *rand_obj;
         IV tmp;
         my_cxt_t *prng;
-        UV y;
-        double p, q, r;
         int idx = 0;
+        UV u1, u2;
+        NV v1, v2, r, factor;
     CODE:
         if (items && SvROK(ST(0))) {
             /* OO interface */
             rand_obj = (HV*)SvRV(ST(0));
-            tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
-            prng = INT2PTR(my_cxt_t *, tmp);
+            /* prng = */ EXTRACT_PRNG(rand_obj);
 
             items--;
             idx = 1;
-
-            /* Get random integer from OO PRNG*/
-            y = NEXT_ELEM_PTR(prng);
-
         } else {
-            /* Get random integer from standalone PRNG*/
-            y = NEXT_ELEM(MY_CXT);
+            /* Standalone PRNG */
+            prng = &MY_CXT;
         }
 
-        TEMPER_ELEM(y);
-        p = BETWEEN_0_1(y);
-
-        /* Normal distribution with SD = 1 and mean = 0 */
-        if (p < P_LOW) {
-            q = sqrt(-2*log(p));
-            RETVAL = (((((C1*q+C2)*q+C3)*q+C4)*q+C5)*q+C6) /
-                      ((((D1*q+D2)*q+D3)*q+D4)*q+1);
-
-        } else if ((P_LOW <= p) && (p <= P_HIGH)){
-            q = p - 0.5;
-            r = q*q;
-            RETVAL = (((((A1*r+A2)*r+A3)*r+A4)*r+A5)*r+A6)*q /
-                     (((((B1*r+B2)*r+B3)*r+B4)*r+B5)*r+1);
+        if (prng->gaussian.have) {
+            /* Use number generated during previous call */
+            prng->gaussian.have = 0;
+            RETVAL = prng->gaussian.value;
 
         } else {
-            q = sqrt(-2*log(1-p));
-            RETVAL = -(((((C1*q+C2)*q+C3)*q+C4)*q+C5)*q+C6) /
-                       ((((D1*q+D2)*q+D3)*q+D4)*q+1);
+            /* Marsaglia's polar method for the Box-Muller transformation */
+            /* See 'Numerical Recipes in C', Chapter 7.2 */
+            do {
+                u1 = NEXT_ELEM_PTR(prng);
+                u2 = NEXT_ELEM_PTR(prng);
+                TEMPER_ELEM(u1);
+                TEMPER_ELEM(u2);
+                v1 = RAND_NEG1x_1x(u1);
+                v2 = RAND_NEG1x_1x(u2);
+                r = v1*v1 + v2*v2;
+            } while (r >= 1.0 || r == 0.0);
+
+            factor = sqrt((-2.0 * log(r)) / r);
+            RETVAL = v1 * factor;
+
+            /* Save 2nd value for later */
+            prng->gaussian.have = 1;
+            prng->gaussian.value = v2 * factor;
         }
 
         if (items) {
@@ -458,5 +570,281 @@ gaussian(...)
                 RETVAL += SvNV(ST(idx+1));
             }
         }
+    OUTPUT:
+        RETVAL
+
+NV
+exponential(...)
+    PREINIT:
+        dMY_CXT;
+        HV *rand_obj;
+        IV tmp;
+        my_cxt_t *prng;
+        int idx = 0;
+        UV rand;
+    CODE:
+        if (items && SvROK(ST(0))) {
+            /* OO interface */
+            rand_obj = (HV*)SvRV(ST(0));
+            /* prng = */ EXTRACT_PRNG(rand_obj);
+            rand = NEXT_ELEM_PTR(prng);
+
+            items--;
+            idx = 1;
+
+        } else {
+            /* Standalone PRNG */
+            rand = NEXT_ELEM(MY_CXT);
+        }
+        TEMPER_ELEM(rand);
+
+        /* Exponential distribution with mean = 1 */
+        RETVAL = -log(RAND_0x_1x(rand));
+
+        if (items) {
+            /* Exponential distribution with mean = X */
+            RETVAL *= SvNV(ST(idx));
+        }
+    OUTPUT:
+        RETVAL
+
+NV
+erlang(...)
+    PREINIT:
+        dMY_CXT;
+        HV *rand_obj;
+        IV tmp;
+        my_cxt_t *prng;
+        int idx = 0;
+        IV order;
+        IV ii;
+        NV am, ss, tang, bound;
+        UV ytmp;
+    CODE:
+        if (items && SvROK(ST(0))) {
+            /* OO interface */
+            rand_obj = (HV*)SvRV(ST(0));
+            /* prng = */ EXTRACT_PRNG(rand_obj);
+
+            items--;
+            idx = 1;
+
+        } else {
+            /* Standalone PRNG */
+            prng = &MY_CXT;
+        }
+
+        /* Check argument */
+        if (! items) {
+            Perl_croak(aTHX_ "Missing argument to erlang()");
+        }
+        if ((order = SvIV(ST(idx))) < 1) {
+            Perl_croak(aTHX_ "Bad argument (< 1) to erlang()");
+        }
+
+        if (order < 6) {
+            /* Direct method of 'adding exponential randoms' */
+            RETVAL = 1.0;
+            for (ii=0; ii < order; ii++) {
+                RETVAL *= _rand(prng);
+            }
+            RETVAL = -log(RETVAL);
+
+        } else {
+            /* Use J. H. Ahren's rejection method */
+            /* See 'Numerical Recipes in C', Chapter 7.3 */
+            am = order - 1;
+            ss = sqrt(2.0 * am + 1.0);
+            do {
+                do {
+                    tang = tan(3.1415926535897932 * _rand(prng));
+                    RETVAL = (tang * ss) + am;
+                } while (RETVAL <= 0.0);
+                bound = ((tang*tang) + 1.0) * exp(am * log(RETVAL/am) - ss*tang);
+            } while (_rand(prng) > bound);
+        }
+
+        if (items > 1) {
+            /* Erlang distribution with mean = X */
+            RETVAL *= SvNV(ST(idx+1));
+        }
+    OUTPUT:
+        RETVAL
+
+IV
+poisson(...)
+    PREINIT:
+        dMY_CXT;
+        HV *rand_obj;
+        IV tmp;
+        my_cxt_t *prng;
+        int idx = 0;
+        NV mean;
+        NV em, tang, bound, limit;
+    CODE:
+        if (items && SvROK(ST(0))) {
+            /* OO interface */
+            rand_obj = (HV*)SvRV(ST(0));
+            /* prng = */ EXTRACT_PRNG(rand_obj);
+
+            items--;
+            idx = 1;
+
+        } else {
+            /* Standalone PRNG */
+            prng = &MY_CXT;
+        }
+
+        /* Check argument(s) */
+        if (! items) {
+            Perl_croak(aTHX_ "Missing argument(s) to poisson()");
+        }
+        if (items == 1) {
+            if ((mean = SvNV(ST(idx))) <= 0.0) {
+                Perl_croak(aTHX_ "Bad argument (<= 0) to poisson()");
+            }
+        } else {
+            if ((mean = SvNV(ST(idx)) * SvNV(ST(idx+1))) < 1.0) {
+                Perl_croak(aTHX_ "Bad arguments (rate*time <= 0) to poisson()");
+            }
+        }
+
+        if (mean < 12.0) {
+            /* Direct method */
+            bound = 1.0;
+            limit = exp(-mean);
+            for (RETVAL=0; ; RETVAL++) {
+                bound *= _rand(prng);
+                if (bound < limit) {
+                    break;
+                }
+            }
+
+        } else {
+            /* Rejection method */
+            /* See 'Numerical Recipes in C', Chapter 7.3 */
+            if (prng->poisson.mean != mean) {
+                prng->poisson.mean      = mean;
+                prng->poisson.log_mean  = log(mean);
+                prng->poisson.sqrt2mean = sqrt(2.0 * mean);
+                prng->poisson.term      = (mean * prng->poisson.log_mean)
+                                                - _ln_gamma(mean + 1.0);
+            }
+            do {
+                do {
+                    tang = tan(3.1415926535897932 * _rand(prng));
+                    em = (tang * prng->poisson.sqrt2mean) + mean;
+                } while (em < 0.0);
+                em = floor(em);
+                bound = 0.9 * ((tang*tang) + 1.0)
+                            * exp((em * prng->poisson.log_mean)
+                                        - _ln_gamma(em+1.0)
+                                        - prng->poisson.term);
+            } while (_rand(prng) > bound);
+            RETVAL = (int)em;
+        }
+    OUTPUT:
+        RETVAL
+
+IV
+binomial(...)
+    PREINIT:
+        dMY_CXT;
+        HV *rand_obj;
+        IV tmp;
+        my_cxt_t *prng;
+        int idx = 0;
+        NV prob;
+        IV trials;
+        int ii;
+        NV p, pc, mean;
+        NV en, em, tang, bound, limit, sq;
+    CODE:
+        if (items && SvROK(ST(0))) {
+            /* OO interface */
+            rand_obj = (HV*)SvRV(ST(0));
+            /* prng = */ EXTRACT_PRNG(rand_obj);
+
+            items--;
+            idx = 1;
+
+        } else {
+            /* Standalone PRNG */
+            prng = &MY_CXT;
+        }
+
+        /* Check argument(s) */
+        if (items < 2) {
+            Perl_croak(aTHX_ "Missing argument(s) to binomial()");
+        }
+        if (((prob = SvNV(ST(idx))) < 0.0 || prob > 1.0) ||
+            ((trials = SvIV(ST(idx+1))) < 0))
+        {
+            Perl_croak(aTHX_ "Invalid argument(s) to binomial()");
+        }
+
+        /* If probability > .5, then calculate based on non-occurance */
+        p = (prob <= 0.5) ? prob : 1.0-prob;
+
+        if (trials < 25) {
+            /* Direct method */
+            RETVAL = 0;
+            for (ii=1; ii <= trials; ii++) {
+                if (_rand(prng) < p) {
+                    RETVAL++;
+                }
+            }
+
+        } else {
+            if ((mean = p * trials) < 1.0) {
+                /* Use direct Poisson method */
+                bound = 1.0;
+                limit = exp(-mean);
+                for (RETVAL=0; RETVAL < trials; RETVAL++) {
+                    bound *= _rand(prng);
+                    if (bound < limit) {
+                        break;
+                    }
+                }
+
+            } else {
+                /* Rejection method */
+                /* See 'Numerical Recipes in C', Chapter 7.3 */
+                en = (NV)trials;
+                pc = 1.0 - p;
+                sq = sqrt(2.0 * mean * pc);
+
+                if (trials != prng->binomial.trials) {
+                    prng->binomial.trials = trials;
+                    prng->binomial.term = _ln_gamma(en + 1.0);
+                }
+                if (p != prng->binomial.prob) {
+                    prng->binomial.prob = p;
+                    prng->binomial.plog = log(p);
+                    prng->binomial.pclog = log(pc);
+                }
+
+                do {
+                    do {
+                        tang = tan(3.1415926535897932 * _rand(prng));
+                        em = (sq * tang) + mean;
+                    } while (em < 0.0 || em >= (en+1.0));
+                    em = floor(em);
+                    bound = 1.2 * sq * (1.0+tang*tang) *
+                                exp(prng->binomial.term -
+                                    _ln_gamma(em + 1.0) -
+                                    _ln_gamma(en - em + 1.0) +
+                                    em * prng->binomial.plog +
+                                    (en - em) * prng->binomial.pclog);
+                } while (_rand(prng) > bound);
+                RETVAL = (IV)em;
+            }
+        }
+
+        /* Adjust results for occurance vs. non-occurance */
+        if (p < prob) {
+            RETVAL = trials - RETVAL;
+        }
+
     OUTPUT:
         RETVAL

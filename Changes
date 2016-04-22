@@ -1,5 +1,15 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+2.0.0 Wed Aug 03 08:07:10 2005
+	- Added shuffle() - Fisher-Yates shuffle
+	- Sample program for shuffle function
+	- New (faster) method for Gaussian random numbers
+	- Added exponential() - Exponentially distributed random numbers
+	- Added erlang() - Random numbers based on an Erlang distribution
+	- Added poisson() - Random numbers based on a Poisson distribution
+	- Added binomial() - Random numbers based on a binomial distribution
+	- Sample programs for non-uniform random deviates
+
 1.37  Sat Jul 16 18:42:40 2005
 	- Fix to 32-bit floating point conversion
 

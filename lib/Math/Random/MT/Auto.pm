@@ -5,12 +5,12 @@ use warnings;
 
 use 5.006;
 use Config;
-use Scalar::Util 1.16 qw/looks_like_number weaken/;
+use Scalar::Util 1.16 qw/blessed looks_like_number weaken/;
 
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.37;
+our $VERSION = '2.0.0';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -43,26 +43,33 @@ my $UNPACK_CODE = ($INT_SIZE == 8) ? 'Q' : 'L';
 # and specification of seeding sources by user.
 sub import
 {
-    my $class = shift;
-    my $pkg = caller;
+    my $class = shift;   # Not used
 
+    # Exportable functions
+    my %SYMS = (
+        'irand'       => 'mt_',
+        'rand'        => 'mt_',
+        'srand'       => '',
+        'seed'        => '',
+        'state'       => '',
+        'warnings'    => '',
+        'gaussian'    => '',
+        'exponential' => '',
+        'erlang'      => '',
+        'poisson'     => '',
+        'binomial'    => '',
+        'shuffle'     => '',
+    );
+
+    # Handle entries in the import list
     while (my $sym = shift) {
-        # Exportable functions
-        if ($sym eq 'irand' || $sym eq 'rand') {
+        if (exists($SYMS{$sym})) {
+            # Export function names
             no strict 'refs';
-            *{"${pkg}::$sym"} = \&{"mt_$sym"};
+            *{caller().'::'.$sym} = \&{$SYMS{$sym}.$sym};
 
-        } elsif ($sym eq 'srand'    ||
-                 $sym eq 'seed'     ||
-                 $sym eq 'state'    ||
-                 $sym eq 'warnings' ||
-                 $sym eq 'gaussian')
-        {
-            no strict 'refs';
-            *{"${pkg}::$sym"} = \&$sym;
-
-        } elsif ($sym =~ /(no|!)?auto/) {
-            # To auto-seed or not
+        } elsif ($sym =~ /^:(no|!)?auto$/) {
+            # To auto-seed (:auto is default) or not (:!auto or :noauto)
             $STANDALONE{'AUTO'} = not defined($1);
 
         } else {
@@ -71,7 +78,7 @@ sub import
             push(@SOURCE, $sym);
             # Max. count for source, if any
             if (@_ && looks_like_number($_[0])) {
-                push(@SOURCE, shift(@_));
+                push(@SOURCE, shift);
             }
         }
     }
@@ -165,26 +172,14 @@ sub CLONE
 # Starts PRNG with random seed using specified sources (if any)
 sub srand
 {
-    my $self;
-
     # Generalize for both OO and standalone PRNGs
-    my $obj;
-    if (defined($_[0]) &&
-        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
-        $_[0]->isa(__PACKAGE__))
-    {
-        # OO interface
-        $obj = $self = shift;
-    } else {
-        # Standalone PRNG
-        $obj = \%STANDALONE;
-    }
+    my $obj = (blessed($_[0])) ? shift : \%STANDALONE;
 
     if (@_) {
         # Check if sent seed by mistake
         if (looks_like_number($_[0]) || ref($_[0]) eq 'ARRAY') {
-            if ($self) {
-                $self->seed(@_);
+            if (blessed($obj)) {
+                $obj->seed(@_);
             } else {
                 seed(@_);
             }
@@ -207,17 +202,7 @@ sub srand
 sub seed
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj;
-    if (defined($_[0]) &&
-        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
-        $_[0]->isa(__PACKAGE__))
-    {
-        # OO interface
-        $obj = shift;
-    } else {
-        # Standalone PRNG
-        $obj = \%STANDALONE;
-    }
+    my $obj = (blessed($_[0])) ? shift : \%STANDALONE;
 
     # User requested the seed
     if (! @_) {
@@ -241,17 +226,7 @@ sub seed
 sub state
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj;
-    if (defined($_[0]) &&
-        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
-        $_[0]->isa(__PACKAGE__))
-    {
-        # OO interface
-        $obj = shift;
-    } else {
-        # Standalone PRNG
-        $obj = \%STANDALONE;
-    }
+    my $obj = (blessed($_[0])) ? shift : \%STANDALONE;
 
     # Set state of PRNG, if supplied
     if (@_) {
@@ -268,17 +243,7 @@ sub state
 sub warnings
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj;
-    if (defined($_[0]) &&
-        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
-        $_[0]->isa(__PACKAGE__))
-    {
-        # OO interface
-        $obj = shift;
-    } else {
-        # Standalone PRNG
-        $obj = \%STANDALONE;
-    }
+    my $obj = (blessed($_[0])) ? shift : \%STANDALONE;
 
     # If arg is true, then send warnings and clear the warnings array
     if ($_[0]) {
@@ -679,12 +644,14 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNG
 
   my $rand_IQ = gaussian(15, 100);
 
+  my $deck = shuffle(1..52);
+
   # OO interface
   my $prng = Math::Random::MT::Auto->new('SOURCE' => '/dev/random');
 
   my $angle = $prng->rand(360);
 
-  my $rand_height = $prng->gaussian(3, 69);
+  my $decay_interval = $prng->exponential(12.4);
 
 =head1 DESCRIPTION
 
@@ -699,6 +666,19 @@ is a functional interface to a single, standalone PRNG, and an OO interface
 for generating multiple PRNG objects.  The PRNGs are self-seeding,
 automatically acquiring a (19968-bit) random seed from user-selectable
 sources.
+
+In addition to integer and floating-point uniformly-distributed random number
+deviates, this module implements the following non-uniform deviates as found
+in I<Numerical Recipes in C>:
+
+  Gaussian (normal)
+  Exponential
+  Erlang (gamma of integer order)
+  Poisson
+  Binomial
+
+This module also provides a function/method for shuffling data based on the
+Fisher-Yates shuffling algorithm.
 
 This module is thread-safe with respect to its OO interface for Perl v5.7.2
 and beyond.  The standalone PRNG is not thread-safe.
@@ -857,7 +837,8 @@ If you want to use the standalone PRNG, then you should specify the
 functions you want to use when you declare the module:
 
   use Math::Random::MT::Auto
-            qw/rand irand gaussian srand seed state warnings/;
+            qw/rand irand gaussian exponential erlang poisson binomial
+               srand seed state warnings/;
 
 Without the above declarations, it is still possible to use the standalone
 PRNG by accessing the functions using their full module paths, as described
@@ -901,6 +882,87 @@ Returns floating-point random numbers from a Gaussian (normal) distribution
 distribution uses a standard deviation of 1, and a mean of 0.  Otherwise,
 the supplied argument(s) will be used for the standard deviation, and the
 mean.
+
+=item exponential
+
+  my $xn = exponential();
+  my $xn = exponential($mean);
+
+Returns floating-point random numbers from an exponential distribution.  If
+called with no arguments, the distribution uses a mean of 1.  Otherwise, the
+supplied argument will be used for the mean.
+
+An example of an exponential distribution is the time interval between
+independent Poisson-random events such as radioactive decay.  In this case,
+the mean is the average time between events.  This is called the I<mean life>
+for radioactive decay, and its inverse is the decay constant (which represents
+the expected number of events per unit time).  The well known term
+I<half-life> is given by I<mean * ln(2)>.
+
+=item erlang
+
+  my $en = erlang($order);
+  my $en = erlang($order, $mean);
+
+Returns floating-point random numbers from an Erlang distribution of specified
+order.  The order must be a positive integer (> 0).  The mean, if not
+specified, defaults to 1.
+
+The Erlang distribution is the distribution of the sum of C<k> independent
+identically distributed random variables each having an exponential
+distribution.  (It is a special case of the gamma distribution for which C<k>
+is a positive integer.)  When C<k = 1>, it is just the exponential
+distribution.  It is named after A. K. Erlang who developed it to predict
+waiting times in queueing systems.
+
+=item poisson
+
+  my $pn = poisson($mean);
+  my $pn = poisson($rate, $time);
+
+Returns integer random numbers (>= 0) from a Poisson distribution of specified
+mean (rate * time = mean).  The mean must be a positive value (> 0).
+
+The Poisson distribution predicts the probability of the number of
+Poisson-random events occuring in a fixed time if these events occur with a
+known average rate.  Examples of events that can be modelled as Poisson
+distributions include:
+
+  The number of decays from a radioactive sample within a given
+    time period.
+  The number of cars that pass a certain point on a road within
+    a given time period.
+  The number of phone calls to a call center per minute.
+  The number of roadkill found per a given length of road.
+
+=item binomial
+
+  my $bn = binomial($prob, $trials);
+
+Returns integer random numbers (>= 0) from a binomial distribution.  The
+probability C<$prob> must be between 0.0 and 1.0 (inclusive), and the number
+of trials C<$trials> must be >= 0.
+
+The binomial distribution is the discrete probability distribution of the
+number of successes in a sequence of C<$trials> independent Bernoulli trials
+(i.e., yes/no experiments), each of which yields success with probability
+C<$prob>.
+
+If the number of trials is very large, the binomial distribution may be
+approximated by a Gaussian distribution. If the average number of successes
+is small (C<$prob * $trials < 1>), then the binomial distribution can be
+approximated by a Poisson distribution.
+
+=item shuffle
+
+  my $shuffled = shuffle($data, ...);
+  my $shuffled = shuffle(@data);
+  my $shuffled = shuffle(\@data);
+
+Returns an array reference containing a random ordering of the supplied
+arguments (i.e., shuffled) by using the Fisher-Yates shuffling algorithm.  If
+called with a single array reference (fastest method), the contents of the
+array are shuffled in situ.
 
 =item srand
 
@@ -1124,6 +1186,53 @@ inclusive.  This is the fastest method for obtaining pseudo-random numbers
 Operates like the L</"gaussian"> function described above, returning
 floating-point random numbers from a Gaussian (normal) distribution.  The
 standard deviation defaults to 1 and the mean defaults to 0.
+
+=item $obj->exponential
+
+  my $xn = $prng->exponential();
+  my $xn = $prng->exponential($mean);
+
+Operates like the L</"exponential"> function described above, returning
+floating-point random numbers from an exponential distribution.  The mean
+defaults to 1.
+
+=item $obj->erlang
+
+  my $en = $prng->erlang($order);
+  my $en = $prng->erlang($order, $mean);
+
+Operates like the L</"erlang"> function described above, returning
+floating-point random numbers from an Erlang distribution of specified integer
+order (> 0).  The mean, if not specified, defaults to 1.
+
+=item $obj->poisson
+
+  my $pn = $prng->poisson($mean);
+  my $pn = $prng->poisson($rate, $time);
+
+Operates like the L</"poisson"> function described above, returning integer
+random numbers (>= 0) from a Poisson distribution of specified mean (rate *
+time = mean).  The mean must be a positive value (> 0).
+
+=item $obj->binomial
+
+  my $bn = $prng->binomial($prob, $trials);
+
+Operates like the L</"binomial"> function described above, returning integer
+random numbers (>= 0) from a binomial distribution.  The probability C<$prob>
+must be between 0.0 and 1.0 (inclusive), and the number of trials C<$trials>
+must be >= 0.
+
+=item $obj->shuffle
+
+  my $shuffled = $prng->shuffle($data, ...);
+  my $shuffled = $prng->shuffle(@data);
+  my $shuffled = $prng->shuffle(\@data);
+
+Operates like the L</"shuffle"> function described above, returning an array
+reference containing a random ordering of the supplied arguments.  If called
+with a single array reference (fastest method), the contents of the array are
+shuffled in situ.
 
 =item $obj->srand
 
@@ -1403,8 +1512,8 @@ state vectors.
 Under Windows, this module is 2.5 times faster than Math::Random::MT for
 the functional interface to the standalone PRNG, and 2 times faster for the
 OO interface.  Under Solaris, it's 4x and 3.5x faster, respectively.  The
-file F<samples/random>, included in this module's distribution, can be used
-to compare timing results.
+file F<samples/timings.pl>, included in this module's distribution, can be
+used to compare timing results.
 
 Depending on your connnection speed, acquiring seed data from the Internet
 may take up to couple of seconds.  This delay might be apparent when your
@@ -1441,11 +1550,16 @@ L<http://www.die.net/doc/linux/man/man4/random.4.html>
 Windows XP random data source:
 L<http://blogs.msdn.com/michael_howard/archive/2005/01/14/353379.aspx>
 
-Gaussian distribution function code:
-L<http://home.online.no/~pjacklam/notes/invnorm/>
+Non-uniform random number deviates in I<Numerical Recipes in C>,
+Chapters 7.2 and 7.3:
+L<http://www.library.cornell.edu/nr/bookcpdf.html>
+
+Fisher-Yates Shuffling Algorithm:
+L<http://en.wikipedia.org/wiki/Shuffling_playing_cards#Shuffling_algorithms>,
+and L<shuffle() in List::Util|List::Util>
 
 Creating subclasses:
-L<perlobj> and L<http://www.perlmonks.org/?node_id=8177>
+L<perlobj>, and L<http://www.perlmonks.org/?node_id=8177>
 
 L<LWP::UserAgent>
 
@@ -1458,8 +1572,6 @@ L<Net::Random>
 Jerry D. Hedden, S<E<lt>jdhedden AT 1979 DOT usna DOT comE<gt>>
 
 =head1 COPYRIGHT AND LICENSE
-
-- Mersenne Twister PRNG -
 
 A C-Program for MT19937 (32- and 64-bit versions), with initialization
 improved 2002/1/26.  Coded by Takuji Nishimura and Makoto Matsumoto,
@@ -1500,12 +1612,5 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  Any feedback is very welcome.
  m-mat AT math DOT sci DOT hiroshima-u DOT ac DOT jp
  http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
-
-- Gaussian Function Code -
-
- Author: Peter J. Acklam
- http://home.online.no/~pjacklam/notes/invnorm/
- C implementation by V. Natarajan
- Released to public domain
 
 =cut

@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 
 # Compares random number generation timings for Perl's core function,
-# Math::Random::MT::Auto and Math::Random::MT (if available);
+# Math::Random::MT::Auto and Math::Random::MT (if available).
 
-# Usage:  random [COUNT]
+# Usage:  timings.pl [COUNT]
 
 use strict;
 use warnings;
@@ -11,7 +11,8 @@ no warnings 'void';
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/rand irand srand seed warnings gaussian :!auto/;
+use Math::Random::MT::Auto qw/rand irand srand seed warnings
+                              gaussian exponential :!auto/;
 use Time::HiRes;
 use Config;
 
@@ -193,6 +194,33 @@ MAIN:
     $end = Time::HiRes::time();
     printf("gaussian(3,69):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
+    # Reseed
+    seed(\@seed);
+
+    # Time exponential()
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+        exponential();
+    }
+    $end = Time::HiRes::time();
+    printf("expon:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+    # Reseed
+    seed(\@seed);
+
+    # Time exponential(mean)
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+        exponential(5);
+    }
+    $end = Time::HiRes::time();
+    printf("expon(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+    # Reseed
+    seed(\@seed);
+
     # Time OO interface
     print("\n- Math::Random::MT::Auto - OO Interface -\n");
     my $rand;
@@ -286,6 +314,33 @@ MAIN:
     }
     $end = Time::HiRes::time();
     printf("gaussian(3,69):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+    # Reseed
+    $rand->seed(\@seed);
+
+    # Time our exponential()
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+        $rand->exponential();
+    }
+    $end = Time::HiRes::time();
+    printf("expon:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+    # Reseed
+    $rand->seed(\@seed);
+
+    # Time exponential(mean)
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+        $rand->exponential(5);
+    }
+    $end = Time::HiRes::time();
+    printf("expon(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+    # Reseed
+    $rand->seed(\@seed);
 
     # See if Math::Random::MT is available
     eval { require Math::Random::MT; };

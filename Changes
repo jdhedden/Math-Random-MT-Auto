@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.07 Tue Sep 11 14:27:48 2007
+	- More changes with random number site testing
+
 6.06 Mon Sep 10 18:20:18 2007
 	- Better random number site testing
 

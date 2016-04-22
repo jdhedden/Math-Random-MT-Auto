@@ -9,7 +9,7 @@ use Config;
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.23;
+our $VERSION = 1.30;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 

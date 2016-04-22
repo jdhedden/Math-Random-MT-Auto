@@ -287,10 +287,13 @@ OO_prng()
 UV
 irand(rand_obj)
         HV *rand_obj
+    PREINIT:
+        IV tmp;
+        my_cxt_t *prng;
     CODE:
         /* Extract PRNG context from object */
-        IV tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
-        my_cxt_t *prng = INT2PTR(my_cxt_t *, tmp);
+        tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
+        prng = INT2PTR(my_cxt_t *, tmp);
 
         /* Random number on [0,0xFFFFFFFF] interval */
         RETVAL = (--prng->left == 0) ? _mt_algo(prng)
@@ -312,13 +315,17 @@ irand(rand_obj)
 double
 rand(rand_obj, ...)
         HV *rand_obj
+    PREINIT:
+        IV tmp;
+        my_cxt_t *prng;
+        UV rand;
     CODE:
         /* Extract PRNG context from object */
-        IV tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
-        my_cxt_t *prng = INT2PTR(my_cxt_t *, tmp);
+        tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
+        prng = INT2PTR(my_cxt_t *, tmp);
 
         /* Random number on [0,1) interval */
-        UV rand = (--prng->left == 0) ? _mt_algo(prng)
+        rand = (--prng->left == 0) ? _mt_algo(prng)
                                        : *prng->next++;
 #if UVSIZE == 8
         rand ^= (rand >> 29) & 0x5555555555555555ULL;
@@ -354,12 +361,15 @@ void
 X_seed(prng, seed)
         Math::Random::MT::Auto prng
         AV *seed
+    PREINIT:
+        int ii;
+        int len;
+        UV *buff;
     CODE:
         /* Length of the seed */
-        int len = av_len(seed)+1;
+        len = av_len(seed)+1;
         /* Copy the seed */
-        UV *buff = (UV *)malloc(len * sizeof(UV));
-        int ii;
+        buff = (UV *)malloc(len * sizeof(UV));
         for (ii=0; ii < len; ii++) {
             buff[ii] = SvUV(*av_fetch(seed, ii, 0));
         }
@@ -371,10 +381,12 @@ X_seed(prng, seed)
 SV *
 X_get_state(prng)
         Math::Random::MT::Auto prng
+    PREINIT:
+        int ii;
+        AV *state;
     CODE:
         /* Returns array ref containing PRNG state vector */
-        AV *state = newAV();
-        int ii;
+        state = newAV();
         for (ii=0; ii<N; ii++) {
             av_push(state, newSVuv(prng->state[ii]));
         }
@@ -387,9 +399,10 @@ void
 X_set_state(prng, state)
         Math::Random::MT::Auto prng
         AV *state
+    PREINIT:
+        int ii;
     CODE:
         /* Sets PRNG state vector from input array ref */
-        int ii;
         for (ii=0; ii<N; ii++) {
             prng->state[ii] = SvUV(*av_fetch(state, ii, 0));
         }
@@ -401,11 +414,12 @@ X_set_state(prng, state)
 double
 X_gaussian(prng, ...)
         Math::Random::MT::Auto prng
-    CODE:
+    PREINIT:
+        UV y;
         double p, q, r;
-
+    CODE:
         /* Get random integer */
-        UV y = (--prng->left == 0) ? _mt_algo(prng)
+        y = (--prng->left == 0) ? _mt_algo(prng)
                                      : *prng->next++;
 #if UVSIZE == 8
         y ^= (y >> 29) & 0x5555555555555555ULL;

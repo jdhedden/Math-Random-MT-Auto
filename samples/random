@@ -7,11 +7,13 @@
 
 use strict;
 use warnings;
+no warnings 'void';
 
 $| = 1;
 
 use Math::Random::MT::Auto qw/rand irand srand seed warnings gaussian :!auto/;
 use Time::HiRes 'time';
+use Config;
 
 MAIN:
 {
@@ -50,6 +52,19 @@ MAIN:
     $end = time();
     printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
 
+    # Time Perl's rand() to product 64-bit randoms
+    if (exists($Config{'use64bitint'})) {
+        # Reseed
+        CORE::srand($seed);
+
+        $cnt = $count-1;
+        $start = time();
+        do {
+            (int(CORE::rand(4294967296)) << 32) | int(CORE::rand(4294967296));
+        } while ($cnt--);
+        $end = time();
+        printf("rand [64-bit]:\t%f secs. (%d)\n", $end - $start, $count);
+    }
 
     my @seed = @{seed()};       # Copy of existing seed
 
@@ -240,6 +255,20 @@ MAIN:
         } while ($cnt--);
         $end = time();
         printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+
+        # Time its rand() to product 64-bit randoms
+        if (exists($Config{'use64bitint'})) {
+            # Reseed
+            $rand = Math::Random::MT->new(@seed);
+
+            $cnt = $count-1;
+            $start = time();
+            do {
+                (int($rand->rand(4294967296)) << 32) | int($rand->rand(4294967296));
+            } while ($cnt--);
+            $end = time();
+            printf("rand [64-bit]:\t%f secs. (%d)\n", $end - $start, $count);
+        }
     }
 }
 

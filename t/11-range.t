@@ -13,7 +13,7 @@ BEGIN {
     # Try to use threads
     if ($Config{useithreads} && $] > 5.008) {
         require threads;
-        import threads;
+        threads->import();
     }
 }
 

@@ -5,14 +5,14 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.03';
+our $VERSION = '6.04';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
-use Carp ();
+require Carp;
 use Scalar::Util 1.18;
 
-use XSLoader ();
+require XSLoader;
 XSLoader::load('Math::Random::MT::Auto', $XS_VERSION);
 
 use Object::InsideOut 2.06 ':hash_only';
@@ -336,11 +336,10 @@ sub _pump :PUMPER
 
 ### Internal Subroutines ###
 
-use Config ();
-
 # Constants #
 
 # Size of Perl's integers (32- or 64-bit) and corresponding unpack code
+require Config;
 my $INT_SIZE    = $Config::Config{'uvsize'};
 my $UNPACK_CODE = ($INT_SIZE == 8) ? 'Q' : 'L';
 # Number of ints for a full 19968-bit seed
@@ -665,7 +664,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.03
+This documentation refers to Math::Random::MT::Auto version 6.04
 
 =head1 SYNOPSIS
 
@@ -788,13 +787,13 @@ L</"Delayed Importation"> section for important information.
 
 =head1 MODULE DECLARATION
 
-The module must always be declared such that its C<import()> function gets
+The module must always be declared such that its C<-E<gt>import()> method gets
 called:
 
  use Math::Random::MT::Auto;            # Correct
 
  #use Math::Random::MT::Auto ();        # Does not work because
-                                        #   import() does not get called
+                                        #   ->import() does not get invoked
 
 =head2 Subroutine Declarations
 
@@ -958,13 +957,13 @@ the random number deviates.
 =head2 Delayed Importation
 
 If you want to delay the importation of this module using
-L<require|perlfunc/"require">, then you must execute its C<import> function
-to complete the module's initialization:
+L<require|perlfunc/"require">, then you must execute its C<-E<gt>import()>
+method to complete the module's initialization:
 
  eval {
      require Math::Random::MT::Auto;
      # You may add options to the import call, if desired.
-     import Math::Random::MT::Auto;
+     Math::Random::MT::Auto->import();
  };
 
 =head1 STANDALONE PRNG OBJECT
@@ -1334,7 +1333,7 @@ Serialization using L<Storable> is also supported:
 See L<Object::InsideOut/"Storable"> for more details.
 
 B<NOTE:> Code refs cannot be serialized. Therefore, any
-L</"User-defined Seeding Source"> subroutines used in conjuction with
+L</"User-defined Seeding Source"> subroutines used in conjunction with
 L</"srand"> will be filtered out from the serialized results.
 
 =head2 Coercion
@@ -1357,7 +1356,7 @@ Similarly, when used in a numeric context:
 integer Perl that causes the integer returned by the C<-E<gt>irand()> call to
 be returned as a floating point number.)
 
-In a boolean context, the coersion returns true or false based on whether the
+In a boolean context, the coercion returns true or false based on whether the
 call to C<-E<gt>irand()> returns an odd or even result:
 
  if ($prng) {
@@ -1405,13 +1404,13 @@ your application:
  use Math::Random::MT::Auto ...;
 
 B<NOTE:> Code refs cannot be shared between threads. Therefore, you cannot
-use L</"User-defined Seeding Source"> subroutines in conjuction with
+use L</"User-defined Seeding Source"> subroutines in conjunction with
 L</"srand"> when C<use threads::shared;> is in effect.
 
 Depending on your needs, when using threads, but not enabling thread-sharing
 of PRNG objects as per the above, you may want to perform an C<srand>
 call on the standalone PRNG and/or your PRNG objects inside the threaded code
-so that the pseudo-random number sequences generated in each thread differs.
+so that the pseudorandom number sequences generated in each thread differs.
 
  use threads;
  use Math::Random:MT::Auto qw(irand srand);
@@ -1692,7 +1691,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.03/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.04/lib/Math/Random/MT/Auto.pm>
 
 Source repository:
 L<http://code.google.com/p/mrma/>

@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+2.1.0 Tues Aug 09 12:46:40 2005
+	- Bumped minor version number for CPAN
+
 2.0.1 Mon Aug 08 08:49:00 2005
 	- Fixed memory leak when using threads with sub-classes
 

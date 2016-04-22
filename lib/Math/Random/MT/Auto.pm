@@ -10,7 +10,7 @@ use Scalar::Util 1.16 qw/blessed looks_like_number weaken/;
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = '2.0.1';
+our $VERSION = '2.1.0';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -371,7 +371,7 @@ sub _acq_seed
     @$seed = ();
     my $FULL_SEED = 2496 / $INT_SIZE;
 
-    for my $ii (0 .. $#{$sources}) {
+    for (my $ii=0; $ii < @$sources; $ii++) {
         my $source = $$sources[$ii];
 
         # Determine amount of data needed

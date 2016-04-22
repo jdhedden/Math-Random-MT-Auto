@@ -12,20 +12,27 @@ if ($] < 5.006) {
 sub check_cc
 {
     my $cmd = $_[0];
-    return $cmd if (-x $cmd or $cmd = MM->maybe_command($cmd));
+    if (-x $cmd or MM->maybe_command($cmd)) {
+        return (1);       # CC command found
+    }
     for my $dir ((split /$Config::Config{path_sep}/, $ENV{PATH}), '.') {
-        my $abs = File::Spec->catfile($dir, $_[0]);
-        return $abs if (-x $abs or $abs = MM->maybe_command($abs));
+        my $abs = File::Spec->catfile($dir, $cmd);
+        if (-x $abs or MM->maybe_command($abs)) {
+            return (1);   # CC command found
+        }
     }
     return;
 }
 
 sub have_cc
 {
-    my @chunks = split(/ /, $Config::Config{cc}) or return;
+    my @chunks = split(/ /, $Config::Config{cc});
     # $Config{cc} may contain args; try to find out the program part
     while (@chunks) {
-        return check_cc("@chunks") || (pop(@chunks), next);
+        if (check_cc("@chunks")) {
+            return (1);   # CC command found
+        }
+        pop(@chunks);
     }
     return;
 }

@@ -46,7 +46,6 @@
 #include "XSUB.h"
 #include "ppport.h"
 
-#include <stdlib.h>
 #include <math.h>
 
 
@@ -120,28 +119,25 @@
 #   define RAND_NEG1x_1x(x) ((((NV)((IV)(x))) * TWOeMINUS31) + TWOeMINUS32)
 #endif
 
-#define PI 3.1415926535897932
 
 /* Get next element from the PRNG */
 #define NEXT_ELEM(x)     ((--x.left == 0)  ? _mt_algo(&x) : *x.next++)
 #define NEXT_ELEM_PTR(x) ((--x->left == 0) ? _mt_algo(x)  : *x->next++)
 
 /* Variable declarations for PRNG context */
-#define PRNG_VARS       \
-    HV *obj;            \
-    IV addr;            \
+#define PRNG_VARS                       \
+    IV addr;                            \
     struct mt *prng
 
 /* Get PRNG context */
-#define PRNG_PREP                                                       \
-    obj = (HV*)SvRV(ST(0));                                             \
-    addr = SvIV((SV*)SvRV(*hv_fetch(obj, "MRMA::PRNG", 10, 0)));        \
+#define PRNG_PREP                       \
+    addr = SvIV(SvRV(ST(0)));           \
     prng = INT2PTR(struct mt *, addr)
 
 /* Variable declarations for the dual (OO and functional) interface */
-#define DUAL_VARS       \
-    dMY_CXT;            \
-    PRNG_VARS;          \
+#define DUAL_VARS                       \
+    dMY_CXT;                            \
+    PRNG_VARS;                          \
     int idx = 0
 
 /* Sets up PRNG for dual-interface */
@@ -185,7 +181,6 @@ struct mt {
 };
 
 typedef struct mt my_cxt_t;
-typedef struct mt *Math__Random__MT__Auto___PRNG_;
 
 
 /* The guts of the Mersenne Twister algorithm */
@@ -223,6 +218,31 @@ _rand(struct mt *prng)
     UV x = NEXT_ELEM_PTR(prng);
     TEMPER_ELEM(x);
     return (RAND_0x_1x(x));
+}
+
+
+/* Helper function to calculate a random tan(angle) */
+static NV
+_tan(struct mt *prng)
+{
+    UV x1, y1;
+    NV x2, y2;
+
+    do {
+        x1 = NEXT_ELEM_PTR(prng);
+        y1 = NEXT_ELEM_PTR(prng);
+        TEMPER_ELEM(x1);
+        TEMPER_ELEM(y1);
+        x2 = RAND_NEG1x_1x(x1);
+        y2 = RAND_NEG1x_1x(y1);
+    } while (x2*x2 + y2*y2 > 1.0);
+    return (y2/x2);
+
+    /* The above is faster than the following:
+    UV x = NEXT_ELEM_PTR(prng);
+    TEMPER_ELEM(x);
+    return (tan(3.1415926535897932 * RAND_0x_1x(x)));
+    */
 }
 
 
@@ -362,30 +382,6 @@ rand(...)
         RETVAL
 
 
-=item OO Method: DESTROY
-
-This is the object destructor.  It is not normally called by application code.
-
-=cut
-
-void
-DESTROY(...)
-    PREINIT:
-        HV *obj;
-        SV *ref;
-        IV addr;
-        struct mt *prng;
-    CODE:
-        if (sv_isobject(ST(0))) {
-            obj = (HV*)SvRV(ST(0));
-            if ((ref = hv_delete(obj, "MRMA::PRNG", 10, 0))) {
-                addr = SvIV((SV*)SvRV(ref));
-                prng = INT2PTR(struct mt *, addr);
-                free(prng);
-            }
-        }
-
-
 =pod
 
 The functions below support both the functional interface for the standalone
@@ -474,7 +470,7 @@ gaussian(...)
                 v1 = RAND_NEG1x_1x(u1);
                 v2 = RAND_NEG1x_1x(u2);
                 r = v1*v1 + v2*v2;
-            } while (r >= 1.0 || r == 0.0);
+            } while (r >= 1.0);
 
             factor = sqrt((-2.0 * log(r)) / r);
             RETVAL = v1 * factor;
@@ -558,10 +554,10 @@ erlang(...)
             ss = sqrt(2.0 * am + 1.0);
             do {
                 do {
-                    tang = tan(PI * _rand(prng));
+                    tang = _tan(prng);
                     RETVAL = (tang * ss) + am;
                 } while (RETVAL <= 0.0);
-                bound = ((tang*tang) + 1.0) * exp(am * log(RETVAL/am) - ss*tang);
+                bound = (1.0 + tang*tang) * exp(am * log(RETVAL/am) - ss*tang);
             } while (_rand(prng) > bound);
         }
 
@@ -625,11 +621,11 @@ poisson(...)
             }
             do {
                 do {
-                    tang = tan(PI * _rand(prng));
+                    tang = _tan(prng);
                     em = (tang * prng->poisson.sqrt2mean) + mean;
                 } while (em < 0.0);
                 em = floor(em);
-                bound = 0.9 * ((tang*tang) + 1.0)
+                bound = 0.9 * (1.0 + tang*tang)
                             * exp((em * prng->poisson.log_mean)
                                         - _ln_gamma(em+1.0)
                                         - prng->poisson.term);
@@ -711,11 +707,11 @@ binomial(...)
 
                 do {
                     do {
-                        tang = tan(PI * _rand(prng));
+                        tang = _tan(prng);
                         em = (sq * tang) + mean;
                     } while (em < 0.0 || em >= (en+1.0));
                     em = floor(em);
-                    bound = 1.2 * sq * (1.0+tang*tang) *
+                    bound = 1.2 * sq * (1.0 + tang*tang) *
                                 exp(prng->binomial.term -
                                     _ln_gamma(em + 1.0) -
                                     _ln_gamma(en - em + 1.0) +
@@ -750,7 +746,7 @@ Returns a pointer to the standalone PRNG context.
 
 =cut
 
-Math::Random::MT::Auto::_PRNG_
+SV *
 get_sa_prng(...)
     PREINIT:
         dMY_CXT;
@@ -770,7 +766,7 @@ get_sa_prng(...)
         MY_CXT.binomial.plog     = 0.0;
         MY_CXT.binomial.pclog    = 0.0;
 
-        RETVAL = &MY_CXT;
+        RETVAL = newSViv(PTR2IV(&MY_CXT));
     OUTPUT:
         RETVAL
 
@@ -781,13 +777,16 @@ Returns a pointer to a new PRNG context for the OO Interface.
 
 =cut
 
-Math::Random::MT::Auto::_PRNG_
+SV *
 new_prng(...)
+    PREINIT:
+        struct mt *prng;
     CODE:
-        RETVAL = calloc(1, sizeof(struct mt));
-        RETVAL->poisson.mean    = -1;
-        RETVAL->binomial.trials = -1;
-        RETVAL->binomial.prob   = -1.0;
+        Newz(0, prng, 1, struct mt);
+        prng->poisson.mean    = -1;
+        prng->binomial.trials = -1;
+        prng->binomial.prob   = -1.0;
+        RETVAL = newSViv(PTR2IV(prng));
     OUTPUT:
         RETVAL
 
@@ -802,16 +801,15 @@ The specified PRNG may be either the standalone PRNG or an object's PRNG.
 void
 seed_prng(...)
     PREINIT:
-        IV addr;
-        struct mt *prng;
+        PRNG_VARS;
         AV *seed;
         int len;
         UV *st;
         int ii, jj, kk;
     CODE:
-        /* Extract arguments */
-        addr = SvIV((SV*)SvRV(ST(0)));
-        prng = INT2PTR(struct mt *, addr);
+        PRNG_PREP;
+
+        /* Extract argument */
         seed = (AV*)SvRV(ST(1));
 
         len = av_len(seed)+1;
@@ -857,14 +855,11 @@ The specified PRNG may be either the standalone PRNG or an object's PRNG.
 SV *
 get_state(...)
     PREINIT:
-        IV addr;
-        struct mt *prng;
+        PRNG_VARS;
         AV *state;
         int ii;
     CODE:
-        /* Extract arguments */
-        addr = SvIV((SV*)SvRV(ST(0)));
-        prng = INT2PTR(struct mt *, addr);
+        PRNG_PREP;
 
         /* Create state array */
         state = newAV();
@@ -905,15 +900,13 @@ The specified PRNG may be either the standalone PRNG or an object's PRNG.
 void
 set_state(...)
     PREINIT:
-        IV addr;
-        struct mt *prng;
+        PRNG_VARS;
         AV *state;
         int ii;
     CODE:
+        PRNG_PREP;
 
-        /* Extract arguments */
-        addr = SvIV((SV*)SvRV(ST(0)));
-        prng = INT2PTR(struct mt *, addr);
+        /* Extract argument */
         state = (AV*)SvRV(ST(1));
 
         /* Extract internal PRNG state from array */
@@ -937,6 +930,21 @@ set_state(...)
         prng->binomial.prob     = SvNV(*av_fetch(state, ii, 0)); ii++;
         prng->binomial.plog     = SvNV(*av_fetch(state, ii, 0)); ii++;
         prng->binomial.pclog    = SvNV(*av_fetch(state, ii, 0));
+
+
+=item Function: free_prng
+
+This is the object destructor.  It is not normally called by application code.
+
+=cut
+
+void
+free_prng(...)
+    PREINIT:
+        PRNG_VARS;
+    CODE:
+        PRNG_PREP;
+        Safefree(prng);
 
 =pod End of file
 =cut

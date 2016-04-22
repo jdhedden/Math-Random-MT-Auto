@@ -6,42 +6,45 @@ use warnings;
 use 5.006;
 use Config;
 use Scalar::Util 1.16 qw/blessed looks_like_number weaken/;
+use Carp;
 
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = '2.20.00';
+our $VERSION = '3.00.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
 
 ### Package Global Variables ###
 
-# Object attribute name 'constants'
-my $_PREFIX  = 'MRMA::';
-my $_PRNG    = $_PREFIX.'PRNG';     # Reference to the PRNG internal data
-my $_SOURCE  = $_PREFIX.'SOURCE';   # Random seed sources
-my $_SOURCES = $_PREFIX.'SOURCES';  # 'Misspelling' of the above
-my $_SEED    = $_PREFIX.'SEED';     # Last seed sent to PRNG
-my $_STATE   = $_PREFIX.'STATE';    # PRNG internal state vector
-my $_WARN    = $_PREFIX.'WARN';     # Seeding error messages
-my $_AUTO    = $_PREFIX.'AUTO';     # Auto-seed flag for standalone PRNG
-
 # Default seeding sources (set up in import())
 my @SOURCE;
 
-# Standalone PRNG pseudo-object
-my %STANDALONE = (
-    $_PRNG   => Math::Random::MT::Auto::_internal::get_sa_prng(),
-    $_SOURCE => \@SOURCE,   # Uses global defaults sources
-    $_SEED   => [],
-    $_WARN   => [],
-    $_AUTO   => 1           # Auto-seed PRNG during INIT block
-);
+# Object attribute hashes used by inside-out object model
+#
+# Data stored in these hashes is keyed to the object by a unique ID.  Because
+# this class creates the objects, it can use the address of the internal PRNG
+# memory for the object's ID.  Note, however, that subclasses cannot use this
+# same key scheme because this class can change that ID (and does so when
+# cloning objects for threads).
+
+my %SOURCE;     # Random seed sources
+my %SEED;       # Last seed sent to PRNG
+my %WARN;       # Seeding error messages
 
 # Maintains weak references to PRNG objects for thread cloning
-my @REGISTRY;
+my %REGISTRY;
 
+### Standalone PRNG data
+# Pointer to internal PRNG memory
+my $_SA       = Math::Random::MT::Auto::_internal::get_sa_prng();
+my $SA        = \$_SA;        # Standalone PRNG pseudo-object
+$SOURCE{$$SA} = \@SOURCE;     # Uses global defaults sources
+$SEED{$$SA}   = [];
+$WARN{$$SA}   = [];
+my $SA_AUTO   = 1;            # Flag for auto-seeding standalone PRNG
+                              #   during INIT block
 
 ### Module Initialization ###
 
@@ -81,7 +84,7 @@ sub import
 
         } elsif ($sym =~ /^:(no|!)?auto$/) {
             # To auto-seed (:auto is default) or not (:!auto or :noauto)
-            $STANDALONE{$_AUTO} = not defined($1);
+            $SA_AUTO = not defined($1);
 
         } else {
             # User-specified seed acquisition sources
@@ -118,19 +121,17 @@ sub import
 
 
 # 3. Auto seed the standalone PRNG after the module is loaded.
-# Even when $STANDALONE{$_AUTO} is false, the PRNG is still seeded
-# using time and PID.
+# Even when $SA_AUTO is false, the PRNG is still seeded using time and PID.
 {
     no warnings;
     INIT {
         # Automatically acquire seed from sources
         Math::Random::MT::Auto::_internal::acq_seed(
-                  ($STANDALONE{$_AUTO}) ? $STANDALONE{$_SOURCE} : ['none'],
-                  $STANDALONE{$_SEED},
-                  $STANDALONE{$_WARN});
+                                ($SA_AUTO) ? $SOURCE{$$SA} : ['none'],
+                                $SEED{$$SA},
+                                $WARN{$$SA});
         # Seed the PRNG
-        Math::Random::MT::Auto::_internal::seed_prng($STANDALONE{$_PRNG},
-                                                     $STANDALONE{$_SEED});
+        Math::Random::MT::Auto::_internal::seed_prng($SA, $SEED{$$SA});
     }
 }
 
@@ -143,19 +144,27 @@ sub CLONE
     # Don't execute when called for sub-classes
     if ($_[0] eq __PACKAGE__) {
         # Process each cloned object
-        for my $self (@REGISTRY) {
-            if ($self) {
-                # Get current state from parent PRNG's memory
-                #   which is currently shared
-                my $state = Math::Random::MT::Auto::_internal::get_state($self->{$_PRNG});
+        for my $old_id (keys(%REGISTRY)) {
+            # Get cloned object associated with old ID
+            my $obj = delete($REGISTRY{$old_id});
 
-                # Create new memory for this PRNG object
-                $self->{$_PRNG} = Math::Random::MT::Auto::_internal::new_prng();
+            # Get current state from parent PRNG's memory
+            #   which is currently shared
+            my $state = Math::Random::MT::Auto::_internal::get_state($obj);
 
-                # Set state for this PRNG object
-                Math::Random::MT::Auto::_internal::set_state($self->{$_PRNG},
-                                                             $state);
-            }
+            # Create new memory for this cloned PRNG object
+            $$obj = Math::Random::MT::Auto::_internal::new_prng();
+
+            # Set state for this cloned PRNG object
+            Math::Random::MT::Auto::_internal::set_state($obj, $state);
+
+            # Relocate object data
+            $SOURCE{$$obj} = delete($SOURCE{$old_id});
+            $SEED{$$obj}   = delete($SEED{$old_id});
+            $WARN{$$obj}   = delete($WARN{$old_id});
+
+            # Save weak reference to this cloned object
+            weaken($REGISTRY{$$obj} = $obj);
         }
     }
 }
@@ -167,7 +176,7 @@ sub CLONE
 sub srand
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (blessed($_[0])) ? shift : \%STANDALONE;
+    my $obj = (blessed($_[0])) ? shift : $SA;
 
     if (@_) {
         # Check if sent seed by mistake
@@ -181,16 +190,13 @@ sub srand
         }
 
         # Save specified sources
-        @{$obj->{$_SOURCE}} = @_;
+        @{$SOURCE{$$obj}} = @_;
     }
 
     # Acquire seed from sources
-    Math::Random::MT::Auto::_internal::acq_seed($obj->{$_SOURCE},
-                                                $obj->{$_SEED},
-                                                $obj->{$_WARN});
+    Math::Random::MT::Auto::_internal::acq_seed($SOURCE{$$obj}, $SEED{$$obj}, $WARN{$$obj});
     # Seed the PRNG
-    Math::Random::MT::Auto::_internal::seed_prng($obj->{$_PRNG},
-                                                 $obj->{$_SEED});
+    Math::Random::MT::Auto::_internal::seed_prng($obj, $SEED{$$obj});
 }
 
 
@@ -199,23 +205,22 @@ sub srand
 sub seed
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (blessed($_[0])) ? shift : \%STANDALONE;
+    my $obj = (blessed($_[0])) ? shift : $SA;
 
     # User requested the seed
     if (! @_) {
-        return ($obj->{$_SEED});
+        return ($SEED{$$obj});
     }
 
     # Save a copy of the seed
     if (ref($_[0]) eq 'ARRAY') {
-        @{$obj->{$_SEED}} = @{$_[0]};
+        @{$SEED{$$obj}} = @{$_[0]};
     } else {
-        @{$obj->{$_SEED}} = @_;
+        @{$SEED{$$obj}} = @_;
     }
 
     # Seed the PRNG
-    Math::Random::MT::Auto::_internal::seed_prng($obj->{$_PRNG},
-                                                 $obj->{$_SEED});
+    Math::Random::MT::Auto::_internal::seed_prng($obj, $SEED{$$obj});
 }
 
 
@@ -224,16 +229,16 @@ sub seed
 sub state
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (blessed($_[0])) ? shift : \%STANDALONE;
+    my $obj = (blessed($_[0])) ? shift : $SA;
 
     # Set state of PRNG, if supplied
     if (@_) {
-        Math::Random::MT::Auto::_internal::set_state($obj->{$_PRNG}, $_[0]);
+        Math::Random::MT::Auto::_internal::set_state($obj, $_[0]);
         return;
     }
 
     # User requested copy of state
-    return (Math::Random::MT::Auto::_internal::get_state($obj->{$_PRNG}));
+    return (Math::Random::MT::Auto::_internal::get_state($obj));
 }
 
 
@@ -241,17 +246,17 @@ sub state
 sub warnings
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (blessed($_[0])) ? shift : \%STANDALONE;
+    my $obj = (blessed($_[0])) ? shift : $SA;
 
     # If arg is true, then send warnings and clear the warnings array
     if ($_[0]) {
-        my @warnings = @{$obj->{$_WARN}};
-        $obj->{$_WARN} = [];
+        my @warnings = @{$WARN{$$obj}};
+        $WARN{$$obj} = [];
         return (@warnings);
     }
 
     # Just send a copy of the warnings
-    return (@{$obj->{$_WARN}});
+    return (@{$WARN{$$obj}});
 }
 
 
@@ -262,101 +267,101 @@ sub new
 {
     my $thing = shift;
     my $class = ref($thing) || $thing;
-    my $self = {};
+
+    # Create object
+    my $prng = Math::Random::MT::Auto::_internal::new_prng();
+    my $self = \$prng;
     bless($self, $class);
-    if (! $self->_init($thing, @_)) {
-        return;   # Failed to initialize
+
+    # Default initializations
+    $SOURCE{$$self} = [];
+    $SEED{$$self}   = [];
+    $WARN{$$self}   = [];
+    my $state;
+
+    # Save weakened reference to object for thread cloning
+    weaken($REGISTRY{$$self} = $self);
+
+    # Handle user-supplied arguments
+    my $arg_cnt = @_;
+    while (my $arg = shift) {
+        if ($arg =~ /^sources?$/i) {
+            # Make sure source is saved as an array ref
+            my $src = shift;
+            $SOURCE{$$self} = (ref($src) eq 'ARRAY') ? $src : [ $src ];
+
+        } elsif ($arg =~ /^seed$/i) {
+            # Make sure seed is saved as an array ref
+            my $seed = shift;
+            $SEED{$$self} = (ref($seed) eq 'ARRAY') ? $seed : [ $seed ];
+
+        } elsif ($arg =~ /^state$/i) {
+            $state = shift;
+            if (ref($state) ne 'ARRAY') {
+                croak('\'STATE\' is not an array ref');
+            }
+
+        } else {
+            croak("Invalid argument: $arg");
+        }
     }
-    return ($self);
-}
 
-
-# Initialize a new PRNG object
-sub _init
-{
-    my $self  = shift;
-    my $thing = shift;
-
-    # Initialize with any user-supplied data
-    my $no_args = 1;
-    while (my $key = shift) {
-        $self->{$_PREFIX.uc($key)} = shift;
-        $no_args = 0;
-    }
-
-    # - Fix user-supplied data -
-    # Change 'SOURCES' to 'SOURCE'
-    if (exists($self->{$_SOURCES})) {
-        $self->{$_SOURCE} = $self->{$_SOURCES};
-        delete($self->{$_SOURCES});
-    }
-    # Turn 'SOURCE' into an array ref
-    if (exists($self->{$_SOURCE}) &&
-        (ref($self->{$_SOURCE}) ne 'ARRAY'))
-    {
-        $self->{$_SOURCE} = [ $self->{$_SOURCE} ];
-    }
-
-    # Further initializations
-    $self->{$_PRNG} = Math::Random::MT::Auto::_internal::new_prng();
-    $self->{$_WARN} = [];
-
+    # Initialize
     if (ref($thing)) {
         # $thing->new(...) was called
-        if ($no_args) {
+        if ($arg_cnt == 0) {
             # $thing->new() called with no args - 'clone' the PRNG
-            @{$self->{$_SOURCE}} = @{$thing->{$_SOURCE}};
-            if (exists($thing->{$_SEED})) {
-                @{$self->{$_SEED}} = @{$thing->{$_SEED}};
-            }
-            $self->{$_STATE} = Math::Random::MT::Auto::_internal::get_state($thing->{$_PRNG});
+            @{$SOURCE{$$self}} = @{$SOURCE{$$thing}};
+            @{$SEED{$$self}}   = @{$SEED{$$thing}};
+            $state = Math::Random::MT::Auto::_internal::get_state($thing);
 
         } else {
             # Copy object's sources, if none provided
-            if (! exists($self->{$_SOURCE})) {
-                @{$self->{$_SOURCE}} = @{$thing->{$_SOURCE}};
+            if (! @{$SOURCE{$$self}}) {
+                @{$SOURCE{$$self}} = @{$SOURCE{$$thing}};
             }
         }
 
     } else {
         # CLASS->new(...) was called
         # Use default sources, if none provided
-        if (! exists($self->{$_SOURCE})) {
-            @{$self->{$_SOURCE}} = @SOURCE;
+        if (! @{$SOURCE{$$self}}) {
+            @{$SOURCE{$$self}} = @SOURCE;
         }
     }
 
     # If state is specified, then use it
-    if (exists($self->{$_STATE})) {
-        Math::Random::MT::Auto::_internal::set_state($self->{$_PRNG},
-                                                     $self->{$_STATE});
-        delete($self->{$_STATE});
+    if ($state) {
+        Math::Random::MT::Auto::_internal::set_state($self, $state);
 
     } else {
         # Acquire seed, if none provided
-        if (! exists($self->{$_SEED})) {
-            $self->{$_SEED} = [];
-            Math::Random::MT::Auto::_internal::acq_seed($self->{$_SOURCE},
-                                                        $self->{$_SEED},
-                                                        $self->{$_WARN});
+        if (! @{$SEED{$$self}}) {
+            Math::Random::MT::Auto::_internal::acq_seed($SOURCE{$$self},
+                                                        $SEED{$$self},
+                                                        $WARN{$$self});
         }
 
         # Seed the PRNG
-        Math::Random::MT::Auto::_internal::seed_prng($self->{$_PRNG},
-                                                     $self->{$_SEED});
+        Math::Random::MT::Auto::_internal::seed_prng($self, $SEED{$$self});
     }
 
-    # Save copy of reference for thread cloning
-    my $ii;
-    for ($ii=0; $ii < @REGISTRY; $ii++) {
-        if (! defined($REGISTRY[$ii])) {
-            last;
-        }
-    }
-    $REGISTRY[$ii] = $self;
-    weaken($REGISTRY[$ii]);
+    return ($self);
+}
 
-    return (1);
+
+# Object Destructor
+sub DESTROY {
+    my $self = $_[0];
+
+    # Delete all data used for the object
+    Math::Random::MT::Auto::_internal::free_prng($self);
+    delete($SOURCE{$$self});
+    delete($SEED{$$self});
+    delete($WARN{$$self});
+
+    # Remove object from thread cloning registry
+    delete($REGISTRY{$$self});
 }
 
 
@@ -631,6 +636,8 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 SYNOPSIS
 
+  use strict;
+  use warnings;
   use Math::Random::MT::Auto qw/rand irand gaussian shuffle/,
                              '/dev/urandom' => 256,
                              'random_org';
@@ -661,9 +668,9 @@ L<rand|perlfunc/"rand">.
 
 This module provides PRNGs that are based on the Mersenne Twister.  There
 is a functional interface to a single, standalone PRNG, and an OO interface
-for generating multiple PRNG objects.  The PRNGs are self-seeding,
-automatically acquiring a (19968-bit) random seed from user-selectable
-sources.
+(based on the inside-out object model) for generating multiple PRNG objects.
+The PRNGs are self-seeding, automatically acquiring a (19968-bit) random seed
+from user-selectable sources.
 
 In addition to integer and floating-point uniformly-distributed random number
 deviates, this module implements the following non-uniform deviates as found
@@ -704,6 +711,8 @@ To use this module as a drop-in replacement for Perl's
 L<rand|perlfunc/"rand"> function, just add the following to the top of your
 application code:
 
+  use strict;
+  use warnings;
   use Math::Random::MT::Auto qw/rand/;
 
 and then just use L</"rand"> as you would normally.  You don't even need to
@@ -712,6 +721,8 @@ gets done automatically when the module is loaded by Perl.
 
 If you need multiple PRNGs, then use the OO interface:
 
+  use strict;
+  use warnings;
   use Math::Random::MT::Auto;
 
   my $prng1 = Math::Random::MT::Auto->new();
@@ -1402,119 +1413,25 @@ sufficient:
       import Math::Random::MT::Auto;
   };
 
-=head2 Creating Subclasses
+=head2 Implementing Subclasses
 
-This module supports the creation of subclasses.
+This package uses the I<inside-out> object model (see informational links
+under L</"See Also">).  This object model offers a number of advantages, but
+does require some extra programming when you create subclasses so as to
+support (among other things) oject cloning for thread safety (i.e., a CLONE
+subroutine), and oject destruction (i.e., a DESTROY subroutine).
 
-=over
+Further, in the case of this package, the objects created are not the usual
+blessed hash reference: They are blessed scalar references.  Therefore, your
+subclass cannot store attributes I<inside> the object returned by this
+package, nor can you even assign a value to the object's referenced scalar.
 
-=item Subclass Declaration
+The subclass L<Math::Random::MT::Auto::Range> included with this module's
+distribution is provided as an example of how to implement subclasses based
+on this package.  Execute the following to find the location of its source
+code file:
 
-Declare your class to be a subclass as follows:
-
-  package My::Random;
-
-  use Math::Random::MT::Auto;
-  our @ISA = qw(Math::Random::MT::Auto);
-
-=item Constructor
-
-Implement your subclass's constructor along these lines:
-
-  # Create a new object
-  sub new
-  {
-      my $thing = shift;
-      my $class = ref($thing) || $thing;
-
-      my $self = {};
-      bless($self, $class)
-
-      if (! $self->_init($thing, @_)) {
-          # Failed to initialize
-          # Throw some sort of error, or
-          return;   # Returns 'undef'
-      }
-
-      return ($self);
-  }
-
-=item Initialization
-
-Implement an initialization routine that provides for proper use of the
-parent class's intialization routine:
-
-  # Initialize a new object
-  sub _init
-  {
-      my $self  = shift;
-      my $thing = shift;
-
-      # Separate '@_' into args for this subclass and args for parent class
-      my (@my_args, @parent_args);
-      while (@_) {
-          # Assumes that all args come in 'pairs' (i.e., 'name' => 'value')
-          my $arg = shift;
-          if ($arg =~ /^(XXX|YYY|ZZZ)$/i) {
-              # Arg for subclass
-              push(@my_args, $arg, shift);
-          } else {
-              # Arg for parent class
-              push(@parent_args, $arg, shift);
-          }
-      }
-
-      # Perform parent class initialization
-      if (! $self->SUPER::_init($thing, @parent_args)) {
-          # Parent class initialization failed
-          return (0);
-      }
-
-      # Perform subclass initialization
-      if (ref($thing)) {
-          # $thing->new( ... ) was called
-          # Make use of '@my_args', if any
-          # And make use of object's data, if applicable
-
-      } else {
-          # SUBCLASS->new( ... ) was called
-          # Make use of '@my_args', if any
-      }
-
-      return (1);
-  }
-
-=item Object Attributes
-
-In this module, object attribute names are prefixed with an abbreviation of
-the package name (see below).  This package-orthogonal object attribute naming
-scheme helps to prevent name collisions when subclassing.  It is highly
-recommended that you employ this same technique for any attributes added by
-subclasses you create.
-
-For informational purposes, the following are the object attributes used by
-this module:
-
-  MRMA::PRNG    # Reference to the PRNG internal data
-  MRMA::WARN    # Contains seeding error messages
-  MRMA::SOURCE  # Random seed sources
-  MRMA::SEED    # Last seed sent to PRNG
-  MRMA::STATE   # Array reference containing PRNG internal state (transient)
-
-=item Destructor
-
-This package implements a destructor for the objects it creates.  If your
-subclass also requires special actions for object destruction, then you must
-implement your subclass's destructor along these lines:
-
-  sub DESTROY {
-      my $self = shift;
-      # Call parent's destructor
-      $self->SUPER::DESTROY();
-      # Perform subclass destructor actions
-  }
-
-=back
+  perldoc -l Math::Random::MT::Auto::Range
 
 =head1 EXAMPLES
 
@@ -1633,8 +1550,9 @@ Fisher-Yates Shuffling Algorithm:
 L<http://en.wikipedia.org/wiki/Shuffling_playing_cards#Shuffling_algorithms>,
 and L<shuffle() in List::Util|List::Util>
 
-Creating subclasses:
-L<perlobj>, and L<http://www.perlmonks.org/?node_id=8177>
+Inside-out Object Model:
+L<http://www.perlmonks.org/index.pl?node_id=219378>, and
+L<http://www.perlmonks.org/index.pl?node_id=483162>
 
 L<LWP::UserAgent>
 

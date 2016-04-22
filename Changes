@@ -1,7 +1,12 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+3.00.00 Mon Aug 22 15:27:10 2005
+	- Rewritten using inside-out object model
+	- Added pedantic subclass Math::Random::MT::Auto::Range
+	- Fix for Win32 free() bug
+	- Build support for Module::Build
+
 2.20.00 Thu Aug 18 08:17:45 2005
-	- Internal improvements and optimizations
 	- Fix for Win32 build error
 
 2.1.0 Tue Aug 09 12:46:40 2005

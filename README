@@ -1,10 +1,10 @@
-Math-Random-MT-Auto version 2.20.00
+Math-Random-MT-Auto version 3.00.00
 ===================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
 on the Mersenne Twister algorithm.  There is a functional interface to a
-single, standalone PRNG, and an OO interface for generating multiple PRNG
-objects.
+single, standalone PRNG, and an OO interface (based on the inside-out object
+model) for generating multiple PRNG objects.
 
 The PRNGs are self-seeding, automatically acquiring a (19968-bit) random
 seed from user-selectable sources.  Seed sources include local random

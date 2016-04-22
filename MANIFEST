@@ -2,9 +2,10 @@ MANIFEST
 README
 Changes
 Makefile.PL
+Build.PL
 lib/Math/Random/MT/Auto.pm
+lib/Math/Random/MT/Auto/Range.pm
 MRMA.xs
-typemap
 ppport.h
 t/01-mersenne.t
 t/02-gaussian.t
@@ -16,6 +17,7 @@ t/07-random_org.t
 t/08-hotbits.t
 t/09-state.t
 t/10-deviates.t
+t/11-range.t
 samples/timings.pl
 samples/bell.pl
 samples/decay.pl

@@ -718,7 +718,7 @@ seed_prng(...)
     PREINIT:
         PRNG_VARS;
         struct mt *prng;
-        AV *seed;
+        AV *myseed;
         int len;
         UV *st;
         int ii, jj, kk;
@@ -727,9 +727,9 @@ seed_prng(...)
         prng = GET_PRNG;
 
         /* Extract argument */
-        seed = (AV*)SvRV(ST(1));
+        myseed = (AV*)SvRV(ST(1));
 
-        len = av_len(seed)+1;
+        len = av_len(myseed)+1;
         st = prng->state;
 
         /* Initialize */
@@ -742,7 +742,7 @@ seed_prng(...)
         ii=1; jj=0;
         for (kk = ((N>len) ? N : len); kk; kk--) {
             st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) * MAGIC2))
-                            + SvUV(*av_fetch(seed, jj, 0)) + jj;
+                            + SvUV(*av_fetch(myseed, jj, 0)) + jj;
             if (++ii >= N) { st[0] = st[N-1]; ii=1; }
             if (++jj >= len) jj=0;
         }

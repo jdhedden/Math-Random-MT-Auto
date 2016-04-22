@@ -71,24 +71,14 @@ WriteMakefile(
 );
 
 
-# Add additional target to Makefile for use by module maintainer
+# Additional 'make' targets
 sub MY::postamble
 {
-    if ($^O eq 'cygwin') {
-        return <<'_EXTRAS_';
-# Check version strings in various files
-vcheck:
-	@echo "Version is $(VERSION)"
-	@if ! head -3 Changes | tail -1 | grep ^$(VERSION) >/dev/null; then echo "Version error in Changes"; fi
-	@if ! head -1 README | grep $(VERSION)$ >/dev/null; then echo "Version error in README"; fi
-	@if ! grep "VERSION = $(VERSION)" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto.pm"; fi
-	@if ! grep "version $(VERSION)" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in POD of lib/Math/Random/MT/Auto.pm"; fi
-	@if ! grep "Math-Random-MT-Auto-$(VERSION)" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in Anno link in lib/Math/Random/MT/Auto.pm"; fi
-	@if ! grep "VERSION = $(VERSION)" lib/Math/Random/MT/Auto/Range.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto/Range.pm"; fi
-
-chmod:
-	@$(CHMOD) 644 Build.PL `cat MANIFEST`
-	@$(CHMOD) 755 samples/*.pl
+    return <<'_EXTRAS_';
+predist:
+	@dos2unix `cat MANIFEST`
+	@$(CHMOD) 644 `cat MANIFEST`
+	@$(CHMOD) 755 examples/*.pl
 
 ppport:
 	@( cd /tmp; perl -e 'use Devel::PPPort; Devel::PPPort::WriteFile("ppport.h");' )
@@ -97,7 +87,6 @@ ppport:
 	    perl /tmp/ppport.h; \
 	fi
 _EXTRAS_
-    }
 }
 
 # EOF

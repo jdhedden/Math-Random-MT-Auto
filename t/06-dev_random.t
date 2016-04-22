@@ -4,34 +4,37 @@ use strict;
 use warnings;
 
 use Test::More;
-if (-e '/dev/random') {
-    my $FH;
-    if (open($FH, '</dev/random')) {
-        binmode($FH);
-        my $data;
-        my $cnt = read($FH, $data, 8);
-        if (! defined($cnt)) {
-            plan skip_all => "Couldn't read from /dev/random: $!";
-        } elsif ($cnt == 8) {
-            plan tests => 91;
-        } else {
-            plan skip_all => "/dev/random exhausted ($cnt of 8 bytes)";
-        }
-        close($FH);
-    } else {
-        plan skip_all => "/dev/random not usable: $!";
-    }
-} else {
-    plan skip_all => '/dev/random not available';
-}
 
 my @WARN;
+
 BEGIN {
+    if (-e '/dev/random') {
+        my $FH;
+        if (open($FH, '</dev/random')) {
+            binmode($FH);
+            my $data;
+            my $cnt = read($FH, $data, 8);
+            if (! defined($cnt)) {
+                plan skip_all => "Couldn't read from /dev/random: $!";
+            } elsif ($cnt == 8) {
+                plan tests => 92;
+            } else {
+                plan skip_all => "/dev/random exhausted ($cnt of 8 bytes)";
+            }
+            close($FH);
+        } else {
+            plan skip_all => "/dev/random not usable: $!";
+        }
+    } else {
+        plan skip_all => '/dev/random not available';
+    }
+
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
 
     use_ok('Math::Random::MT::Auto', qw(rand irand), '/dev/random');
 }
+
 can_ok('main', qw(rand irand));
 
 # Check for warnings

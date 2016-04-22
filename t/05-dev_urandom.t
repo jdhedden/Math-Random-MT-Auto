@@ -4,19 +4,22 @@ use strict;
 use warnings;
 
 use Test::More;
-if (! -e '/dev/urandom') {
-    plan skip_all => '/dev/urandom not available';
-} else {
-    plan tests => 91;
-}
 
 my @WARN;
+
 BEGIN {
+    if (! -e '/dev/urandom') {
+        plan skip_all => '/dev/urandom not available';
+    } else {
+        plan tests => 92;
+    }
+
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
 
     use_ok('Math::Random::MT::Auto', qw(rand irand), '/dev/urandom');
 }
+
 can_ok('main', qw(rand irand));
 
 # Check for warnings

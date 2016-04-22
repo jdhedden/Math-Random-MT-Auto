@@ -124,48 +124,52 @@
 #   define RAND_NEG1x_1x(x) ((((NV)((IV)(x))) * TWOeMINUS31) + TWOeMINUS32)
 #endif
 
-/* Variable declarations for PRNG context */
-#define SA_PRNG_VARS                    \
-    SV *my_cxt;                         \
-    struct mt *prng
+/* Definitions for getting PRNG context */
+#define PRNG_VARS   SV *addr
 
-#define PRNG_VARS                       \
-    IV addr;                            \
-    struct mt *prng
-
-/* Get PRNG context */
-#define SA_PRNG_PREP                    \
-    my_cxt = *hv_fetch(PL_modglobal, MY_CXT_KEY, sizeof(MY_CXT_KEY)-1, TRUE); \
-    prng = INT2PTR(struct mt *, SvUV(my_cxt))
-
-#define PRNG_PREP                       \
-    addr = SvIV(SvRV(ST(0)));           \
-    prng = INT2PTR(struct mt *, addr)
-
+#define PRNG_PREP   addr = SvRV(ST(0))
+#define GET_PRNG    INT2PTR(struct mt *, SvUV(addr));
 
 /* Variable declarations for the dual (OO and functional) interface */
 #define DUAL_VARS                       \
-    SV *my_cxt;                         \
-    IV addr;                            \
-    struct mt *prng;                    \
-    int idx
+        PRNG_VARS;                      \
+        struct mt *prng;                \
+        int idx
 
 /* Sets up PRNG for dual-interface */
-#define DUAL_PREP                       \
-    if (items && sv_isobject(ST(0))) {  \
+/* A ref check for an object call is good enough,
+ * and much faster than object or 'isa' checking. */
+#ifdef PERL_IMPLICIT_CONTEXT
+#define DUAL_PRNG                       \
+    if (items && SvROK(ST(0))) {        \
         /* OO interface */              \
         PRNG_PREP;                      \
         items--;                        \
         idx = 1;                        \
     } else {                            \
+        /* Standalone PRNG - guts of dMY_CXT macro */                        \
+        addr = *hv_fetch(PL_modglobal, MY_CXT_KEY, sizeof(MY_CXT_KEY)-1, 0); \
+        idx = 0;                        \
+    }                                   \
+    prng = GET_PRNG;
+#else
+#define DUAL_PRNG                       \
+    if (items && SvROK(ST(0))) {        \
+        /* OO interface */              \
+        PRNG_PREP;                      \
+        prng = GET_PRNG;                \
+        items--;                        \
+        idx = 1;                        \
+    } else {                            \
         /* Standalone PRNG */           \
-        SA_PRNG_PREP;                   \
+        prng = &my_cxt;                 \
         idx = 0;                        \
     }
+#endif
 
 /* Get next random from a PRNG */
-#define IRAND(x,y) \
-    x = ((--y->left == 0) ? _mt_algo(y) : *y->next++); \
+#define IRAND(x,y)                                      \
+    x = ((--y->left == 0) ? _mt_algo(y) : *y->next++);  \
     TEMPER_ELEM(x)
 
 
@@ -295,18 +299,12 @@ _ln_gamma(NV x)
 }
 
 
-#define MY_CXT_KEY "Math::Random::MT::Auto::_sa" XS_VERSION
+#define MY_CXT_KEY "MRMA::PRNG"
 
 START_MY_CXT
 
 MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto
 PROTOTYPES: DISABLE
-
-BOOT:
-{
-    MY_CXT_INIT;
-}
-
 
 =pod
 
@@ -326,7 +324,7 @@ irand(...)
     PREINIT:
         DUAL_VARS;
     CODE:
-        DUAL_PREP
+        DUAL_PRNG
         IRAND(RETVAL, prng);
     OUTPUT:
         RETVAL
@@ -345,7 +343,7 @@ rand(...)
         DUAL_VARS;
         UV rand;
     CODE:
-        DUAL_PREP
+        DUAL_PRNG
 
         /* Random number on [0,1) interval */
         IRAND(rand, prng);
@@ -373,7 +371,32 @@ shuffle(...)
         UV rand;
         SV *elem;
     CODE:
-        DUAL_PREP
+        /* Same as DUAL_PRNG except needs more stringent object check */
+#ifdef PERL_IMPLICIT_CONTEXT
+        if (items && sv_isobject(ST(0))) {
+            /* OO interface */
+            PRNG_PREP;
+            items--;
+            idx = 1;
+        } else {
+            /* Standalone PRNG */
+            addr = *hv_fetch(PL_modglobal, MY_CXT_KEY, sizeof(MY_CXT_KEY)-1, 0);
+            idx = 0;
+        }
+        prng = GET_PRNG;
+#else
+        if (items && sv_isobject(ST(0))) {
+            /* OO interface */
+            PRNG_PREP;
+            prng = GET_PRNG;
+            items--;
+            idx = 1;
+        } else {
+            /* Standalone PRNG */
+            prng = &my_cxt;
+            idx = 0;
+        }
+#endif
 
         /* Handle arguments */
         if (items == 1 && SvROK(ST(idx)) && SvTYPE(SvRV(ST(idx)))==SVt_PVAV) {
@@ -422,7 +445,7 @@ gaussian(...)
         UV u1, u2;
         NV v1, v2, r, factor;
     CODE:
-        DUAL_PREP
+        DUAL_PRNG
 
         if (prng->gaussian.have) {
             /* Use number generated during previous call */
@@ -471,7 +494,7 @@ exponential(...)
     PREINIT:
         DUAL_VARS;
     CODE:
-        DUAL_PREP
+        DUAL_PRNG
 
         /* Exponential distribution with mean = 1 */
         RETVAL = -log(_rand(prng));
@@ -497,7 +520,7 @@ erlang(...)
         IV ii;
         NV am, ss, tang, bound;
     CODE:
-        DUAL_PREP
+        DUAL_PRNG
 
         /* Check argument */
         if (! items) {
@@ -550,7 +573,7 @@ poisson(...)
         NV mean;
         NV em, tang, bound, limit;
     CODE:
-        DUAL_PREP
+        DUAL_PRNG
 
         /* Check argument(s) */
         if (! items) {
@@ -620,7 +643,7 @@ binomial(...)
         NV p, pc, mean;
         NV en, em, tang, bound, limit, sq;
     CODE:
-        DUAL_PREP
+        DUAL_PRNG
 
         /* Check argument(s) */
         if (items < 2) {
@@ -705,23 +728,34 @@ The functions below are for internal use by the Math::Random::MT::Auto package.
 
 =cut
 
-MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto::_internal
+MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto::_
 
 
-=item get_sa_prng
+=item sa_prng
 
 Returns a pointer to the standalone PRNG context.
+
+It implements the functionality of the MY_CXT_START macro.
 
 =cut
 
 SV *
-get_sa_prng(...)
+sa_prng(...)
     PREINIT:
-        SA_PRNG_VARS;
+#ifdef PERL_IMPLICIT_CONTEXT
+        SV *my_cxt;
+#endif
+        struct mt *prng;
     CODE:
-        SA_PRNG_PREP;
+#ifdef PERL_IMPLICIT_CONTEXT
+        my_cxt = *hv_fetch(PL_modglobal, MY_CXT_KEY, sizeof(MY_CXT_KEY)-1, TRUE);
+        prng = (struct mt *)SvPVX(newSV(sizeof(struct mt)-1));
+        sv_setuv(my_cxt, PTR2UV(prng));
+#else
+        prng = &my_cxt;
+#endif
         _init_prng(prng);
-        RETVAL = newSVsv(my_cxt);
+        RETVAL = newSVuv(PTR2UV(prng));
     OUTPUT:
         RETVAL
 
@@ -744,6 +778,34 @@ new_prng(...)
         RETVAL
 
 
+=item readonly
+
+Sets the readonly flag on an object
+
+=cut
+
+void
+readonly(obj)
+        SV *obj;
+    CODE:
+        obj = SvRV(obj);
+        SvREADONLY_on(obj);
+
+
+=item modifiable
+
+Clears the readonly flag on an object
+
+=cut
+
+void
+modifiable(obj)
+        SV *obj;
+    CODE:
+        obj = SvRV(obj);
+        SvREADONLY_off(obj);
+
+
 =item free_prng
 
 Frees the PRNG context as part of object destruction.
@@ -754,8 +816,10 @@ void
 free_prng(...)
     PREINIT:
         PRNG_VARS;
+        struct mt *prng;
     CODE:
         PRNG_PREP;
+        prng = GET_PRNG;
         Safefree(prng);
 
 
@@ -771,12 +835,14 @@ void
 seed_prng(...)
     PREINIT:
         PRNG_VARS;
+        struct mt *prng;
         AV *seed;
         int len;
         UV *st;
         int ii, jj, kk;
     CODE:
         PRNG_PREP;
+        prng = GET_PRNG;
 
         /* Extract argument */
         seed = (AV*)SvRV(ST(1));
@@ -825,10 +891,12 @@ SV *
 get_state(...)
     PREINIT:
         PRNG_VARS;
+        struct mt *prng;
         AV *state;
         int ii;
     CODE:
         PRNG_PREP;
+        prng = GET_PRNG;
 
         /* Create state array */
         state = newAV();
@@ -871,10 +939,12 @@ void
 set_state(...)
     PREINIT:
         PRNG_VARS;
+        struct mt *prng;
         AV *state;
         int ii;
     CODE:
         PRNG_PREP;
+        prng = GET_PRNG;
 
         /* Extract argument */
         state = (AV*)SvRV(ST(1));

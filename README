@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 4.05.00
+Math-Random-MT-Auto version 4.06.00
 ===================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
@@ -31,9 +31,9 @@ For Perl compiled to support 64-bit integers, this module will use a 64-bit
 version of the Mersenne Twister algorithm, thus providing 64-bit random
 integers (and 53-bit random doubles).  (32-bits otherwise.)
 
-The code for this module has been optimized for speed.  Under Windows, it's
-more than twice as fast as Math::Random::MT, and under Solaris, it's more than
-four times faster.
+The code for this module has been optimized for speed.  Under Cygwin, it's
+2.5 times faster than Math::Random::MT, and under Solaris, it's more than
+four times faster.  (Math::Random::MT fails to build under Windows.)
 
 INSTALLATION
 

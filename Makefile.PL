@@ -74,6 +74,7 @@ vcheck:
 	@if ! head -1 README | grep ${VERSION}$ >/dev/null; then echo "Version error in README"; fi
 	@if [ `grep 'VERSION="${VERSION}"' Build.PL | wc -l` -ne 2 ]; then echo "Version error in Build.PL"; fi
 	@if ! grep "VERSION = '${VERSION}'" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto.pm"; fi
+	@if ! grep "version ${VERSION}" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto.pm"; fi
 	@if ! grep "VERSION = '${VERSION}'" lib/Math/Random/MT/Auto/Range.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto/Range.pm"; fi
 _VCHECK_
     close($FH);

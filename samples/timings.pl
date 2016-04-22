@@ -34,8 +34,9 @@ MAIN:
 
     print("Random numbers generation timing\n");
 
-    # Time Perl's srand()
     print("\n- Core -\n");
+
+    # Time Perl's srand()
     my $seed = CORE::time() + $$;
     $start = Time::HiRes::time();
     CORE::srand($seed);
@@ -89,6 +90,8 @@ MAIN:
 
     my @warnings = get_warnings(1); # Clear any existing error messages
 
+    print("\n- Math::Random::MT::Auto - Standalone PRNG -\n");
+
     if ($^O eq 'MSWin32') {
         # Call srand to load Win32::API
         srand('win32');
@@ -109,7 +112,6 @@ MAIN:
         @warnings = get_warnings(1);
 
         # Time our srand() for /dev/random
-        print("\n- Math::Random::MT::Auto - Standalone PRNG -\n");
         $start = Time::HiRes::time();
         srand('/dev/random');
         $end = Time::HiRes::time();
@@ -221,8 +223,9 @@ MAIN:
     # Reseed
     set_seed(\@seed);
 
-    # Time OO interface
     print("\n- Math::Random::MT::Auto - OO Interface -\n");
+
+    # Time OO interface
     my $rand;
     if ($^O eq 'MSWin32') {
         $start = Time::HiRes::time();

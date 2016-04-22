@@ -5,7 +5,7 @@ use warnings;
 
 use Scalar::Util 'looks_like_number';
 
-use Test::More tests => 217;
+use Test::More tests => 223;
 use Config;
 use threads;
 
@@ -58,8 +58,9 @@ for my $ii (0 .. 9) {
     ok($rr >= 0,                    'Postive int: ' . $rr);
 }
 
+
 # New PRNG
-my $prng2 = $prng->new(type=>'double');
+my $prng2 = $prng->new(lo=>100, hi=>199, type=>'double');
 isa_ok($prng2, 'Math::Random::MT::Auto');
 isa_ok($prng2, 'Math::Random::MT::Auto::Range');
 can_ok($prng2, qw/rand irand gaussian exponential erlang poisson binomial
@@ -92,6 +93,36 @@ for my $ii (0 .. 9) {
 ok($ints < 10, 'Rands not ints: ' . $ints);
 
 
+### Clone
+
+# New PRNG
+my $prng3 = $prng2->clone();
+isa_ok($prng3, 'Math::Random::MT::Auto');
+isa_ok($prng3, 'Math::Random::MT::Auto::Range');
+can_ok($prng3, qw/rand irand gaussian exponential erlang poisson binomial
+                 shuffle srand get_seed set_seed get_state set_state
+                 get_warnings new get_range_type set_range_type get_range
+                 set_range rrand/);
+ok($prng3->get_range_type() eq 'DOUBLE', 'Double range type');
+($lo, $hi) = $prng3->get_range();
+ok($lo == 100 && $hi == 199, "Range: $lo $hi");
+
+# Get rands from parent
+my @rands2;
+for (0 .. 9) {
+    push(@rands2, $prng2->rrand());
+}
+
+# Get rands from clone
+my @rands3;
+for (0 .. 9) {
+    push(@rands3, $prng3->rrand());
+}
+
+# Compare
+is_deeply(\@rands2, \@rands3);
+
+
 ### Threads with subclass
 
 SKIP: {
@@ -106,8 +137,7 @@ my $rands = threads->create(
                         sub {
                             my @rands;
                             for (0 .. 9) {
-                                my $rand = $prng->rrand();
-                                push(@rands, $rand);
+                                push(@rands, $prng->rrand());
                             }
                             return (\@rands);
                         }

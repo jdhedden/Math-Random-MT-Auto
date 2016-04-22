@@ -8,7 +8,7 @@ use Scalar::Util 1.16 qw(weaken looks_like_number);
 # Declare ourself as a subclass
 use base 'Math::Random::MT::Auto';
 
-our $VERSION = '4.05.00';
+our $VERSION = '4.06.00';
 
 # Set ID() as alias for refaddr() function
 *ID = \&Scalar::Util::refaddr;
@@ -62,20 +62,22 @@ sub new
         }
     }
 
-    # Obtain new object from parent class
-    my $self;
-    if (ref($thing)) {
-        # $thing->new( ... ) was called
-        # Therefore call parent class constructor using the 'parent' object
-        $self = $thing->SUPER::new(%parent_args);
-    } else {
-        # SUBCLASS->new( ... ) was called
-        # Therefore call parent class constructor directly
-        $self = __PACKAGE__->SUPER::new(%parent_args);
+    # Check arguments
+    # 'LOW' and 'HIGH' are required
+    if (! exists($my_args{'LOW'})) {
+        Carp::croak('Missing parameter: LOW');
+    }
+    if (! exists($my_args{'HIGH'})) {
+        Carp::croak('Missing parameter: HIGH');
     }
 
-    # Re-bless object into specified class
-    bless($self, $class);
+    # Obtain new object from parent class
+    my $self = __PACKAGE__->SUPER::new(%parent_args);
+
+    # Rebless object into specified class
+    # 'bless()' cannot be used because the object
+    #   is set to 'readonly' by ->new()
+    $self->_rebless($class);
 
     # The object's ID (refaddr()) is used as a hash key for the object
     my $id = ID($self);
@@ -83,43 +85,42 @@ sub new
     # Save weakened reference to object for thread cloning
     weaken($REGISTRY{$id} = $self);
 
-    # Handle 'missing' arguments
-    if (ref($thing)) {
-        # $thing->new( ... ) was called
-        # Copy 'missing' arguments from the 'parent' object
-        my $thing_id = ID($thing);
-        if (! exists($my_args{'TYPE'})) {
-            $my_args{'TYPE'} = $TYPE{$thing_id};
-        }
-        if (! exists($my_args{'LOW'})) {
-            $my_args{'LOW'} = $LOW{$thing_id};
-        }
-        if (! exists($my_args{'HIGH'})) {
-            $my_args{'HIGH'} = $HIGH{$thing_id};
-        }
-
-    } else {
-        # SUBCLASS->new( ... ) was called
-        # 'LOW' and 'HIGH' are required
-        if (! exists($my_args{'LOW'})) {
-            Carp::croak('Missing parameter: LOW');
-        }
-        if (! exists($my_args{'HIGH'})) {
-            Carp::croak('Missing parameter: HIGH');
-        }
-        # Default 'TYPE' to 'INTEGER' if 'LOW' and 'HIGH' are both integers
-        if (! exists($my_args{'TYPE'})) {
-            my $lo = $my_args{'LOW'};
-            my $hi = $my_args{'HIGH'};
-            $my_args{'TYPE'} = (($lo == int($lo)) && ($hi == int($hi)))
-                             ? 'INTEGER'
-                             : 'DOUBLE';
-        }
+    # Default 'TYPE' to 'INTEGER' if 'LOW' and 'HIGH' are both integers
+    if (! exists($my_args{'TYPE'})) {
+        my $lo = $my_args{'LOW'};
+        my $hi = $my_args{'HIGH'};
+        $my_args{'TYPE'} = (($lo == int($lo)) && ($hi == int($hi)))
+                         ? 'INTEGER'
+                         : 'DOUBLE';
     }
 
     # Perform subclass initialization
     $self->set_range_type($my_args{'TYPE'});
     $self->set_range($my_args{'LOW'}, $my_args{'HIGH'});
+
+    # Done - return object
+    return ($self);
+}
+
+
+# Creates a copy of a PRNG object
+sub clone
+{
+    my $parent = shift;
+
+    # Call parent class 'clone' method
+    my $self = $parent->SUPER::clone();
+
+    # The object's ID (refaddr()) is used as a hash key for the object
+    my $id = ID($self);
+
+    # Save weakened reference to object for thread cloning
+    weaken($REGISTRY{$id} = $self);
+
+    # Perform subclass initialization using parent's properties
+    my $parent_id = ID($parent);
+    $self->set_range_type($TYPE{$parent_id});
+    $self->set_range($LOW{$parent_id}, $HIGH{$parent_id});
 
     # Done - return object
     return ($self);
@@ -294,11 +295,7 @@ While useful in itself, the primary purpose of this module is to provide an
 example of how to create subclasses of Math::Random::MT::Auto within the
 inside-out object model.
 
-=head1 USAGE
-
-=over
-
-=item Module Declaration
+=head1 MODULE DECLARATION
 
 Add the following to the top of our application code:
 
@@ -307,6 +304,10 @@ Add the following to the top of our application code:
   use Math::Random::MT::Auto::Range;
 
 This module is strictly OO, and does not export any functions or symbols.
+
+=head1 METHODS
+
+=over
 
 =item Math::Random::MT::Auto::Range->new
 
@@ -350,13 +351,24 @@ and C<STATE>.
 
 =item $obj->new
 
-Creates a new PRNG, using any specified options, and then using attributes
-from the referenced PRNG.
+Creates a new PRNG in the same manner as
+L</"Math::Random::MT::Auto::Range-E<gt>new">.
 
   my $prng2 = $prng1->new( %options );
 
-With no options, the new PRNG will be a complete clone of the referenced
-PRNG.
+=item $obj->clone
+
+Creates a new PRNG that is a copy of the referenced PRNG.
+
+  my $prng2 = $prng1->clone();
+
+=back
+
+In addition to the methods describe below, the objects created by this package
+also support all the object methods provided by the L<Math::Random::MT::Auto>
+class.
+
+=over
 
 =item $obj->rrand
 
@@ -396,10 +408,6 @@ Returns a list of the PRNG's range limits.
   my ($lo, $hi) = $prng->get_range();
 
 =back
-
-In addition to the methods describe above, the objects created by this package
-also support all the object methods provided by the L<Math::Random::MT::Auto>
-class.
 
 =head1 SEE ALSO
 

@@ -1021,10 +1021,10 @@ is_deeply(\@test_doub, \@base_doub);
 
 # Create PRNG object using state of another PRNG object
 my $prng3;
-eval { $prng3 = $prng2->new(); };
+eval { $prng3 = $prng2->clone(); };
 unlink('seed_data.tmp');
-if (! ok(! $@, '->new clone works')) {
-    diag('->new clone died: ' . $@);
+if (! ok(! $@, '->clone() works')) {
+    diag('->clone() died: ' . $@);
 }
 isa_ok($prng3, 'Math::Random::MT::Auto');
 

@@ -1,5 +1,12 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.06.00 Wed Sep 07 10:41:40 2005
+	- Added ->clone() method - removed cloning via ->new()
+	- Supply 'warn' array ref to user-defined seed source subroutines
+	- Made object's ref 'readonly'
+	- More speed improvements
+	- POD reorganization
+
 4.05.00 Tue Aug 30 20:00:00 2005
 	- Proper localization of '__WARN__' handler
 
@@ -8,7 +15,7 @@ Revision history for Perl extension Math::Random::MT::Auto.
 	- Removed Build.PL due to Module::Build bug under ActivePerl
 
 4.03.00 Mon Aug 29 09:34:25 2005
-	- Speed improvements for OO interface to non-uniform deviates
+	- Speed improvements
 
 4.02.00 Sun Aug 28 11:20:00 2005
 	- Removed INIT block and moved code to import() function

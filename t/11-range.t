@@ -5,7 +5,7 @@ use warnings;
 
 use Scalar::Util 'looks_like_number';
 
-use Test::More tests => 221;
+use Test::More tests => 227;
 use Config;
 use threads;
 
@@ -123,6 +123,31 @@ for (0 .. 9) {
 is_deeply(\@rands2, \@rands3);
 
 
+### Subclassing a subclass
+
+# 'Empty subclass' test  (cf. perlmodlib)
+@Math::Random::MT::Auto::Range::Sub::ISA = 'Math::Random::MT::Auto::Range';
+
+# Create PRNG object
+my $prng4;
+eval { $prng4 = Math::Random::MT::Auto::Range::Sub->new(lo=>-100, hi=>100); };
+if (! ok(! $@, '->new works')) {
+    diag('->new died: ' . $@);
+}
+isa_ok($prng4, 'Math::Random::MT::Auto');
+isa_ok($prng4, 'Math::Random::MT::Auto::Range');
+isa_ok($prng4, 'Math::Random::MT::Auto::Range::Sub');
+can_ok($prng4, qw/rand irand gaussian exponential erlang poisson binomial
+                 shuffle srand get_seed set_seed get_state set_state
+                 new get_range_type set_range_type get_range set_range rrand/);
+
+# Check for warnings
+if (! ok(! @WARN, 'Acquired seed data')) {
+    diag('Seed warnings: ' . join(' | ', @WARN));
+}
+undef(@WARN);
+
+
 ### Threads with subclass
 
 SKIP: {
@@ -137,7 +162,7 @@ my $rands = threads->create(
                         sub {
                             my @rands;
                             for (0 .. 9) {
-                                push(@rands, $prng->rrand());
+                                push(@rands, $prng4->rrand());
                             }
                             return (\@rands);
                         }
@@ -146,13 +171,13 @@ my $rands = threads->create(
 # Check that parent gets the same numbers
 my $rand;
 for my $ii (0 .. 9) {
-    eval { $rand = $prng->rrand(); };
-    ok(! $@,                         '$prng->rrand() died: ' . $@);
-    ok(defined($rand),               'Got a random number');
-    ok(looks_like_number($rand),     'Is a number: ' . $rand);
-    ok(int($rand) == $rand,          'Integer: ' . $rand);
-    ok($rand >= 100 && $rand <= 199, 'In range: ' . $rand);
-    ok($$rands[$ii] == $rand,        'Values equal: ' . $$rands[$ii] . ' ' . $rand);
+    eval { $rand = $prng4->rrand(); };
+    ok(! $@,                          '$prng->rrand() died: ' . $@);
+    ok(defined($rand),                'Got a random number');
+    ok(looks_like_number($rand),      'Is a number: ' . $rand);
+    ok(int($rand) == $rand,           'Integer: ' . $rand);
+    ok($rand >= -100 && $rand <= 100, 'In range: ' . $rand);
+    ok($$rands[$ii] == $rand,         'Values equal: ' . $$rands[$ii] . ' ' . $rand);
 }
 }
 

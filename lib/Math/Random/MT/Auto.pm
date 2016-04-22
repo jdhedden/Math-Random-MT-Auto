@@ -9,7 +9,7 @@ use Carp ();
 
 use base 'DynaLoader';
 
-our $VERSION = '4.07.00';
+our $VERSION = '4.08.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -17,11 +17,9 @@ bootstrap Math::Random::MT::Auto $VERSION;
 
 # Object attribute hashes used by inside-out object model
 #
-# Data stored in these hashes is keyed to the object by a unique ID.  Because
-# this class creates the objects, it can use the address of the internal PRNG
-# memory for the object's ID.  Note, however, that subclasses cannot use this
-# same key scheme because this class can change that ID (and does so when
-# cloning objects for threads).
+# Data stored in these hashes is keyed to the object by a unique ID that is
+# stored in the objects scalar reference.  For this class, that ID is the
+# address of the PRNG's internal memory.
 
 my %SOURCE;     # Random seed sources
 my %SEED;       # Last seed sent to PRNG
@@ -32,7 +30,7 @@ my %REGISTRY;
 ### Standalone PRNG data
 # Standalone PRNG pseudo-object - consists of a ref to a pointer
 #                                 to the PRNG's internal memory
-my $SA = do { \(my $prng = Math::Random::MT::Auto::_::sa_prng()) };
+my $SA = \(Math::Random::MT::Auto::_::sa_prng());
 $SOURCE{$$SA} = [];  # Global default sources - set up in import()
 $SEED{$$SA}   = [];
 
@@ -133,7 +131,7 @@ sub CLONE
 
             # Get current state from parent PRNG's memory
             # which is currently shared
-            my $state = Math::Random::MT::Auto::_::get_state($obj);
+            my $state = $obj->get_state();
 
             # Unlock the object
             Math::Random::MT::Auto::_::modifiable($obj);
@@ -143,7 +141,7 @@ sub CLONE
             Math::Random::MT::Auto::_::readonly($obj);
 
             # Set state for this cloned PRNG object
-            Math::Random::MT::Auto::_::set_state($obj, $state);
+            $obj->set_state($state);
 
             # Relocate object data
             $SOURCE{$$obj} = delete($SOURCE{$old_id});
@@ -291,7 +289,7 @@ sub new
     # Initialize the object
     # If state is specified, then use it
     if ($state) {
-        Math::Random::MT::Auto::_::set_state($self, $state);
+        $self->set_state($state);
 
     } else {
         # Acquire seed, if none provided
@@ -322,8 +320,7 @@ sub clone
     @{$SEED{$$self}}   = @{$SEED{$$parent}};
 
     # Clone the state from the parent object
-    my $state = Math::Random::MT::Auto::_::get_state($parent);
-    Math::Random::MT::Auto::_::set_state($self, $state);
+    $self->set_state($parent->get_state());
 
     # Done - return clone
     return ($self);
@@ -613,7 +610,7 @@ $acq_seed = sub {
 
     if (! @{$seed}) {
         # Die if no sources
-        if (@{$sources}) {
+        if (! @{$sources}) {
             Carp::croak('No seed sources specified');
         }
 
@@ -633,11 +630,8 @@ $acq_seed = sub {
 $new_object = sub {
     my $class = $_[0];
 
-    # Create a new object
-    my $self = CORE::bless(
-        # Ref to a pointer to the PRNG's internal memory
-        do { \(my $prng = Math::Random::MT::Auto::_::new_prng()) },
-        $class );
+    # Create a new object using ref to a pointer to the PRNG's internal memory
+    my $self = CORE::bless(\(Math::Random::MT::Auto::_::new_prng()), $class);
 
     # Make object non-modifiable (protects careless users)
     Math::Random::MT::Auto::_::readonly($self);
@@ -664,7 +658,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 4.07.00.
+This documentation refers to Math::Random::MT::Auto version 4.08.00.
 
 =head1 SYNOPSIS
 
@@ -1319,11 +1313,9 @@ support (among other things) oject cloning for thread safety (i.e., a CLONE
 subroutine), and oject destruction (i.e., a DESTROY subroutine).
 
 Further, the objects created are not the usual blessed hash reference: In the
-case of this package, they are blessed scalar references.  Therefore, your
-subclass cannot store attributes I<inside> the object returned by this
-package.  In addition, you cannot modify the value stored in the object's
-referenced scalar, and you should not try to make use of it in your code as
-the parent class can and does change its value.
+case of this package, they are blessed scalar references that contain a unique
+ID for the object.  This ID is used to track object attributes both in this
+class and in subclasses.
 
 The subclass L<Math::Random::MT::Auto::Range> included with this module's
 distribution is provided as an example of how to implement subclasses of this

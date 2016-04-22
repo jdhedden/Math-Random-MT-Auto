@@ -1,5 +1,9 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.08.00 Fri Sep 09 10:06:40 2005
+	- Changed subclass object ID usage
+	- Bug fix in seed acquisition routine
+
 4.07.00 Thu Sep 08 12:44:10 2005
 	- Output warnings using Carp - removed 'get_warnings'
 	- Warnings and errors documented in POD

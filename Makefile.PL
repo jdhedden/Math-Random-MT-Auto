@@ -73,7 +73,6 @@ vcheck:
 	@echo "Version is ${VERSION}"
 	@if ! head -3 Changes | tail -1 | grep ^${VERSION} >/dev/null; then echo "Version error in Changes"; fi
 	@if ! head -1 README | grep ${VERSION}$ >/dev/null; then echo "Version error in README"; fi
-	@#if ! grep "module_version = '${VERSION}'" Build.PL >/dev/null; then echo "Version error in Build.PL"; fi
 	@if ! grep "VERSION = '${VERSION}'" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto.pm"; fi
 	@if ! grep "version ${VERSION}" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in POD of lib/Math/Random/MT/Auto.pm"; fi
 	@if ! grep "VERSION = '${VERSION}'" lib/Math/Random/MT/Auto/Range.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto/Range.pm"; fi

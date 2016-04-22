@@ -125,19 +125,29 @@
 #endif
 
 /* Variable declarations for PRNG context */
+#define SA_PRNG_VARS                    \
+    SV *my_cxt;                         \
+    struct mt *prng
+
 #define PRNG_VARS                       \
     IV addr;                            \
     struct mt *prng
 
 /* Get PRNG context */
+#define SA_PRNG_PREP                    \
+    my_cxt = *hv_fetch(PL_modglobal, MY_CXT_KEY, sizeof(MY_CXT_KEY)-1, TRUE); \
+    prng = INT2PTR(struct mt *, SvUV(my_cxt))
+
 #define PRNG_PREP                       \
     addr = SvIV(SvRV(ST(0)));           \
     prng = INT2PTR(struct mt *, addr)
 
+
 /* Variable declarations for the dual (OO and functional) interface */
 #define DUAL_VARS                       \
-    dMY_CXT;                            \
-    PRNG_VARS;                          \
+    SV *my_cxt;                         \
+    IV addr;                            \
+    struct mt *prng;                    \
     int idx
 
 /* Sets up PRNG for dual-interface */
@@ -149,7 +159,7 @@
         idx = 1;                        \
     } else {                            \
         /* Standalone PRNG */           \
-        prng = &MY_CXT;                 \
+        SA_PRNG_PREP;                   \
         idx = 0;                        \
     }
 
@@ -285,7 +295,7 @@ _ln_gamma(NV x)
 }
 
 
-#define MY_CXT_KEY "Math::Random::MT::Auto::_guts" XS_VERSION
+#define MY_CXT_KEY "Math::Random::MT::Auto::_sa" XS_VERSION
 
 START_MY_CXT
 
@@ -707,10 +717,11 @@ Returns a pointer to the standalone PRNG context.
 SV *
 get_sa_prng(...)
     PREINIT:
-        dMY_CXT;
+        SA_PRNG_VARS;
     CODE:
-        _init_prng(&MY_CXT);
-        RETVAL = newSViv(PTR2IV(&MY_CXT));
+        SA_PRNG_PREP;
+        _init_prng(prng);
+        RETVAL = newSVsv(my_cxt);
     OUTPUT:
         RETVAL
 
@@ -728,7 +739,7 @@ new_prng(...)
     CODE:
         New(0, prng, 1, struct mt);
         _init_prng(prng);
-        RETVAL = newSViv(PTR2IV(prng));
+        RETVAL = newSVuv(PTR2UV(prng));
     OUTPUT:
         RETVAL
 

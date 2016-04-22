@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 4.02.00
+Math-Random-MT-Auto version 4.03.00
 ===================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
@@ -47,7 +47,7 @@ To install this module type the following:
    make install
 
 Optionally, if you have Module::Build (along with ExtUtils::ParseXS and
-ExtUtils::CBuilder) installed, you can install using:
+ExtUtils::CBuilder) installed, you can install this module using:
 
   perl Build.PL
   perl Build

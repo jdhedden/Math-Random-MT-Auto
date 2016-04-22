@@ -9,7 +9,7 @@ use Carp ();
 
 use base 'DynaLoader';
 
-our $VERSION = '4.02.00';
+our $VERSION = '4.03.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -898,6 +898,8 @@ Returns a random integer.  For 32-bit integer Perl, the range is 0 to
 2^32-1 (0xFFFFFFFF) inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1
 inclusive.
 
+This is the fastest way to obtain random numbers using this module.
+
 =item shuffle
 
   my $shuffled = shuffle($data, ...);
@@ -1213,6 +1215,8 @@ uniformly distributed in [0, $num).  ($num defaults to 1.)
 Operates like the L</"irand"> function described above, returning a random
 integer.  For 32-bit integer Perl, the range is 0 to 2^32-1 (0xFFFFFFFF)
 inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1 inclusive.
+
+This is the fastest OO method for obtaining random numbers with this module.
 
 =item $obj->shuffle
 

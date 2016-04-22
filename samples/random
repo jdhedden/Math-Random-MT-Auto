@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+
+# Compares random number generation timings for Perl's core function,
+# Math::Random::MT::Auto and Math::Random::MT (if available);
+
+# Usage:  random [COUNT]
+
+use strict;
+use warnings;
+
+$| = 1;
+
+use Math::Random::MT::Net;
+use Time::HiRes 'time';
+
+MAIN:
+{
+    my $count = (@ARGV) ? $ARGV[0] : 624000;
+
+    my ($cnt, $start, $end);
+
+    print("Random numbers generation timing\n");
+
+    # Time Perl's srand()
+    print("\n- Core -\n");
+    my $seed = time() + $$;
+    $start = time();
+    CORE::srand($seed);
+    $end = time();
+    printf("srand:\t\t%f secs.\n", $end - $start);
+
+    # Time Perl's rand()
+    $cnt = $count-1;
+    $start = time();
+    do {
+        CORE::rand();
+    } while ($cnt--);
+    $end = time();
+    printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
+
+    # Reseed
+    CORE::srand($seed);
+
+    # Time Perl's rand(arg)
+    $cnt = $count-1;
+    $start = time();
+    do {
+        CORE::rand(5);
+    } while ($cnt--);
+    $end = time();
+    printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+
+    # Time our srand() for /dev/random
+    print("\n- Math::Random::MT::Auto -\n");
+
+    # Time our rand32()
+    $cnt = $count-1;
+    $start = time();
+    do {
+        rand32();
+    } while ($cnt--);
+    $end = time();
+    printf("rand32:\t\t%f secs. (%d)\n", $end - $start, $count);
+
+    # Time our rand()
+    $cnt = $count-1;
+    $start = time();
+    do {
+        rand();
+    } while ($cnt--);
+    $end = time();
+    printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
+
+    # Time our rand(arg)
+    $cnt = $count-1;
+    $start = time();
+    do {
+        rand(5);
+    } while ($cnt--);
+    $end = time();
+    printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+
+    # See if Math::Random::MT is available
+    eval { use Math::Random::MT; };
+    if (! $@) {
+        # Time its new(@seed) method
+        print("\n- Math::Random::MT -\n");
+        $start = time();
+        my $mt = Math::Random::MT->new($$, CORE::time());
+        $end = time();
+        printf("new:\t\t%f secs. (+ seed acquisition time)\n", $end - $start);
+
+        # Time its rand() method
+        $cnt = $count-1;
+        $start = time();
+        do {
+            $mt->rand();
+        } while ($cnt--);
+        $end = time();
+        printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
+
+        # Time its rand(arg) method
+        $cnt = $count-1;
+        $start = time();
+        do {
+            $mt->rand(5);
+        } while ($cnt--);
+        $end = time();
+        printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+    }
+}
+
+exit(0);
+
+# EOF

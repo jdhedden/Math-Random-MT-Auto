@@ -125,6 +125,10 @@
 #   define RAND_NEG1x_1x(x) ((((NV)((IV)(x))) * TWOeMINUS31) + TWOeMINUS32)
 #endif
 
+
+/* Standalone PRNG */
+#define SA_PRNG    "MRMA::PRNG"
+
 /* Definitions for getting PRNG context */
 #define PRNG_VARS   SV *addr
 
@@ -140,33 +144,18 @@
 /* Sets up PRNG for dual-interface */
 /* A ref check for an object call is good enough,
  * and much faster than object or 'isa' checking. */
-#ifdef PERL_IMPLICIT_CONTEXT
 #define DUAL_PRNG                       \
     if (items && SvROK(ST(0))) {        \
         /* OO interface */              \
         PRNG_PREP;                      \
-        items--;                        \
-        idx = 1;                        \
-    } else {                            \
-        /* Standalone PRNG - guts of dMY_CXT macro */                        \
-        addr = *hv_fetch(PL_modglobal, MY_CXT_KEY, sizeof(MY_CXT_KEY)-1, 0); \
-        idx = 0;                        \
-    }                                   \
-    prng = GET_PRNG;
-#else
-#define DUAL_PRNG                       \
-    if (items && SvROK(ST(0))) {        \
-        /* OO interface */              \
-        PRNG_PREP;                      \
-        prng = GET_PRNG;                \
         items--;                        \
         idx = 1;                        \
     } else {                            \
         /* Standalone PRNG */           \
-        prng = &my_cxt;                 \
+        addr = SvRV(get_sv(SA_PRNG, 0));\
         idx = 0;                        \
-    }
-#endif
+    }                                   \
+    prng = GET_PRNG;
 
 /* Get next random from a PRNG */
 #define IRAND(x,y)                                      \
@@ -200,21 +189,6 @@ struct mt {
         NV pclog;
     } binomial;
 };
-
-typedef struct mt my_cxt_t;
-
-
-/* Initializes a new PRNG context with minimal data to ensure it is 'safe' */
-static void
-_init_prng(struct mt *prng)
-{
-    Zero(prng, 1, struct mt);
-    prng->state[0]        = HI_BIT;
-    prng->left            = 1;
-    prng->poisson.mean    = -1;
-    prng->binomial.trials = -1;
-    prng->binomial.prob   = -1.0;
-}
 
 
 /* The state mixing algorithm for the Mersenne Twister */
@@ -300,10 +274,6 @@ _ln_gamma(NV x)
 }
 
 
-#define MY_CXT_KEY "MRMA::PRNG"
-
-START_MY_CXT
-
 MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto
 PROTOTYPES: DISABLE
 
@@ -367,7 +337,6 @@ shuffle(...)
         SV *elem;
     CODE:
         /* Same as DUAL_PRNG except needs more stringent object check */
-#ifdef PERL_IMPLICIT_CONTEXT
         if (items && sv_isobject(ST(0))) {
             /* OO interface */
             PRNG_PREP;
@@ -375,23 +344,10 @@ shuffle(...)
             idx = 1;
         } else {
             /* Standalone PRNG */
-            addr = *hv_fetch(PL_modglobal, MY_CXT_KEY, sizeof(MY_CXT_KEY)-1, 0);
+            addr = SvRV(get_sv(SA_PRNG, 0));
             idx = 0;
         }
         prng = GET_PRNG;
-#else
-        if (items && sv_isobject(ST(0))) {
-            /* OO interface */
-            PRNG_PREP;
-            prng = GET_PRNG;
-            items--;
-            idx = 1;
-        } else {
-            /* Standalone PRNG */
-            prng = &my_cxt;
-            idx = 0;
-        }
-#endif
 
         /* Handle arguments */
         if (items == 1 && SvROK(ST(idx)) && SvTYPE(SvRV(ST(idx)))==SVt_PVAV) {
@@ -714,33 +670,6 @@ binomial(...)
 MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto::_
 
 
-# sa_prng
-#
-# Returns a pointer to the standalone PRNG context.
-#
-# It implements the functionality of the MY_CXT_START macro.
-
-SV *
-sa_prng(...)
-    PREINIT:
-#ifdef PERL_IMPLICIT_CONTEXT
-        SV *my_cxt;
-#endif
-        struct mt *prng;
-    CODE:
-#ifdef PERL_IMPLICIT_CONTEXT
-        my_cxt = *hv_fetch(PL_modglobal, MY_CXT_KEY, sizeof(MY_CXT_KEY)-1, TRUE);
-        prng = (struct mt *)SvPVX(newSV(sizeof(struct mt)-1));
-        sv_setuv(my_cxt, PTR2UV(prng));
-#else
-        prng = &my_cxt;
-#endif
-        _init_prng(prng);
-        RETVAL = newSVuv(PTR2UV(prng));
-    OUTPUT:
-        RETVAL
-
-
 # new_prng
 #
 # Creates a new PRNG context for the OO Interface, and returns a pointer to it.
@@ -750,8 +679,13 @@ new_prng(...)
     PREINIT:
         struct mt *prng;
     CODE:
-        New(0, prng, 1, struct mt);
-        _init_prng(prng);
+        Newxz(prng, 1, struct mt);
+        /* Initializes with minimal data to ensure it's 'safe' */
+        prng->state[0]        = HI_BIT;
+        prng->left            = 1;
+        prng->poisson.mean    = -1;
+        prng->binomial.trials = -1;
+        prng->binomial.prob   = -1.0;
         RETVAL = newSVuv(PTR2UV(prng));
     OUTPUT:
         RETVAL

@@ -62,7 +62,6 @@ WriteMakefile(
                          'XSLoader'          => 0,
                          'Test::More'        => 0,
                          'Scalar::Util'      => 1.18,
-                         'Config'            => 0,
                          'Data::Dumper'      => 0 },
     'OBJECT'        => 'MRMA.o',
     (($ExtUtils::MakeMaker::VERSION lt '6.25') ?

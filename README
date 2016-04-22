@@ -1,11 +1,11 @@
-Math-Random-MT-Auto version 5.06
+Math-Random-MT-Auto version 6.01
 ================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
 on the Mersenne Twister algorithm.  There is a functional interface to a
-single, standalone PRNG, and an OO interface (based on the inside-out object
-model as implemented by the Object::InsideOut module) for generating multiple
-PRNG objects.
+standalone PRNG, and an OO interface (based on the inside-out object model as
+implemented by the Object::InsideOut module) for generating multiple PRNG
+objects.
 
 The PRNGs are self-seeding, automatically acquiring a (19968-bit) random
 seed from user-selectable sources.  Seed sources include local random
@@ -59,6 +59,7 @@ This module uses the following 'standard' modules:
   ExtUtils::MakeMaker          - For installation
   File::Spec                   - For installation
   Test::More                   - For installation
+  Data::Dumper                 - For installation
 
 This module uses the following modules available through CPAN:
 

@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '5.06';
+our $VERSION = '6.01';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -36,20 +36,17 @@ use Exception::Class (
 #
 # These hashes are declared using the 'Field' attribute.
 
-my %sources_for :Field :Deep;   # Sources from which to obtain random seed data
-my %seed_for    :Field :Deep;   # Last seed sent to the PRNG
+my %sources_for :Field;   # Sources from which to obtain random seed data
+my %seed_for    :Field;   # Last seed sent to the PRNG
 
 
-### Standalone PRNG pseudo-object
-#
-# The standalone PRNG is treated, in some respects, like a PRNG object.  For
-# example, its attributes are stored in the object attribute hashes, but it is
-# not added to the cloning registry.  This approach allows certain subroutines
-# to operate both as object methods and as the functional interface to the
-# standalone PRNG.
-#   The standalone PRNG pseudo-object is set up with a ref to a pointer to the
-# PRNG's internal memory.
-my $SA = Object::InsideOut::Util::create_object(undef, \&Math::Random::MT::Auto::_::sa_prng);
+# Seed source subroutine dispatch table
+my %DISPATCH = (
+    'device'     => \&_acq_device,
+    'random_org' => \&_acq_www,
+    'hotbits'    => \&_acq_www,
+    'rn_info'    => \&_acq_www,
+);
 
 
 ### Module Initialization ###
@@ -92,25 +89,23 @@ sub import
         }
     }
 
-    # Use user-specified seed sources for standalone PRNG
-    if (@sources) {
-        $sources_for{$$SA} = shared_copy(\@sources);
-    } else {
-        _default_sources();
+    # Setup default sources, if needed
+    if (! @sources) {
+        if (exists($DISPATCH{'win32'})) {
+            push(@sources, 'win32');
+        } elsif (-e '/dev/urandom') {
+            push(@sources, '/dev/urandom');
+        } elsif (-e '/dev/random') {
+            push(@sources, '/dev/random');
+        }
+        push(@sources, 'random_org');
     }
 
-    # Auto-seed the standalone PRNG
-    $seed_for{$$SA} = shared_copy([]);
-    if ($auto_seed) {
-        # Automatically acquire seed from sources for standalone PRNG
-        _acquire_seed($SA);
-
-    } else {
-        # Minimal seed when ':!auto' specified
-        push(@{$seed_for{$$SA}}, $$, time(), $$SA);
-    }
-    # Apply seed
-    _seed_prng($SA);
+    # Create standalone PRNG
+    $MRMA::PRNG = Math::Random::MT::Auto->new(
+                'SOURCE' => \@sources,
+                ($auto_seed) ? () : ( 'SEED' => [ $$, time(), Scalar::Util::refaddr(\$VERSION) ] )
+            );
 }
 
 
@@ -124,16 +119,12 @@ sub import
 sub srand
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $SA;
+    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $MRMA::PRNG;
 
     if (@_) {
         # If sent seed by mistake, then send it to set_seed()
         if (Scalar::Util::looks_like_number($_[0]) || ref($_[0]) eq 'ARRAY') {
-            if (Scalar::Util::blessed($obj)) {
-                $obj->set_seed(@_);
-            } else {
-                set_seed(@_);
-            }
+            $obj->set_seed(@_);
             return;
         }
 
@@ -153,7 +144,7 @@ sub srand
 sub get_seed
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $SA;
+    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $MRMA::PRNG;
 
     if (wantarray()) {
         return (@{$seed_for{$$obj}});
@@ -166,7 +157,7 @@ sub get_seed
 sub set_seed
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $SA;
+    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $MRMA::PRNG;
 
     # Check argument
     if (! @_) {
@@ -189,7 +180,7 @@ sub set_seed
 sub get_state
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $SA;
+    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $MRMA::PRNG;
 
     if (wantarray()) {
         return (@{Math::Random::MT::Auto::_::get_state($obj)});
@@ -202,7 +193,7 @@ sub get_state
 sub set_state
 {
     # Generalize for both OO and standalone PRNGs
-    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $SA;
+    my $obj = (Scalar::Util::blessed($_[0])) ? shift : $MRMA::PRNG;
 
     # Input can be array ref or array
     if (ref($_[0]) eq 'ARRAY') {
@@ -261,7 +252,8 @@ sub _init :Init
 
     # If no sources specified, then use default sources from standalone PRNG
     if (! exists($sources_for{$$self})) {
-        $self->set(\%sources_for, _default_sources());
+        my @srcs = @{$sources_for{$$MRMA::PRNG}};
+        $self->set(\%sources_for, \@srcs);
     }
 
     # If state is specified, then use it
@@ -354,14 +346,6 @@ my $UNPACK_CODE = ($INT_SIZE == 8) ? 'Q' : 'L';
 # Number of ints for a full 19968-bit seed
 my $FULL_SEED   = 2496 / $INT_SIZE;
 
-
-# Seed source subroutine dispatch table
-my %DISPATCH = (
-    'device'     => \&_acq_device,
-    'random_org' => \&_acq_www,
-    'hotbits'    => \&_acq_www,
-    'rn_info'    => \&_acq_www,
-);
 
 # If Windows XP and Win32::API, then make 'win32' a valid source
 if ($^O eq 'MSWin32') {
@@ -650,27 +634,6 @@ sub _acq_win32 :PRIVATE
 }
 
 
-# Returns default set of seed sources which have been set for the standalone
-# PRNG
-sub _default_sources :PRIVATE
-{
-    # Set up sources for standalone PRNG
-    if (! exists($sources_for{$$SA})) {
-        $sources_for{$$SA} = shared_copy([]);
-        if (exists($DISPATCH{'win32'})) {
-            push(@{$sources_for{$$SA}}, 'win32');
-        } elsif (-e '/dev/urandom') {
-            push(@{$sources_for{$$SA}}, '/dev/urandom');
-        } elsif (-e '/dev/random') {
-            push(@{$sources_for{$$SA}}, '/dev/random');
-        }
-        push(@{$sources_for{$$SA}}, 'random_org');
-    }
-
-    return ($sources_for{$$SA});
-}
-
-
 # Seeds a PRNG
 sub _seed_prng :PRIVATE
 {
@@ -702,7 +665,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 5.06
+This documentation refers to Math::Random::MT::Auto version 6.01
 
 =head1 SYNOPSIS
 
@@ -735,12 +698,12 @@ capable of providing large volumes (> 10^6004) of "high quality" pseudorandom
 data to applications that may exhaust available "truly" random data sources or
 system-provided PRNGs such as L<rand|perlfunc/"rand">.
 
-This module provides PRNGs that are based on the Mersenne Twister.  There is a
-functional interface to a single standalone PRNG, and an OO interface (based
-on the inside-out object model as implemented by the L<Object::InsideOut>
-module) for generating multiple PRNG objects.  The PRNGs are normally
-self-seeding, automatically acquiring a (19968-bit) random seed from
-user-selectable sources.  (I<Manual> seeding is optionally available.)
+This module provides PRNGs that are based on the Mersenne Twister.  There
+is a functional interface to a single, standalone PRNG, and an OO interface
+(based on the inside-out object model as implemented by the
+L<Object::InsideOut> module) for generating multiple PRNG objects.  The PRNGs
+are normally self-seeding, automatically acquiring a (19968-bit) random seed
+from user-selectable sources.  (I<Manual> seeding is optionally available.)
 
 =over
 
@@ -942,7 +905,7 @@ added, and the number of integers (64- or 32-bit as the case may be) needed.
      }
  }
 
- my $prng = Math::Random::MT::Auto->new(\&MySeeder);
+ my $prng = Math::Random::MT::Auto->new('SOURCE' => \&MySeeder);
 
 =back
 
@@ -995,6 +958,16 @@ to complete the module's initialization:
      # Add options to the import call, as desired.
      import Math::Random::MT::Auto qw(rand random_org);
  };
+
+=head1 STANDALONE PRNG OBJECT
+
+=over
+
+=item my $obj = $MRMA::PRNG;
+
+C<$MRMA::PRNG> is the object that represents the standalone PRNG.
+
+=back
 
 =head1 OBJECT CREATION
 
@@ -1406,11 +1379,11 @@ See L<Object::InsideOut/"Object Coercion"> for more details.
 =head2 Thread Support
 
 Math::Random::MT::Auto provides thread support to the extent documented in
-L<Object::InsideOut/"THREAD SUPPORT"> with the exception of the standalone
-PRNG.
+L<Object::InsideOut/"THREAD SUPPORT">.
 
-In a threaded application (i.e., C<use threads;>), PRNG objects from one
-thread will be copied and made available in a child thread.
+In a threaded application (i.e., C<use threads;>), the standalone PRNG and
+all the PRNG objects from one thread will be copied and made available in a
+child thread.
 
 To enable the sharing of PRNG objects between threads, do the following in
 your application:
@@ -1428,38 +1401,22 @@ use L</"User-defined Seeding Source"> subroutines in conjuction with
 L</"srand"> when C<use threads::shared;> is in effect.
 
 Depending on your needs, when using threads, but not enabling thread-sharing
-of PRNG objects as per the above, you may want to perform an C<-E<gt>srand()>
-call on your PRNG objects inside the threaded code so that the pseudo-random
-number sequences generated by those objects in each thread differ:
+of PRNG objects as per the above, you may want to perform an C<srand>
+call on the standalone PRNG and/or your PRNG objects inside the threaded code
+so that the pseudo-random number sequences generated in each thread differs.
 
  use threads;
- use Math::Random:MT::Auto ':!auto';
+ use Math::Random:MT::Auto qw(irand srand);
 
  my $prng = Math::Random:MT::Auto->new();
 
  sub thr_code
  {
+     srand();
      $prng->srand();
 
      ....
  }
-
-There is only one standalone PRNG, even in threaded applications.  When C<use
-threads::shared;> is in effect, the standalone PRNG is fully shared between
-threads, and all operations on it are fully supported.
-
-When only C<use threads;> is in effect, the number generating portion of the
-standalone PRNG is shared between threads such that unique pseudo-random
-numbers are generated in each thread, and all pseudo-random number generating
-calls (e.g., C<irand()>) as safe to use.  Calls that modify the state of the
-standalone PRNG (e.g., C<srand()>) are safe to make, and will affect the
-standalone PRNG as expected.  However, such state-modifying calls made in one
-thread will affect subsequent calls that query or make use of the current
-state of the standalone PRNG in other threads in an inconsistent manner.  For
-example, C<get_seed()> called in one thread will still return the old seed
-after C<srand()> is called in some other thread.  The bottom line is that if
-you don't make use of C<get_seed()> or C<set_seed()>, and you only call
-C<srand()> is with no arguments, then this caveat should be of no concern.
 
 =head1 EXAMPLES
 
@@ -1467,9 +1424,13 @@ C<srand()> is with no arguments, then this caveat should be of no concern.
 
 =item Cloning the standalone PRNG to an object
 
- use Math::Random::MT::Auto qw(rand irand get_state);
+ use Math::Random::MT::Auto qw(get_state);
 
  my $prng = Math::Random::MT::Auto->new('STATE' => scalar(get_state()));
+
+or using the standalone PRNG object directly:
+
+ my $prng = $Math::Random::MT::Auto::SA_PRNG->clone();
 
 The standalone PRNG and the PRNG object will now return the same sequence
 of pseudorandom numbers.
@@ -1723,7 +1684,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-5.06/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.01/lib/Math/Random/MT/Auto.pm>
 
 Source repository:
 L<http://code.google.com/p/mrma/>

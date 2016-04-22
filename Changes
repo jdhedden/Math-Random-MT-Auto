@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.01 Tue May 15 12:29:08 2007
+	- Standalone PRNG is now an (internal) object
+
 5.06 Mon May 14 19:19:16 2007
 	- Use 'deep' cloning on objects
 

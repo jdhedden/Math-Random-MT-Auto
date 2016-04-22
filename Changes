@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.03 Fri Jun  8 18:37:01 2007
+	- Documented that module's import() function must get called
+
 6.02 Tue May 15 16:32:10 2007
 	- More checks on /dev/random in test suite
 

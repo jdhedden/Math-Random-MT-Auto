@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.02';
+our $VERSION = '6.03';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -665,7 +665,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.02
+This documentation refers to Math::Random::MT::Auto version 6.03
 
 =head1 SYNOPSIS
 
@@ -787,6 +787,14 @@ B<CAUTION>: If you want to L<require|perlfunc/"require"> this module, see the
 L</"Delayed Importation"> section for important information.
 
 =head1 MODULE DECLARATION
+
+The module must always be declared such that its C<import()> function gets
+called:
+
+ use Math::Random::MT::Auto;            # Correct
+
+ #use Math::Random::MT::Auto ();        # Does not work because
+                                        #   import() does not get called
 
 =head2 Subroutine Declarations
 
@@ -950,13 +958,13 @@ the random number deviates.
 =head2 Delayed Importation
 
 If you want to delay the importation of this module using
-L<require|perlfunc/"require">, then you need to execute its C<import> function
+L<require|perlfunc/"require">, then you must execute its C<import> function
 to complete the module's initialization:
 
  eval {
      require Math::Random::MT::Auto;
-     # Add options to the import call, as desired.
-     import Math::Random::MT::Auto qw(rand random_org);
+     # You may add options to the import call, if desired.
+     import Math::Random::MT::Auto;
  };
 
 =head1 STANDALONE PRNG OBJECT
@@ -1684,7 +1692,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.02/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.03/lib/Math/Random/MT/Auto.pm>
 
 Source repository:
 L<http://code.google.com/p/mrma/>

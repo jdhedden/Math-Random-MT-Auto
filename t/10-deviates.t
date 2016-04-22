@@ -3,19 +3,18 @@
 use strict;
 use warnings;
 
-use Scalar::Util 1.10 'looks_like_number';
-
-use Test::More 'tests' => 933;
+use Test::More 'no_plan';
 
 my @WARN;
 BEGIN {
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
 
-    use_ok('Math::Random::MT::Auto', qw/exponential erlang poisson
-                                        binomial shuffle/);
+    use_ok('Math::Random::MT::Auto', qw(exponential erlang poisson
+                                        binomial shuffle));
 }
-can_ok('Math::Random::MT::Auto', qw/exponential erlang poisson binomial shuffle/);
+can_ok('Math::Random::MT::Auto', qw(exponential erlang poisson
+                                    binomial shuffle));
 
 # Check for warnings
 if (! ok(! @WARN, 'Acquired seed data')) {
@@ -31,7 +30,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = exponential(); };
     ok(! $@,                        'exponential() died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
     for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
@@ -44,7 +43,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = erlang(3); };
     ok(! $@,                        'erlang(3) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
     for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
@@ -57,7 +56,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = erlang(10); };
     ok(! $@,                        'erlang(10) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
     for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
@@ -70,7 +69,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = poisson(3); };
     ok(! $@,                        'poisson(3) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -81,7 +80,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = poisson(30); };
     ok(! $@,                        'poisson(30) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -92,7 +91,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = binomial(0.5, 15); };
     ok(! $@,                        'binomial(0.5, 15) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -103,7 +102,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = binomial(0.01, 30); };
     ok(! $@,                        'binomial(0.01, 30) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -114,7 +113,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = binomial(0.8, 50); };
     ok(! $@,                        'binomial(0.8, 50) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -147,13 +146,13 @@ for my $x (@$shuf) {
                 $found = 1;
                 last;
             }
-        } elsif (looks_like_number($x)) {
-            if (looks_like_number($y) && ($x == $y)) {
+        } elsif (Scalar::Util::looks_like_number($x)) {
+            if (Scalar::Util::looks_like_number($y) && ($x == $y)) {
                 pass("shuffle - $x okay");
                 $found = 1;
                 last;
             }
-        } elsif (! ref($y) && ! looks_like_number($y) && ($x eq $y)) {
+        } elsif (! ref($y) && ! Scalar::Util::looks_like_number($y) && ($x eq $y)) {
             pass("shuffle - $x okay");
             $found = 1;
             last;
@@ -172,8 +171,8 @@ if (! ok(! $@, '->new works')) {
     diag('->new died: ' . $@);
 }
 isa_ok($prng, 'Math::Random::MT::Auto');
-can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
-                 shuffle get_seed set_seed get_state set_state/);
+can_ok($prng, qw(rand irand gaussian exponential erlang poisson binomial
+                 shuffle get_seed set_seed get_state set_state));
 
 # Check for warnings
 if (! ok(! @WARN, 'Acquired seed data')) {
@@ -187,7 +186,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->exponential(2); };
     ok(! $@,                        '$prng->exponential() died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
     for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
@@ -200,7 +199,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->erlang(3); };
     ok(! $@,                        '$prng->erlang(3) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
     for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
@@ -213,7 +212,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->erlang(10); };
     ok(! $@,                        '$prng->erlang(10) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
     for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
@@ -226,7 +225,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->poisson(3); };
     ok(! $@,                        '$prng->poisson(3) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -237,7 +236,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->poisson(30); };
     ok(! $@,                        '$prng->poisson(30) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -248,7 +247,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->binomial(0.5, 15); };
     ok(! $@,                        '$prng->binomial(0.5, 15) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -259,7 +258,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->binomial(0.01, 30); };
     ok(! $@,                        '$prng->binomial(0.01, 30) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -270,7 +269,7 @@ for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->binomial(0.8, 50); };
     ok(! $@,                        '$prng->binomial(0.8, 50) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(Scalar::Util::looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok(int($rn[$ii]) == $rn[$ii] &&
        $rn[$ii] >= 0,               'Non-neg integer: ' . $rn[$ii]);
 }
@@ -299,13 +298,13 @@ for my $x (@$shuf) {
                 $found = 1;
                 last;
             }
-        } elsif (looks_like_number($x)) {
-            if (looks_like_number($y) && ($x == $y)) {
+        } elsif (Scalar::Util::looks_like_number($x)) {
+            if (Scalar::Util::looks_like_number($y) && ($x == $y)) {
                 pass("\$prng->shuffle - $x okay");
                 $found = 1;
                 last;
             }
-        } elsif (! ref($y) && ! looks_like_number($y) && ($x eq $y)) {
+        } elsif (! ref($y) && ! Scalar::Util::looks_like_number($y) && ($x eq $y)) {
             pass("\$prng->shuffle - $x okay");
             $found = 1;
             last;

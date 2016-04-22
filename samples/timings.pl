@@ -399,8 +399,8 @@ sub check_sources
     print('Checking seed sources...');
 
     # Check availability of win32 source
-    srand('win32');
-    if (@WARN) {
+    eval { srand('win32'); };
+    if ($@ || @WARN) {
         $SRCS{'win32'} = 0;
         undef(@WARN);
     } else {

@@ -4,10 +4,9 @@ Changes
 Makefile.PL
 lib/Math/Random/MT/Auto.pm
 lib/Math/Random/MT/Auto/Range.pm
-lib/Math/Random/MT/Auto/Util.pm
 MRMA.xs
 ppport.h
-t/00-util.t
+t/00-load.t
 t/01-mersenne.t
 t/02-gaussian.t
 t/03-threads.t
@@ -20,6 +19,9 @@ t/09-state.t
 t/10-deviates.t
 t/11-range.t
 t/12-rn_info.t
+t/13-overload.t
+t/14-serialize.t
+t/15-shared.t
 samples/timings.pl
 samples/bell.pl
 samples/decay.pl

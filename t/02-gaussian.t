@@ -3,8 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
-use Scalar::Util 1.10 'looks_like_number';
+use Test::More 'no_plan';
 
 my $CNT = 500000;
 
@@ -34,7 +33,7 @@ sub cdf
         $sum += $term;
         $k++;
         $factK *= $k;
-    } while(abs($term) > 1e-50);
+    } while (abs($term) > 1e-50);
 
     $sum *= .398942280401432678;
     $sum += 0.5;

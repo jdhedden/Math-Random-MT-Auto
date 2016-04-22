@@ -1,10 +1,11 @@
-Math-Random-MT-Auto version 4.13.00
-===================================
+Math-Random-MT-Auto version 5.01
+================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
 on the Mersenne Twister algorithm.  There is a functional interface to a
 single, standalone PRNG, and an OO interface (based on the inside-out object
-model) for generating multiple PRNG objects.
+model as implemented by the Object::InsideOut module) for generating multiple
+PRNG objects.
 
 The PRNGs are self-seeding, automatically acquiring a (19968-bit) random
 seed from user-selectable sources.  Seed sources include local random
@@ -24,8 +25,7 @@ in 'Numerical Recipes in C':
 This module also provides a function/method for shuffling data based on the
 Fisher-Yates shuffling algorithm.
 
-This module is thread-safe with respect to its OO interface for Perl v5.7.2
-and beyond.  (The standalone PRNG is not thread-safe.)
+This module is thread-safe and supports object sharing between threads.
 
 For Perl compiled to support 64-bit integers, this module will use a 64-bit
 version of the Mersenne Twister algorithm, thus providing 64-bit random
@@ -52,13 +52,18 @@ Requires Perl 5.6.0 or later.
 
 This module uses the following 'standard' modules:
 
-  attributes
   Carp
-  Scalar::Util (1.10 or higher) - Standard in 5.8 or obtain from CPAN
-  DynaLoader
-  ExtUtils::MakeMaker   - For installation
-  File::Spec            - For installation
-  Test::More            - For installation
+  Fcntl
+  XSLoader
+  Scalar::Util (1.18 or later)
+  ExtUtils::MakeMaker          - For installation
+  File::Spec                   - For installation
+  Test::More                   - For installation
+
+This module uses the following modules available through CPAN:
+
+  Object::InsideOut (1.26 or later)
+  Exception::Class (1.22 or later)
 
 To utilize the option of acquiring seed data from Internet sources,
 the following module is needed:
@@ -79,7 +84,7 @@ and including Shawn Cokus's optimizations.
 Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
 All rights reserved.
 Copyright (C) 2005, Mutsuo Saito, All rights reserved.
-Copyright 2005 Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>
+Copyright 2005 Jerry D. Hedden <jdhedden AT cpan DOT org>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions

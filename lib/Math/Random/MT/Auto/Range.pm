@@ -1,16 +1,14 @@
+package Math::Random::MT::Auto::Range; {
+
 use strict;
 use warnings;
 
-package Math::Random::MT::Auto::Range; {
+our $VERSION = 5.01;
 
-our $VERSION = '4.13.00';
-
-use Carp ();
-use Scalar::Util 1.10 qw(looks_like_number);
-use Math::Random::MT::Auto::Util;
+use Scalar::Util 1.18;
 
 # Declare ourself as a subclass
-use base 'Math::Random::MT::Auto';
+use Object::InsideOut 'Math::Random::MT::Auto' => [ ':!auto' ];
 
 
 ### Inside-out Object Attributes ###
@@ -18,8 +16,7 @@ use base 'Math::Random::MT::Auto';
 # Object data is stored in these attribute hashes, and is keyed to the object
 # by a unique ID that is stored in the object's scalar reference.
 #
-# These hashes are declared (to the base class) using the attribute called
-# 'Field'.
+# These hashes are declared using the 'Field' attribute.
 
 # Range information for our objects
 my %type_of   : Field;  # Type of return value:  INTEGER or DOUBLE
@@ -29,56 +26,46 @@ my %range_for : Field;  # 'Difference' between LOW and HIGH
                         #   (used for performance considerations)
 
 
-### Object Methods ###
+### Inside-out Object Internal Subroutines ###
 
-# Object Constructor - creates a new PRNG object
-sub new
+my %init_args : InitArgs = (
+    'LOW' => {
+        'REGEX'     => qr/^lo(?:w)?$/i,
+        'MANDATORY' => 1,
+        'TYPE'      => 'NUMBER',
+    },
+    'HIGH' => {
+        'REGEX'     => qr/^hi(?:gh)?$/i,
+        'MANDATORY' => 1,
+        'TYPE'      => 'NUMBER',
+    },
+    'TYPE' => qr/^type$/i,   # Range type
+);
+
+# Object initializer
+sub _init : Init
 {
-    my $thing = shift;
-    my $class = ref($thing) || $thing;
+    my $self = $_[0];
+    my $args = $_[1];   # Hash ref containing arguments from object
+                        # constructor as specified by %init_args above
 
-    ### Extract arguments needed by this class
-
-    my %args = extract_args( {
-                                'LOW'  => '/^lo(?:w)?$/i',
-                                'HIGH' => '/^hi(?:gh)?$/i',
-                                'TYPE' => '/^type$/i'
-                             },
-                             @_ );
-
-    ### Validate arguments and/or add defaults
-
-    # 'LOW' and 'HIGH' are required
-    if (! exists($args{'LOW'})) {
-        Carp::croak('Missing parameter: LOW');
-    }
-    if (! exists($args{'HIGH'})) {
-        Carp::croak('Missing parameter: HIGH');
-    }
-
-    # Default 'TYPE' to 'INTEGER' if 'LOW' and 'HIGH' are both integers
-    if (! exists($args{'TYPE'})) {
-        my $lo = $args{'LOW'};
-        my $hi = $args{'HIGH'};
-        $args{'TYPE'} = (($lo == int($lo)) && ($hi == int($hi)))
+    # Default 'TYPE' to 'INTEGER' if 'LOW' and 'HIGH' are both integers.
+    # Otherwise, default to 'DOUBLE'.
+    if (! exists($$args{'TYPE'})) {
+        my $lo = $$args{'LOW'};
+        my $hi = $$args{'HIGH'};
+        $$args{'TYPE'} = (($lo == int($lo)) && ($hi == int($hi)))
                          ? 'INTEGER'
                          : 'DOUBLE';
     }
 
-    ### Create object
+    # Initialize object
+    $self->set_range_type($$args{'TYPE'});
+    $self->set_range($$args{'LOW'}, $$args{'HIGH'});
+};
 
-    # Obtain new object from parent class
-    my $self = $class->SUPER::new(@_);
 
-    ### Initialize object
-
-    $self->set_range_type($args{'TYPE'});
-    $self->set_range($args{'LOW'}, $args{'HIGH'});
-
-    ### Done - return object
-    return ($self);
-}
-
+### Object Methods ###
 
 # Sets numeric type random values
 sub set_range_type
@@ -88,7 +75,10 @@ sub set_range_type
     # Check argument
     my $type = $_[0];
     if (! defined($type) || $type !~ /^[ID]/i) {
-        Carp::croak('Arg to ->set_range_type() must be \'INTEGER\' or \'DOUBLE\'');
+        MRMA::Args->die(
+            'caller_level' => (caller() eq __PACKAGE__) ? 2 : 0,
+            'message'      => "Bad range type: $type",
+            'Usage'        => q/Range type must be 'INTEGER' or 'DOUBLE'/);
     }
 
     $type_of{$$self} = ($type =~ /^I/i) ? 'INTEGER' : 'DOUBLE';
@@ -110,8 +100,12 @@ sub set_range
 
     # Check for arguments
     my ($lo, $hi) = @_;
-    if (! looks_like_number($lo) || ! looks_like_number($hi)) {
-        Carp::croak('->range() requires two numeric args');
+    if (! Scalar::Util::looks_like_number($lo) ||
+        ! Scalar::Util::looks_like_number($hi))
+    {
+        MRMA::Args->die(
+            'message'      => q/Bad range arguments/,
+            'Usage'        => q/Range must be specified using 2 numeric arguments/);
     }
 
     # Ensure arguments are of the proper type
@@ -124,7 +118,10 @@ sub set_range
     }
     # Make sure 'LOW' and 'HIGH' are not the same
     if ($lo == $hi) {
-        Carp::croak('Invalid arguments: LOW and HIGH are equal');
+        MRMA::Args->die(
+            'caller_level' => (caller() eq __PACKAGE__) ? 2 : 0,
+            'message'      => q/Invalid arguments: LOW and HIGH are equal/,
+            'Usage'        => q/The range must be a non-zero interval/);
     }
     # Ensure LOW < HIGH
     if ($lo > $hi) {
@@ -165,7 +162,63 @@ sub rrand
     }
 }
 
-} # End of package lexical scope
+
+### Overloading ###
+
+sub as_string : STRINGIFY NUMERIFY
+{
+    return ($_[0]->rrand());
+}
+
+sub bool : BOOLIFY
+{
+    return ($_[0]->rrand() & 1);
+}
+
+sub array : ARRAYIFY
+{
+    my $self  = $_[0];
+    my $count = $_[1] || 1;
+
+    my @ary;
+    do {
+        push(@ary, $self->rrand());
+    } while (--$count > 0);
+
+    return (\@ary);
+}
+
+sub _code : CODIFY
+{
+    my $self = $_[0];
+    return (sub { $self->rrand(); });
+}
+
+
+### Serialization ###
+
+# Support for ->dump() method
+sub _dump : DUMPER
+{
+    my $obj = shift;
+
+    return ({
+                'HIGH'  => $high_for{$$obj},
+                'LOW'   => $low_for{$$obj},
+                'TYPE'  => $type_of{$$obj}
+            });
+}
+
+# Support for Object::InsideOut::pump()
+sub _pump : PUMPER
+{
+    my ($obj, $data) = @_;
+
+    $obj->set_range_type($$data{'TYPE'});
+    $obj->set_range($$data{'LOW'}, $$data{'HIGH'});
+}
+
+}  # End of package's lexical scope
 
 1;
 
@@ -196,8 +249,8 @@ This module creates range-valued pseudorandom number generators (PRNGs) that
 return random values between two specified limits.
 
 While useful in itself, the primary purpose of this module is to provide an
-example of how to create subclasses of Math::Random::MT::Auto within the
-inside-out object model.
+example of how to create subclasses of Math::Random::MT::Auto within
+L<Object::InsideOut>'s inside-out object model.
 
 =head1 MODULE DECLARATION
 
@@ -309,6 +362,17 @@ Returns a list of the PRNG's range limits.
 
 =back
 
+=head1 INSIDE-OUT OBJECTS
+
+Capabilities provided by L<Object::InsideOut> are supported by this modules.
+See L<Math::Random::MT::Auto/"INSIDE-OUT OBJECTS"> for more information.
+
+=head2 Coercion
+
+Object coercion is supported in the same manner as documented in
+See L<Math::Random::MT::Auto/"Coercion"> except that the underlying random
+number method is C<-E<gt>rrand()>.
+
 =head1 DIAGNOSTICS
 
 =over
@@ -341,11 +405,11 @@ order (i.e., it makes sure that C<LOW < HIGH>).
 
 L<Math::Random::MT::Auto>
 
-L<Math::Random::MT::Auto::Util>
+L<Object::InsideOut>
 
 =head1 AUTHOR
 
-Jerry D. Hedden, S<E<lt>jdhedden AT 1979 DOT usna DOT comE<gt>>
+Jerry D. Hedden, S<E<lt>jdhedden AT cpan DOT orgE<gt>>
 
 =head1 COPYRIGHT AND LICENSE
 

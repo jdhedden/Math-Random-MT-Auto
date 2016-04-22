@@ -7,7 +7,7 @@
    Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
    All rights reserved.
    Copyright (C) 2005, Mutsuo Saito, All rights reserved.
-   Copyright 2005 Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>
+   Copyright 2005 Jerry D. Hedden <jdhedden AT cpan DOT org>
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
@@ -307,19 +307,16 @@ START_MY_CXT
 MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto
 PROTOTYPES: DISABLE
 
-=pod
 
-The functions below are the random number deviates for the module.
+# The functions below are the random number deviates for the module.
 
-They work both as regular 'functions' for the functional interface to the
-standalone PRNG, as well as methods for the OO interface to PRNG objects.
+# They work both as regular 'functions' for the functional interface to the
+# standalone PRNG, as well as methods for the OO interface to PRNG objects.
 
 
-=item irand
-
-Returns a random integer.
-
-=cut
+# irand
+#
+# Returns a random integer.
 
 UV
 irand(...)
@@ -332,14 +329,12 @@ irand(...)
         RETVAL
 
 
-=item rand
+# rand
+#
+# Returns a random number on the range [0,1),
+# or [0,X) if an argument is supplied.
 
-Returns a random number on the range [0,1),
-or [0,X) if an argument is supplied.
-
-=cut
-
-NV
+double
 rand(...)
     PREINIT:
         DUAL_VARS;
@@ -358,11 +353,9 @@ rand(...)
         RETVAL
 
 
-=item shuffle
-
-Shuffles input data using the Fisher-Yates shuffle algorithm.
-
-=cut
+# shuffle
+#
+# Shuffles input data using the Fisher-Yates shuffle algorithm.
 
 SV *
 shuffle(...)
@@ -431,16 +424,14 @@ shuffle(...)
         RETVAL
 
 
-=item gaussian
+# gaussian
+#
+# Returns random numbers from a Gaussian distribution.
+#
+# On the first pass it calculates two numbers, returning one and saving the
+# other.  On the next pass, it just returns the previously saved number.
 
-Returns random numbers from a Gaussian distribution.
-
-On the first pass it calculates two numbers, returning one and saving the
-other.  On the next pass, it just returns the previously saved number.
-
-=cut
-
-NV
+double
 gaussian(...)
     PREINIT:
         DUAL_VARS;
@@ -485,13 +476,11 @@ gaussian(...)
         RETVAL
 
 
-=item exponential
+# exponential
+#
+# Returns random numbers from an exponential distribution.
 
-Returns random numbers from an exponential distribution.
-
-=cut
-
-NV
+double
 exponential(...)
     PREINIT:
         DUAL_VARS;
@@ -508,13 +497,11 @@ exponential(...)
         RETVAL
 
 
-=item erlang
+# erlang
+#
+# Returns random numbers from an Erlang distribution.
 
-Returns random numbers from an Erlang distribution.
-
-=cut
-
-NV
+double
 erlang(...)
     PREINIT:
         DUAL_VARS;
@@ -562,11 +549,9 @@ erlang(...)
         RETVAL
 
 
-=item poisson
-
-Returns random numbers from a Poisson distribution.
-
-=cut
+# poisson
+#
+# Returns random numbers from a Poisson distribution.
 
 IV
 poisson(...)
@@ -629,11 +614,9 @@ poisson(...)
         RETVAL
 
 
-=item binomial
-
-Returns random numbers from a binomial distribution.
-
-=cut
+# binomial
+#
+# Returns random numbers from a binomial distribution.
 
 IV
 binomial(...)
@@ -724,22 +707,18 @@ binomial(...)
         RETVAL
 
 
-=pod
 
-The functions below are for internal use by the Math::Random::MT::Auto package.
-
-=cut
+# The functions below are for internal use by the Math::Random::MT::Auto
+# package.
 
 MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto::_
 
 
-=item sa_prng
-
-Returns a pointer to the standalone PRNG context.
-
-It implements the functionality of the MY_CXT_START macro.
-
-=cut
+# sa_prng
+#
+# Returns a pointer to the standalone PRNG context.
+#
+# It implements the functionality of the MY_CXT_START macro.
 
 SV *
 sa_prng(...)
@@ -762,11 +741,9 @@ sa_prng(...)
         RETVAL
 
 
-=item new_prng
-
-Creates a new PRNG context for the OO Interface, and returns a pointer to it.
-
-=cut
+# new_prng
+#
+# Creates a new PRNG context for the OO Interface, and returns a pointer to it.
 
 SV *
 new_prng(...)
@@ -780,11 +757,9 @@ new_prng(...)
         RETVAL
 
 
-=item free_prng
-
-Frees the PRNG context as part of object destruction.
-
-=cut
+# free_prng
+#
+# Frees the PRNG context as part of object destruction.
 
 void
 free_prng(...)
@@ -798,13 +773,11 @@ free_prng(...)
         }
 
 
-=item seed_prng
-
-Applies a supplied seed to a specified PRNG.
-
-The specified PRNG may be either the standalone PRNG or an object's PRNG.
-
-=cut
+# seed_prng
+#
+# Applies a supplied seed to a specified PRNG.
+#
+# The specified PRNG may be either the standalone PRNG or an object's PRNG.
 
 void
 seed_prng(...)
@@ -853,14 +826,12 @@ seed_prng(...)
         prng->left = 1;
 
 
-=item get_state
-
-Returns an array ref containing the state vector and internal data for a
-specified PRNG.
-
-The specified PRNG may be either the standalone PRNG or an object's PRNG.
-
-=cut
+# get_state
+#
+# Returns an array ref containing the state vector and internal data for a
+# specified PRNG.
+#
+# The specified PRNG may be either the standalone PRNG or an object's PRNG.
 
 SV *
 get_state(...)
@@ -901,14 +872,12 @@ get_state(...)
         RETVAL
 
 
-=item set_state
-
-Sets the specified PRNG's state vector and internal data from a supplied
-array ref.
-
-The specified PRNG may be either the standalone PRNG or an object's PRNG.
-
-=cut
+# set_state
+#
+# Sets the specified PRNG's state vector and internal data from a supplied
+# array ref.
+#
+# The specified PRNG may be either the standalone PRNG or an object's PRNG.
 
 void
 set_state(...)
@@ -945,33 +914,5 @@ set_state(...)
         prng->binomial.prob     = SvNV(*av_fetch(state, ii, 0)); ii++;
         prng->binomial.plog     = SvNV(*av_fetch(state, ii, 0)); ii++;
         prng->binomial.pclog    = SvNV(*av_fetch(state, ii, 0));
-
-
-=pod
-
-The function below belongs to the 'Util' package
-
-=cut
-
-MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto::Util
-
-
-=item SvREADONLY
-
-Set/clear readonly flag
-
-Exported as Internals::SvREADONLY for Perl < 5.8
-
-=cut
-
-void
-SvREADONLY(...)
-    PROTOTYPE: \[$%@]$
-    CODE:
-        if (SvTRUE(ST(1))) {
-            SvREADONLY_on(SvRV(ST(0)));
-        } else {
-            SvREADONLY_off(SvRV(ST(0)));
-        }
 
  /* EOF */

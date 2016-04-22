@@ -1,7 +1,16 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
-4.13.00 Thu Sep 22 15:53:50 2005
-	- Fixed DynaLoader name in Makefile.PL
+5.01 Wed Dec 28 08:50:00 2005
+	- Converted to using Object::InsideOut and Exception::Class
+	- Added support for Object::InsideOut style serialization
+	- Require Scalar::Util 1.18 or higher
+	- 'get_seed' and 'get_state' return array or array ref
+	- Fixed URL for randomnumbers.info
+	- Workable version numbering
+	- Tested back to Perl 5.6.0
+
+4.13.00 Wed Sep 21 15:53:50 2005
+	- Repaired DynaLoader name in Makefile.PL
 
 4.12.00 Wed Sep 21 14:48:00 2005
 	- Added RandomNumbers.info

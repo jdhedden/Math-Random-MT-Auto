@@ -3,12 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 2005;
-use Scalar::Util 1.10 'looks_like_number';
+use Test::More 'no_plan';
 use Data::Dumper;
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/irand get_state set_state/);
+    use_ok('Math::Random::MT::Auto', qw(irand get_state set_state));
 };
 
 
@@ -18,45 +17,50 @@ for (1 .. 500) {
     eval { $rn = irand(); };
     ok(! $@,                  'irand() died: ' . $@);
     ok(defined($rn),          'Got a random number');
-    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(Scalar::Util::looks_like_number($rn),'Is a number: ' . $rn);
     ok(int($rn) == $rn,       'Integer: ' . $rn);
 }
 
 
 # Get state
-our $state;
-eval { $state = get_state(); };
+my @my_state;
+eval { @my_state = get_state(); };
 ok(! $@, 'get_state() died: ' . $@);
-ok(ref($state) eq 'ARRAY', 'State is array ref');
 
 
 # Get some numbers to save
-our @rn;
+my @rn;
 for (1 .. 500) {
     push(@rn, irand());
 }
 
 
-# Save state and numbers to file
-if (open(FH, '>state_data.tmp')) {
-    print(FH Data::Dumper->Dump([$state, \@rn], ['state', '*rn']));
-    print(FH "1;\n");
-    close(FH);
-} else {
-    diag('Failure writing state to file');
+our @state = @my_state;
+if ($[ > 5.006) {
+    # Save state to file
+    if (open(FH, '>state_data.tmp')) {
+        print(FH Data::Dumper->Dump([\@my_state], ['*state']));
+        print(FH "1;\n");
+        close(FH);
+    } else {
+        diag('Failure writing state to file');
+    }
+
+
+    # Read state and numbers from file
+    my $rc = do('state_data.tmp');
+    unlink('state_data.tmp');
 }
-
-# Clear vars
-undef($state);
-undef(@rn);
-
-# Read state and numbers from file
-my $rc = do('state_data.tmp');
-unlink('state_data.tmp');
+is_deeply(\@state, \@my_state  => 'state from file');
 
 # Set state
-eval { set_state($state); };
+eval { set_state(\@state); };
 ok(! $@, 'set_state() died: ' . $@);
+
+# Check state
+my @got_state = get_state();
+is_deeply(\@got_state, \@state, => 'get_state ok');
+
 
 # Compare numbers after restoration of state
 my @rn2;

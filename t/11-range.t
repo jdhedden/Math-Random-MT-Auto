@@ -3,9 +3,6 @@
 use strict;
 use warnings;
 
-use Scalar::Util 1.10 'looks_like_number';
-
-use Test::More tests => 227;
 use Config;
 
 my @WARN;
@@ -13,8 +10,17 @@ BEGIN {
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
 
-    use_ok('Math::Random::MT::Auto::Range');
+    # Try to use threads
+    if ($Config{useithreads} && $] > 5.008) {
+        require threads;
+        import threads;
+    }
 }
+
+use Test::More 'no_plan';
+
+use Math::Random::MT::Auto;
+use Math::Random::MT::Auto::Range;
 
 # Create PRNG object
 my $prng;
@@ -24,9 +30,21 @@ if (! ok(! $@, '->new works')) {
 }
 isa_ok($prng, 'Math::Random::MT::Auto');
 isa_ok($prng, 'Math::Random::MT::Auto::Range');
-can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
+can_ok($prng, qw(rand irand gaussian exponential erlang poisson binomial
                  shuffle srand get_seed set_seed get_state set_state
-                 new get_range_type set_range_type get_range set_range rrand/);
+                 new get_range_type set_range_type get_range set_range rrand));
+
+# Verify hidden 'init' subroutine
+if ($] > 5.006) {
+    eval { $prng->_init({}); };
+    if (my $e = OIO->caught()) {
+        ok($e->error =~ /hidden/i, '->_init() hidden: ' . $e->error);
+    } else {
+        ok($@, '->_init() visible - this is bad');
+    }
+} else {
+    ok(1, 'SKIPPED');
+}
 
 # Check for warnings
 if (! ok(! @WARN, 'Acquired seed data')) {
@@ -44,7 +62,7 @@ for my $ii (0 .. 9) {
     eval { $rr = $prng->rrand(); };
     ok(! $@,                        '$prng->rrand() died: ' . $@);
     ok(defined($rr),                'Got a random number');
-    ok(looks_like_number($rr),      'Is a number: ' . $rr);
+    ok(Scalar::Util::looks_like_number($rr),      'Is a number: ' . $rr);
     ok(int($rr) == $rr,             'Integer: ' . $rr);
     ok($rr >= 100 && $rr <= 199,    'In range: ' . $rr);
 }
@@ -54,7 +72,7 @@ for my $ii (0 .. 9) {
     eval { $rr = $prng->irand(); };
     ok(! $@,                        '$prng->irand() died: ' . $@);
     ok(defined($rr),                'Got a random number');
-    ok(looks_like_number($rr),      'Is a number: ' . $rr);
+    ok(Scalar::Util::looks_like_number($rr),      'Is a number: ' . $rr);
     ok(int($rr) == $rr,             'Integer: ' . $rr);
     ok($rr >= 0,                    'Postive int: ' . $rr);
 }
@@ -64,9 +82,9 @@ for my $ii (0 .. 9) {
 my $prng2 = $prng->new(lo=>100, hi=>199, type=>'double');
 isa_ok($prng2, 'Math::Random::MT::Auto');
 isa_ok($prng2, 'Math::Random::MT::Auto::Range');
-can_ok($prng2, qw/rand irand gaussian exponential erlang poisson binomial
+can_ok($prng2, qw(rand irand gaussian exponential erlang poisson binomial
                  shuffle srand get_seed set_seed get_state set_state
-                 new get_range_type set_range_type get_range set_range rrand/);
+                 new get_range_type set_range_type get_range set_range rrand));
 
 # Check for warnings
 if (! ok(! @WARN, 'Acquired seed data')) {
@@ -82,9 +100,9 @@ ok($lo == 100 && $hi == 199, "Range: $lo $hi");
 my $ints = 0;
 for my $ii (0 .. 9) {
     eval { $rr = $prng2->rrand(); };
-    ok(! $@,                    '$prng->rrand() died: ' . $@);
+    ok(! $@,                    '$prng2->rrand() died: ' . $@);
     ok(defined($rr),            'Got a random number');
-    ok(looks_like_number($rr),  'Is a number: ' . $rr);
+    ok(Scalar::Util::looks_like_number($rr),  'Is a number: ' . $rr);
     if (int($rr) == $rr) {
         $ints++;
     }
@@ -99,9 +117,9 @@ ok($ints < 10, 'Rands not ints: ' . $ints);
 my $prng3 = $prng2->clone();
 isa_ok($prng3, 'Math::Random::MT::Auto');
 isa_ok($prng3, 'Math::Random::MT::Auto::Range');
-can_ok($prng3, qw/rand irand gaussian exponential erlang poisson binomial
+can_ok($prng3, qw(rand irand gaussian exponential erlang poisson binomial
                  shuffle srand get_seed set_seed get_state set_state
-                 new get_range_type set_range_type get_range set_range rrand/);
+                 new get_range_type set_range_type get_range set_range rrand));
 ok($prng3->get_range_type() eq 'DOUBLE', 'Double range type');
 ($lo, $hi) = $prng3->get_range();
 ok($lo == 100 && $hi == 199, "Range: $lo $hi");
@@ -125,7 +143,10 @@ is_deeply(\@rands2, \@rands3);
 ### Subclassing a subclass
 
 # 'Empty subclass' test  (cf. perlmodlib)
-@Math::Random::MT::Auto::Range::Sub::ISA = 'Math::Random::MT::Auto::Range';
+{
+    package Math::Random::MT::Auto::Range::Sub;
+    use Object::InsideOut qw(Math::Random::MT::Auto::Range);
+}
 
 # Create PRNG object
 my $prng4;
@@ -136,9 +157,9 @@ if (! ok(! $@, '->new works')) {
 isa_ok($prng4, 'Math::Random::MT::Auto');
 isa_ok($prng4, 'Math::Random::MT::Auto::Range');
 isa_ok($prng4, 'Math::Random::MT::Auto::Range::Sub');
-can_ok($prng4, qw/rand irand gaussian exponential erlang poisson binomial
+can_ok($prng4, qw(rand irand gaussian exponential erlang poisson binomial
                  shuffle srand get_seed set_seed get_state set_state
-                 new get_range_type set_range_type get_range set_range rrand/);
+                 new get_range_type set_range_type get_range set_range rrand));
 
 # Check for warnings
 if (! ok(! @WARN, 'Acquired seed data')) {
@@ -150,16 +171,8 @@ undef(@WARN);
 ### Threads with subclass
 
 SKIP: {
-if (! $Config{useithreads}) {
+if (! $threads::threads) {
     skip 'Threads not supported', 60;
-} elsif ($] < 5.007002) {
-    skip 'Not thread-safe prior to 5.7.2', 60;
-} else {
-    eval { require threads;
-           import threads; };
-    if ($@) {
-        skip "Failure importing threads: $@", 60;
-    }
 }
 
 # Get random numbers from thread
@@ -179,7 +192,7 @@ for my $ii (0 .. 9) {
     eval { $rand = $prng4->rrand(); };
     ok(! $@,                          '$prng->rrand() died: ' . $@);
     ok(defined($rand),                'Got a random number');
-    ok(looks_like_number($rand),      'Is a number: ' . $rand);
+    ok(Scalar::Util::looks_like_number($rand),      'Is a number: ' . $rand);
     ok(int($rand) == $rand,           'Integer: ' . $rand);
     ok($rand >= -100 && $rand <= 100, 'In range: ' . $rand);
     ok($$rands[$ii] == $rand,         'Values equal: ' . $$rands[$ii] . ' ' . $rand);

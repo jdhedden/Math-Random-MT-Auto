@@ -50,14 +50,16 @@ if (! have_cc()) {
 # Construct make file
 WriteMakefile(
     'NAME'          => 'Math::Random::MT::Auto',
-    'AUTHOR'        => 'Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>',
+    'AUTHOR'        => 'Jerry D. Hedden <jdhedden AT cpan DOT org>',
     'VERSION_FROM'  => 'lib/Math/Random/MT/Auto.pm',
     'ABSTRACT_FROM' => 'lib/Math/Random/MT/Auto.pm',
-    'PREREQ_PM'     => { 'attributes'   => 0,
-                         'Carp'         => 0,
-                         'Scalar::Util' => 1.10,
-                         'DynaLoader'   => 0,
-                         'Test::More'   => 0 },
+    'PREREQ_PM'     => { 'Exception::Class'  => 1.22,
+                         'Object::InsideOut' => 1.26,
+                         'Carp'              => 0,
+                         'Fcntl'             => 0,
+                         'XSLoader'          => 0,
+                         'Test::More'        => 0,
+                         'Scalar::Util'      => 1.18 },
     'OBJECT'        => 'MRMA.o',
     (($ExtUtils::MakeMaker::VERSION < 6.25) ?
         ('PL_FILES' => { })            : ()),
@@ -76,10 +78,8 @@ vcheck:
 	@echo "Version is $(VERSION)"
 	@if ! head -3 Changes | tail -1 | grep ^$(VERSION) >/dev/null; then echo "Version error in Changes"; fi
 	@if ! head -1 README | grep $(VERSION)$ >/dev/null; then echo "Version error in README"; fi
-	@if ! grep "VERSION = '$(VERSION)'" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto.pm"; fi
+	@if ! grep "VERSION = $(VERSION)" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto.pm"; fi
 	@if ! grep "version $(VERSION)" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in POD of lib/Math/Random/MT/Auto.pm"; fi
-	@if ! grep "VERSION = '$(VERSION)'" lib/Math/Random/MT/Auto/Range.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto/Range.pm"; fi
-	@if ! grep "VERSION = '$(VERSION)'" lib/Math/Random/MT/Auto/Util.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto/Util.pm"; fi
 
 chmod:
 	@$(CHMOD) 644 Build.PL `cat MANIFEST`

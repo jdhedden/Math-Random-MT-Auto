@@ -3,13 +3,15 @@ package Math::Random::MT::Auto;
 use strict;
 use warnings;
 
-use Scalar::Util qw/looks_like_number weaken/;
+use 5.006_000;   # Imposed because of 64-bit support
+
 use Config;
+use Scalar::Util qw/looks_like_number weaken/;
 
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.31;
+our $VERSION = 1.32;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -34,14 +36,8 @@ my @CLONING_LIST;
 ### Module Initialization ###
 
 # 1. Size of Perl's integers
-my ($INT_SIZE, $UNPACK_CODE);
-if (exists($Config{'use64bitint'}) && ($Config{'use64bitint'} eq 'define')) {
-    $INT_SIZE = 8;
-    $UNPACK_CODE = 'Q';
-} else {
-    $INT_SIZE = 4;
-    $UNPACK_CODE = 'L';
-}
+my $INT_SIZE = $Config{'uvsize'};
+my $UNPACK_CODE = ($INT_SIZE == 8) ? 'Q' : 'L';
 
 
 # 2. Handles importation of random functions,
@@ -714,7 +710,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNG
 =head1 SYNOPSIS
 
   use Math::Random::MT::Auto qw/rand irand gaussian/,
-                             '/dev/urandom' => 500,
+                             '/dev/urandom' => 256,
                              'random_org';
 
   # Functional interface
@@ -795,16 +791,7 @@ L<Config> module:
 
   use Config;
 
-  if (exists($Config{'use64bitint'}) && ($Config{'use64bitint'} eq 'define')) {
-      print("Perl is using 64-bit ints\n");
-  } else {
-      print("Perl is using 32-bit ints\n");
-  }
-  if ($] >= 5.006) {
-      print("Ints are $Config{'uvsize'} bytes in length\n");
-  } else {
-      print("Ints are $Config{'intsize'} bytes in length\n");
-  }
+  print("Ints are $Config{'uvsize'} bytes in length\n");
 
 =head2 Seeding Sources
 

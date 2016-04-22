@@ -11,7 +11,7 @@ BEGIN {
 can_ok('Math::Random::MT::Auto', qw/gaussian srand warnings/);
 
 # Known test values for gaussian()
-my @base_gaus = (exists($Config{'use64bitint'})) ?
+my @base_gaus = ($Config{'uvsize'} == 8) ?
     # 64-bit randoms
   qw/
    -0.26912980  -0.61841921   1.39597901   1.21976989  -0.63040847
@@ -427,7 +427,7 @@ sub myseed
     my $seed = $_[0];
     my $need = $_[1];  # Ignored
 
-    if (exists($Config{'use64bitint'})) {
+    if ($Config{'uvsize'} == 8) {
         push(@$seed, 0x12345, 0x23456, 0x34567, 0x45678);
     } else {
         push(@$seed, 0x123, 0x234, 0x345, 0x456);

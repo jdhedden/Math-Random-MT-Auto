@@ -15,7 +15,7 @@ BEGIN {
 can_ok('Math::Random::MT::Auto', qw/rand irand srand seed state warnings/);
 
 # Known test values for irand()
-my @base_rint = (exists($Config{'use64bitint'})) ?
+my @base_rint = ($Config{'uvsize'} == 8) ?
   (  # 64-bit randoms
      7266447313870364031,  4946485549665804864, 16945909448695747420, 16394063075524226720,  4873882236456199058,
     14877448043947020171,  6740343660852211943, 13857871200353263164,  5249110015610582907, 10205081126064480383,
@@ -421,7 +421,7 @@ my @base_rint = (exists($Config{'use64bitint'})) ?
     2643151863, 3896204135, 2416995901, 1397735321, 3460025646);
 
 # Known test values for rand()
-my @base_doub = (exists($Config{'use64bitint'})) ?
+my @base_doub = ($Config{'uvsize'} == 8) ?
     # 64-bit randoms
   qw/
     0.35252031 0.51052342 0.79771733 0.39300273 0.27216673
@@ -832,7 +832,7 @@ my @base_doub = (exists($Config{'use64bitint'})) ?
 ### - Standalone PRNG - ###
 
 # Set predetermined seed for verification test
-my @base_seed = (exists($Config{'use64bitint'}))
+my @base_seed = ($Config{'uvsize'} == 8)
                     ? (0x12345, 0x23456, 0x34567, 0x45678)
                     : (0x123, 0x234, 0x345, 0x456);
 sub myseed
@@ -928,7 +928,7 @@ is_deeply(\@test_doub, \@base_doub);
 
 # Create binary seed file
 if (open(FH, '>seed_data.tmp')) {
-    if (exists($Config{'use64bitint'})) {
+    if ($Config{'uvsize'} == 8) {
         print(FH pack('Q4', 0x12345, 0x23456, 0x34567, 0x45678));
     } else {
         print(FH pack('L4', 0x123, 0x234, 0x345, 0x456));

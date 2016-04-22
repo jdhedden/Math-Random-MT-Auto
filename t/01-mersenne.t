@@ -877,12 +877,13 @@ if (! ok(! $@, 'SA cloning works')) {
     diag('SA cloning died: ' . $@);
 }
 isa_ok($prng2, 'Math::Random::MT::Auto');
-can_ok($prng2, qw/rand irand gaussian srand seed state warnings/);
+can_ok($prng2, qw/rand irand gaussian exponential erlang poisson binomial
+                  shuffle srand seed state warnings/);
 
 
 # Test for known output from PRNG for irand()
 my @test_rint;
-for (my $ii=0; $ii < 500; $ii++) {
+for (1 .. 500) {
     push(@test_rint, irand());
 }
 
@@ -898,7 +899,7 @@ ok(! $@, 'Set seed() died: ' . $@);
 
 # Test again with reset seed
 my @test2_rint;
-for (my $ii=0; $ii < 1000; $ii++) {
+for (1 .. 1000) {
     push(@test2_rint, irand());
 }
 is_deeply(\@test2_rint, \@base_rint);
@@ -908,7 +909,7 @@ eval { state($state); };
 ok(! $@, 'Set state() died: ' . $@);
 
 # Continue from previous state
-for (my $ii=500; $ii < 1000; $ii++) {
+for (501 .. 1000) {
     push(@test_rint, Math::Random::MT::Auto::mt_irand());
 }
 is_deeply(\@test_rint, \@base_rint);
@@ -916,10 +917,10 @@ is_deeply(\@test_rint, \@base_rint);
 # Test for known output from PRNG
 #  for rand() and Math::Random::MT::Auto::mt_rand()
 my @test_doub;
-for (my $ii=0; $ii < 500; $ii++) {
+for (1 .. 500) {
     push(@test_doub, sprintf('%0.8f', rand()));
 }
-for (my $ii=500; $ii < 1000; $ii++) {
+for (501 .. 1000) {
     push(@test_doub, sprintf('%0.8f', Math::Random::MT::Auto::mt_rand()));
 }
 is_deeply(\@test_doub, \@base_doub);
@@ -972,7 +973,7 @@ is_deeply(\@base_seed, \@seed, 'Seed is correct');
 
 # Test for known output from PRNG for $prng->irand()
 @test_rint = ();
-for (my $ii=0; $ii < 500; $ii++) {
+for (1 .. 500) {
     push(@test_rint, $prng->irand());
 }
 
@@ -988,7 +989,7 @@ ok(! $@, 'Set $prng->seed() died: ' . $@);
 
 # Test again with reset seed
 @test2_rint = ();
-for (my $ii=0; $ii < 1000; $ii++) {
+for (1 .. 1000) {
     push(@test2_rint, $prng->irand());
 }
 is_deeply(\@test2_rint, \@base_rint);
@@ -999,14 +1000,14 @@ ok(! $@, 'Set $prng->state() died: ' . $@);
 
 
 # Continue from previous state
-for (my $ii=500; $ii < 1000; $ii++) {
+for (501 .. 1000) {
     push(@test_rint, $prng->irand());
 }
 is_deeply(\@test_rint, \@base_rint);
 
 # Test for known output from PRNG for $prng->rand()
 @test_doub = ();
-for (my $ii=0; $ii < 1000; $ii++) {
+for (1 .. 1000) {
     push(@test_doub, sprintf('%0.8f', $prng->rand()));
 }
 is_deeply(\@test_doub, \@base_doub);
@@ -1025,14 +1026,14 @@ isa_ok($prng3, 'Math::Random::MT::Auto');
 
 # Test OO copy of SA PRNG
 @test_rint = ();
-for (my $ii=0; $ii < 1000; $ii++) {
+for (1 .. 1000) {
     push(@test_rint, $prng2->irand());
 }
 is_deeply(\@test_rint, \@base_rint);
 
 # Test OO copy of OO PRNG
 @test_rint = ();
-for (my $ii=0; $ii < 1000; $ii++) {
+for (1 .. 1000) {
     push(@test_rint, $prng3->irand());
 }
 is_deeply(\@test_rint, \@base_rint);

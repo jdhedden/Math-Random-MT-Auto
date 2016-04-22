@@ -26,7 +26,7 @@ MAIN:
 
     # Get random numbers and put them in bins
     print("Generating $count binomial random numbers.  Please wait...");
-    for (my $ii=0; $ii < $count; $ii++) {
+    for (1 .. $count) {
         my $x = binomial($prob, $trials);
         $binomial{$x}++;
     }
@@ -41,7 +41,7 @@ MAIN:
 
     # Output the graph
     print("\n");
-    foreach my $key (sort { $a <=> $b } (keys(%binomial))) {
+    for my $key (sort { $a <=> $b } (keys(%binomial))) {
         my $len = int(79.0 * $binomial{$key}/$max);
         print(':', '*' x $len, "\n");
     }

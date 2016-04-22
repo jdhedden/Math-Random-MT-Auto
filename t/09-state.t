@@ -11,7 +11,7 @@ BEGIN {
 
 # Work the PRNG a bit
 my $rn;
-for (my $ii=0; $ii < 500; $ii++) {
+for (1 .. 500) {
     eval { $rn = irand(); };
     ok(! $@,                  'irand() died: ' . $@);
     ok(defined($rn),          'Got a random number');
@@ -29,7 +29,7 @@ ok(ref($state) eq 'ARRAY', 'State is array ref');
 
 # Get some numbers to save
 our @rn;
-for (my $ii=0; $ii < 500; $ii++) {
+for (1 .. 500) {
     push(@rn, irand());
 }
 
@@ -57,7 +57,7 @@ ok(! $@, 'Set state() died: ' . $@);
 
 # Compare numbers after restoration of state
 my @rn2;
-for (my $ii=0; $ii < 500; $ii++) {
+for (1 .. 500) {
     push(@rn2, irand());
 }
 is_deeply(\@rn, \@rn2, 'Same results after state restored');

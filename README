@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 2.0.0
+Math-Random-MT-Auto version 2.0.1
 =================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
@@ -9,12 +9,12 @@ objects.
 The PRNGs are self-seeding, automatically acquiring a (19968-bit) random
 seed from user-selectable sources.  Seed sources include local random
 devices (/dev/random and /dev/urandom), Internet sources (random.org and
-HotBits), and Win32 XP system random data.  Users can also provide their
+HotBits), and Win32 XP system random data.  Users may also provide their
 own seed sources.
 
 In addition to integer and floating-point uniformly-distributed random number
-deviates, this module also implements the following non-uniform deviates as
-found in 'Numerical Recipes in C':
+deviates, this module implements the following non-uniform deviates as found
+in 'Numerical Recipes in C':
     Gaussian (normal)
     Exponential
     Erlang (gamma of integer order)

@@ -23,7 +23,7 @@ MAIN:
 
     # Get random numbers and put them in bins
     print("Generating $count Gaussian random numbers.  Please wait...");
-    for (my $ii=0; $ii < $count; $ii++) {
+    for (1 .. $count) {
         my $x = gaussian(10, 0.5);
 
         # Handle 'rounding' using int()
@@ -53,7 +53,7 @@ MAIN:
 
     # Output the graph
     print("\n");
-    foreach my $key (sort { $a <=> $b } (keys(%bell))) {
+    for my $key (sort { $a <=> $b } (keys(%bell))) {
         my $len = int(79.0 * $bell{$key}/$max);
         print(':', '*' x $len, "\n");
     }

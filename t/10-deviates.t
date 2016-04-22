@@ -27,46 +27,46 @@ my (@rn);
 
 # Test several values from exponential()
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = exponential(); };
     ok(! $@,                        'exponential() died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
     ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
-    for (my $jj=0; $jj < $ii; $jj++) {
+    for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
     }
 }
 
 # Test several values from erlang() for small order
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = erlang(3); };
     ok(! $@,                        'erlang(3) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
     ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
-    for (my $jj=0; $jj < $ii; $jj++) {
+    for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
     }
 }
 
 # Test several values from erlang() for larger order
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = erlang(10); };
     ok(! $@,                        'erlang(10) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
     ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
-    for (my $jj=0; $jj < $ii; $jj++) {
+    for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
     }
 }
 
 # Test several values from poisson() for small order
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = poisson(3); };
     ok(! $@,                        'poisson(3) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -77,7 +77,7 @@ for (my $ii=0; $ii < 10; $ii++) {
 
 # Test several values from poisson() for large order
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = poisson(30); };
     ok(! $@,                        'poisson(30) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -88,7 +88,7 @@ for (my $ii=0; $ii < 10; $ii++) {
 
 # Test several values from binomial() for small trial count
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = binomial(0.5, 15); };
     ok(! $@,                        'binomial(0.5, 15) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -99,7 +99,7 @@ for (my $ii=0; $ii < 10; $ii++) {
 
 # Test several values from binomial() for small mean
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = binomial(0.01, 30); };
     ok(! $@,                        'binomial(0.01, 30) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -110,7 +110,7 @@ for (my $ii=0; $ii < 10; $ii++) {
 
 # Test several values from binomial()
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = binomial(0.8, 50); };
     ok(! $@,                        'binomial(0.8, 50) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -126,9 +126,9 @@ my @data = (
 my $shuf;
 eval { $shuf = shuffle(@data); };
 ok(! $@, 'shuffle okay');
-foreach my $x (@$shuf) {
+for my $x (@$shuf) {
     my $found = 0;
-    foreach my $y (@data) {
+    for my $y (@data) {
         if (ref($x) eq 'CODE') {
             if (ref($y) eq 'CODE') {
                 pass('shuffle - code ref okay');
@@ -172,7 +172,8 @@ if (! ok(! $@, '->new works')) {
     diag('->new died: ' . $@);
 }
 isa_ok($prng, 'Math::Random::MT::Auto');
-can_ok($prng, qw/exponential erlang poisson binomial shuffle/);
+can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
+                 shuffle srand seed state warnings/);
 eval { @warnings = $prng->warnings(1); };
 if (! ok(! $@, 'Get warnings')) {
     diag('warnings(1) died: ' . $@);
@@ -183,46 +184,46 @@ if (! ok(! @warnings, 'Acquired seed data')) {
 
 # Test several values from exponential()
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->exponential(2); };
     ok(! $@,                        '$prng->exponential() died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
     ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
-    for (my $jj=0; $jj < $ii; $jj++) {
+    for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
     }
 }
 
 # Test several values from erlang() for small order
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->erlang(3); };
     ok(! $@,                        '$prng->erlang(3) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
     ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
-    for (my $jj=0; $jj < $ii; $jj++) {
+    for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
     }
 }
 
 # Test several values from erlang() for larger order
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->erlang(10); };
     ok(! $@,                        '$prng->erlang(10) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
     ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
     ok($rn[$ii] > 0.0,              'Positive: ' . $rn[$ii]);
-    for (my $jj=0; $jj < $ii; $jj++) {
+    for my $jj (0 .. $ii-1) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
     }
 }
 
 # Test several values from poisson() for small order
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->poisson(3); };
     ok(! $@,                        '$prng->poisson(3) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -233,7 +234,7 @@ for (my $ii=0; $ii < 10; $ii++) {
 
 # Test several values from poisson() for large order
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->poisson(30); };
     ok(! $@,                        '$prng->poisson(30) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -244,7 +245,7 @@ for (my $ii=0; $ii < 10; $ii++) {
 
 # Test several values from binomial() for small trial count
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->binomial(0.5, 15); };
     ok(! $@,                        '$prng->binomial(0.5, 15) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -255,7 +256,7 @@ for (my $ii=0; $ii < 10; $ii++) {
 
 # Test several values from binomial() for small mean
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->binomial(0.01, 30); };
     ok(! $@,                        '$prng->binomial(0.01, 30) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -266,7 +267,7 @@ for (my $ii=0; $ii < 10; $ii++) {
 
 # Test several values from binomial()
 undef(@rn);
-for (my $ii=0; $ii < 10; $ii++) {
+for my $ii (0 .. 9) {
     eval { $rn[$ii] = $prng->binomial(0.8, 50); };
     ok(! $@,                        '$prng->binomial(0.8, 50) died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
@@ -278,9 +279,9 @@ for (my $ii=0; $ii < 10; $ii++) {
 # Test of shuffle()
 eval { $shuf = $prng->shuffle($shuf); };
 ok(! $@, '$prng->shuffle okay');
-foreach my $x (@$shuf) {
+for my $x (@$shuf) {
     my $found = 0;
-    foreach my $y (@data) {
+    for my $y (@data) {
         if (ref($x) eq 'CODE') {
             if (ref($y) eq 'CODE') {
                 pass('$prng->shuffle - code ref okay');

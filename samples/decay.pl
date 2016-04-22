@@ -21,7 +21,7 @@ MAIN:
 
     # Get random numbers and put them in bins
     print("Generating $count exponential random numbers.  Please wait...");
-    for (my $ii=0; $ii < $count; $ii++) {
+    for (1 .. $count) {
         my $x = int(exponential(15));
 
         # Make sure the tail doesn't overflow
@@ -42,7 +42,7 @@ MAIN:
 
     # Output the graph
     print("\n");
-    foreach my $key (sort { $a <=> $b } (keys(%decay))) {
+    for my $key (sort { $a <=> $b } (keys(%decay))) {
         my $len = int(79.0 * $decay{$key}/$max);
         print(':', '*' x $len, "\n");
     }

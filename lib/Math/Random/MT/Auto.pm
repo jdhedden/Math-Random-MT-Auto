@@ -10,7 +10,7 @@ use Scalar::Util 1.16 qw/blessed looks_like_number weaken/;
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = '2.0.0';
+our $VERSION = '2.0.1';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -124,43 +124,23 @@ sub import
 
 ### Thread Cloning Support ###
 
-# Called before thread cloning starts
-# Supported in 5.8.7 and later
-sub CLONE_SKIP
-{
-    # Save state for each PRNG object
-    foreach my $self (@CLONING_LIST) {
-        if ($self) {
-            $self->{'STATE'} = X_get_state($self->{'PRNG'});
-        }
-    }
-
-    # Indicate that CLONE should be called
-    return (0);
-}
-
-
 # Called after thread is cloned
 sub CLONE
 {
-    foreach my $self (@CLONING_LIST) {
-        if ($self) {
-            # Create new memory for each PRNG object
-            $self->{'PRNG'} = OO_prng();
+    # Don't execute when called for sub-classes
+    if ($_[0] eq __PACKAGE__) {
+        # Process each cloned object
+        for my $self (@CLONING_LIST) {
+            if ($self) {
+                # Get current state from parent PRNG's memory
+                #   which is currently shared
+                my $state = X_get_state($self->{'PRNG'});
 
-            if (exists($self->{'STATE'})) {
-                # Restore state, if present
-                X_set_state($self->{'PRNG'}, $self->{'STATE'});
+                # Create new memory for this PRNG object
+                $self->{'PRNG'} = OO_prng();
 
-            } else {
-                # Acquire seed, if none provided
-                if (! exists($self->{'SEED'})) {
-                    $self->{'SEED'} = [];
-                    _acq_seed($self->{'SOURCE'}, $self->{'SEED'}, $self->{'WARN'});
-                }
-
-                # Seed the PRNG
-                X_seed($self->{'PRNG'}, $self->{'SEED'});
+                # Set state for this PRNG object
+                X_set_state($self->{'PRNG'}, $state);
             }
         }
     }
@@ -288,7 +268,7 @@ sub _init
 
     # - Fix user-supplied data -
     # Convert all keys to uppercase
-    foreach my $key (keys(%$self)) {
+    for my $key (keys(%$self)) {
         if (! exists($self->{uc($key)})) {
             $self->{uc($key)} = $self->{$key};
             delete($self->{$key});
@@ -391,7 +371,7 @@ sub _acq_seed
     @$seed = ();
     my $FULL_SEED = 2496 / $INT_SIZE;
 
-    for (my $ii=0; $ii < @$sources; $ii++) {
+    for my $ii (0 .. $#{$sources}) {
         my $source = $$sources[$ii];
 
         # Determine amount of data needed
@@ -629,7 +609,7 @@ __END__
 
 =head1 NAME
 
-Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNG
+Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 SYNOPSIS
 
@@ -644,7 +624,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNG
 
   my $rand_IQ = gaussian(15, 100);
 
-  my $deck = shuffle(1..52);
+  my $deck = shuffle(1 .. 52);
 
   # OO interface
   my $prng = Math::Random::MT::Auto->new('SOURCE' => '/dev/random');
@@ -671,11 +651,19 @@ In addition to integer and floating-point uniformly-distributed random number
 deviates, this module implements the following non-uniform deviates as found
 in I<Numerical Recipes in C>:
 
-  Gaussian (normal)
-  Exponential
-  Erlang (gamma of integer order)
-  Poisson
-  Binomial
+=over
+
+=item * Gaussian (normal)
+
+=item * Exponential
+
+=item * Erlang (gamma of integer order)
+
+=item * Poisson
+
+=item * Binomial
+
+=back
 
 This module also provides a function/method for shuffling data based on the
 Fisher-Yates shuffling algorithm.
@@ -782,7 +770,7 @@ L<LWP::UserAgent> are required to utilize these sources.
   use Math::Random::MT::Auto 'hotbits';
 
 If you connect to the Internet through an HTTP proxy, then you must set
-the C<http_proxy> variable in your environment when using this source.
+the C<http_proxy> variable in your environment when using these sources.
 (See L<LWP::UserAgent/"Proxy attributes">.)
 
 The HotBits site will only provide a maximum of 2048 bytes of data per
@@ -799,7 +787,7 @@ Under Windows XP, you can acquire random seed data from the system.
 
   use Math::Random::MT::Auto 'win32';
 
-To utilize this option, you must have the L<Win32::API::Prototype> module
+To utilize this option, you must have the L<Win32::API> module
 installed.
 
 =back
@@ -811,7 +799,7 @@ F</dev/random> are checked.  The first one found is added to the list.
 Finally, C<random_org> is added.
 
 For the functional interface to the standalone PRNG, these defaults can be
-overriden by specifying the desired sources when the module is declared, or
+overridden by specifying the desired sources when the module is declared, or
 through the use of the L</"srand"> function.  Similarly for the OO interface,
 they can be overridden in the L</"new"> method when the PRNG is created, or
 later using the L</"srand"> method.
@@ -883,6 +871,9 @@ distribution uses a standard deviation of 1, and a mean of 0.  Otherwise,
 the supplied argument(s) will be used for the standard deviation, and the
 mean.
 
+This function may also be accessed using the full path
+C<Math::Random::MT::Auto::gaussian>.
+
 =item exponential
 
   my $xn = exponential();
@@ -899,6 +890,9 @@ for radioactive decay, and its inverse is the decay constant (which represents
 the expected number of events per unit time).  The well known term
 I<half-life> is given by I<mean * ln(2)>.
 
+This function may also be accessed using the full path
+C<Math::Random::MT::Auto::exponential>.
+
 =item erlang
 
   my $en = erlang($order);
@@ -908,12 +902,15 @@ Returns floating-point random numbers from an Erlang distribution of specified
 order.  The order must be a positive integer (> 0).  The mean, if not
 specified, defaults to 1.
 
-The Erlang distribution is the distribution of the sum of C<k> independent
-identically distributed random variables each having an exponential
-distribution.  (It is a special case of the gamma distribution for which C<k>
-is a positive integer.)  When C<k = 1>, it is just the exponential
-distribution.  It is named after A. K. Erlang who developed it to predict
-waiting times in queueing systems.
+The Erlang distribution is the distribution of the sum of C<$order>
+independent identically distributed random variables each having an
+exponential distribution.  (It is a special case of the gamma distribution for
+which C<$order> is a positive integer.)  When C<$order = 1>, it is just the
+exponential distribution.  It is named after A. K. Erlang who developed it to
+predict waiting times in queuing systems.
+
+This function may also be accessed using the full path
+C<Math::Random::MT::Auto::erlang>.
 
 =item poisson
 
@@ -924,8 +921,8 @@ Returns integer random numbers (>= 0) from a Poisson distribution of specified
 mean (rate * time = mean).  The mean must be a positive value (> 0).
 
 The Poisson distribution predicts the probability of the number of
-Poisson-random events occuring in a fixed time if these events occur with a
-known average rate.  Examples of events that can be modelled as Poisson
+Poisson-random events occurring in a fixed time if these events occur with a
+known average rate.  Examples of events that can be modeled as Poisson
 distributions include:
 
   The number of decays from a radioactive sample within a given
@@ -933,15 +930,18 @@ distributions include:
   The number of cars that pass a certain point on a road within
     a given time period.
   The number of phone calls to a call center per minute.
-  The number of roadkill found per a given length of road.
+  The number of road kill found per a given length of road.
+
+This function may also be accessed using the full path
+C<Math::Random::MT::Auto::poisson>.
 
 =item binomial
 
   my $bn = binomial($prob, $trials);
 
 Returns integer random numbers (>= 0) from a binomial distribution.  The
-probability C<$prob> must be between 0.0 and 1.0 (inclusive), and the number
-of trials C<$trials> must be >= 0.
+probability (C<$prob>) must be between 0.0 and 1.0 (inclusive), and the number
+of trials must be >= 0.
 
 The binomial distribution is the discrete probability distribution of the
 number of successes in a sequence of C<$trials> independent Bernoulli trials
@@ -953,6 +953,9 @@ approximated by a Gaussian distribution. If the average number of successes
 is small (C<$prob * $trials < 1>), then the binomial distribution can be
 approximated by a Poisson distribution.
 
+This function may also be accessed using the full path
+C<Math::Random::MT::Auto::binomial>.
+
 =item shuffle
 
   my $shuffled = shuffle($data, ...);
@@ -963,6 +966,9 @@ Returns an array reference containing a random ordering of the supplied
 arguments (i.e., shuffled) by using the Fisher-Yates shuffling algorithm.  If
 called with a single array reference (fastest method), the contents of the
 array are shuffled in situ.
+
+This function may also be accessed using the full path
+C<Math::Random::MT::Auto::shuffle>.
 
 =item srand
 
@@ -1003,9 +1009,9 @@ integers (64- or 32-bit as the case may be) needed.
   #  then get the rest from random.org.
   srand(\&MySeeder => 200, 'random_org');
 
-If called with integer data (single value or an array), or a reference to
-an array of integers, these data will be passed to L</"seed"> for use in
-reseeding the PRNG.
+If called with integer data (a list of one or more value, or an array of
+values), or a reference to an array of integers, these data will be passed to
+L</"seed"> for use in reseeding the PRNG.
 
 This function may also be accessed using the full path
 C<Math::Random::MT::Auto::srand>.  (NOTE: If you still need to access
@@ -1015,7 +1021,7 @@ C<CORE::srand($seed)>.)
 =item seed
 
   my $seed = seed();
-  seed($seed);
+  seed($seed, ...);
   seed(@seed);
   seed(\@seed);
 
@@ -1024,8 +1030,9 @@ containing the seed last sent to the PRNG.  NOTE: Changing the data in the
 referenced array will not cause any changes in the PRNG (i.e., it will not
 reseed it).
 
-When called with integer data (single value or an array), or a reference to
-an array of integers, these data will be used to reseed the PRNG.
+When called with integer data (a list of one or more value, or an array of
+values), or a reference to an array of integers, these data will be used to
+reseed the PRNG.
 
 Together, this function may be useful for setting up identical sequences
 of random numbers based on the same seed.
@@ -1092,9 +1099,9 @@ C<Math::Random::MT::Auto::warnings>.
 Normally, the standalone PRNG is automatically seeded when the module is
 loaded.  This behavior can be modified by supplying the C<:!auto> (or
 C<:noauto>) flag when the module is declared.  (The PRNG will still be
-seeded using time and PID just in case.)  When the C<:!auto> option is
-used, the L</"srand"> function should be imported, and then run before
-calling L</"rand"> or L</"irand">.
+seeded using C<time()> and PID (C<$$>), just in case.)  When the C<:!auto>
+option is used, the L</"srand"> function should be imported, and then run
+before calling any of the random number functions.
 
   use Math::Random::MT::Auto qw/rand srand :!auto/;
     ...
@@ -1131,7 +1138,7 @@ they are not acted upon).
 
 When the C<STATE> option is not used, this options seeds the newly created
 PRNG using the supplied seed data.  Otherwise, the seed data is just
-copied to the new opject.
+copied to the new object.
 
 =item 'SOURCE' => 'source'
 
@@ -1141,7 +1148,7 @@ Specifies the seeding source(s) for the PRNG.  If the C<STATE> and C<SEED>
 options are not used, then seed data will be immediately fetched using the
 specified sources and used to seed the PRNG.
 
-The source list is retained for later use with the C<seed> method.  The
+The source list is retained for later use by the C<srand> method.  The
 source list may be replaced by using the C<srand> method.
 
 =back
@@ -1166,16 +1173,17 @@ When provided, the C<SEED> and C<SOURCE> options behave as described above.
   my $rn = $prng->rand();
   my $rn = $prng->rand($num);
 
-Behaves like Perl's built-in L<rand|perlfunc/"rand">, returning a number
+Operates like the L</"rand"> function described above, returning a number
 uniformly distributed in [0, $num).  ($num defaults to 1.)
 
 =item $obj->irand
 
   my $int = $prng->irand();
 
-Returns a random integer.  For 32-bit integer Perl, the range is 0 to
-2^32-1 (0xFFFFFFFF) inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1
-inclusive.  This is the fastest method for obtaining pseudo-random numbers
+Operates like the L</"irand"> function described above, returning a random
+integer.  For 32-bit integer Perl, the range is 0 to 2^32-1 (0xFFFFFFFF)
+inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1 inclusive.  This is the
+fastest method for obtaining pseudo-random numbers from PRNG objects.
 
 =item $obj->gaussian
 
@@ -1219,8 +1227,8 @@ time = mean).  The mean must be a positive value (> 0).
   my $bn = $prng->binomial($prob, $trials);
 
 Operates like the L</"binomial"> function described above, returning integer
-random numbers (>= 0) from a binomial distribution.  The probability C<$prob>
-must be between 0.0 and 1.0 (inclusive), and the number of trials C<$trials>
+random numbers (>= 0) from a binomial distribution.  The probability
+(C<$prob>) must be between 0.0 and 1.0 (inclusive), and the number of trials
 must be >= 0.
 
 =item $obj->shuffle
@@ -1248,14 +1256,14 @@ Optionally, seeding sources may be supplied as arguments.  (These will be
 saved and used again if the C<srand> method is subsequently called without
 arguments).
 
-If called with integer data (single value or an array), or a reference to
-an array of integers, these data will be passed to the C<seed> method for
-use in reseeding the PRNG.
+If called with integer data (a list of one or more value, or an array of
+values), or a reference to an array of integers, these data will be passed to
+the C<seed> method for use in reseeding the PRNG.
 
 =item $obj->seed
 
   my $seed = $prgn->seed();
-  $prgn->seed($seed);
+  $prgn->seed($seed, ...);
   $prgn->seed(@seed);
   $prgn->seed(\@seed);
 
@@ -1293,35 +1301,19 @@ erased.
 This module is thread-safe for PRNGs created through the OO interface for
 Perl v5.7.2 and beyond.
 
-For Perl v5.8.7 and later, when a thread is created, any PRNG objects are
-cloned:  A parent's PRNG object and its child's cloned copy will work
-independently from one another, and will return identical random numbers
-from the point of cloning.
-
-For v5.7.2 through v5.8.6, when a thread is created, any PRNG objects are
-carried over to the new thread, but they are not cloned.  Cloning can be
-accomplished with the following workaround:  Prior to calling
-C<threads->create()>, execute the following for every PRNG object to be
-used inside the thread:
-
-  $prng->{'STATE'} = $prng->state();
-
-When the C<STATE> attribute is found (after the thread is created), it is
-used to make the thread's copy of the PRNG a clone of the parent's.  If not
-found, then the thread's copy of the PRNG is re-seeded either with the
-existing C<SEED> attribute if found, or with a newly acquired seed.
-
-Prior to v5.7.2, the PRNG objects created in the parent will be I<broken>
-in the thread once it is created.  Therefore, new PRNG objects must be
-created in the thread.
+For Perl prior to v5.7.2, the PRNG objects created in the parent will be
+I<broken> in the thread once it is created.  Therefore, new PRNG objects must
+be created in the thread.
 
 The standalone PRNG, however, is not thread-safe, and hence should not be
 used in threaded applications.
 
-B<NOTE>: Due to limitations in the Perl threading model, I<blessed> objects
-(i.e., objects create through OO interfaces) cannot be shared between
-threads.  The L<docs on this|threads::shared/"BUGS"> are not worded very
-clearly, but here's the gist:
+=head3 No object sharing between threads
+
+Due to limitations in the Perl threading model, I<blessed> objects (i.e.,
+objects create through OO interfaces) cannot be shared between threads.  The
+L<docs on this|threads::shared/"BUGS"> are not worded very clearly, but here's
+the gist:
 
 =over
 
@@ -1332,7 +1324,7 @@ then function independent of one another.
 However, the threading model does not support sharing I<blessed> objects
 (via C<use threads::shared>) between threads such that an object appears to
 be a single copy whereby changes to the object made in the one thread are
-visible in another thhread.
+visible in another thread.
 
 =back
 
@@ -1365,7 +1357,7 @@ When this module is imported via C<use>, the standalone PRNG is initialized
 via an C<INIT> block that is executed right after the module is loaded.
 
 However, if you want to delay the importation of this module using
-C<require> and want to use the standlone PRNG, then you must import
+C<require> and want to use the standalone PRNG, then you must import
 L</"srand">, and execute it so that the PRNG gets initialized:
 
   eval {
@@ -1483,6 +1475,10 @@ of pseudo-random numbers.
 
 =back
 
+Included in this module's distribution are several sample programs (located
+in the F<samples> sub-directory) that illustrate the use of the various
+random number deviates and other features supported by this module.
+
 =head1 DIAGNOSTICS
 
 This module sets a 10 second timeout for Internet connections so that if
@@ -1498,8 +1494,8 @@ The HotBits site has a quota on the amount of data you can request in a
 source may fail to provide any data if used too often.
 
 If the module cannot acquire any seed data from the specified sources, then
-the time() and PID will be used to seed the PRNG.  Use L</"warnings"> to
-check for seed acquisition problems.
+the C<time()> and PID (C<$$>) will be used to seed the PRNG.  Use
+L</"warnings"> to check for seed acquisition problems.
 
 It is possible to seed the PRNG with more than 19968 bits of data (through
 the use of a seeding subroutine supplied to L</"srand">, or by supplying a
@@ -1515,7 +1511,7 @@ OO interface.  Under Solaris, it's 4x and 3.5x faster, respectively.  The
 file F<samples/timings.pl>, included in this module's distribution, can be
 used to compare timing results.
 
-Depending on your connnection speed, acquiring seed data from the Internet
+Depending on your connection speed, acquiring seed data from the Internet
 may take up to couple of seconds.  This delay might be apparent when your
 application is first started, or after creating a new PRNG object.  This is
 especially true if you specify the C<hotbits> source twice (so as to get

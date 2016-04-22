@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+2.0.1 Mon Aug 08 08:49:00 2005
+	- Fixed memory leak when using threads with sub-classes
+
 2.0.0 Wed Aug 03 08:07:10 2005
 	- Added shuffle() - Fisher-Yates shuffle
 	- Sample program for shuffle function
@@ -14,7 +17,6 @@ Revision history for Perl extension Math::Random::MT::Auto.
 	- Fix to 32-bit floating point conversion
 
 1.36  Fri Jul 15 09:18:30 2005
-	- Speedups and cleanups
 	- Support gaussian($sd, $mean)
 	- Fix to non-blocking IO code
 
@@ -42,7 +44,6 @@ Revision history for Perl extension Math::Random::MT::Auto.
 
 1.22  Tue Jul 05 15:06:00 2005
 	- Subclass handling
-	- Fix for thread cloning for 5.7.2-5.8.6
 	- Documented as not thread-safe for < 5.7.2
 
 1.21  Fri Jul 01 14:43:30 2005

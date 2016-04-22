@@ -14,13 +14,13 @@ MAIN:
     my @suits = qw/C D H S/;
 
     print('My hand: ');
-    foreach my $card (0..4) {
+    for my $card (0 .. 4) {
         print($cards[$$deck[$card] % 13], '-', $suits[$$deck[$card] / 13], '  ');
     }
     print("\n\n");
 
     print('Your hand: ');
-    foreach my $card (5..9) {
+    for my $card (5 .. 9) {
         print($cards[$$deck[$card] % 13], '-', $suits[$$deck[$card] / 13], '  ');
     }
     print("\n");

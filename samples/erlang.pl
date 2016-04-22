@@ -22,7 +22,7 @@ MAIN:
 
     # Get random numbers and put them in bins
     print("Generating $count Erlang random numbers.  Please wait...");
-    for (my $ii=0; $ii < $count; $ii++) {
+    for (1 .. $count) {
         my $x = int(erlang($order, 40/($order+2)));
 
         # Make sure the tail doesn't overflow
@@ -43,7 +43,7 @@ MAIN:
 
     # Output the graph
     print("\n");
-    foreach my $key (sort { $a <=> $b } (keys(%erlang))) {
+    for my $key (sort { $a <=> $b } (keys(%erlang))) {
         my $len = int(79.0 * $erlang{$key}/$max);
         print(':', '*' x $len, "\n");
     }

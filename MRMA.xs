@@ -120,14 +120,37 @@
 #   define RAND_NEG1x_1x(x) ((((NV)((IV)(x))) * TWOeMINUS31) + TWOeMINUS32)
 #endif
 
+#define PI 3.1415926535897932
+
 /* Get next element from the PRNG */
 #define NEXT_ELEM(x) ((--x.left == 0) ? _mt_algo(&x) : *x.next++)
 #define NEXT_ELEM_PTR(x) ((--x->left == 0) ? _mt_algo(x) : *x->next++)
 
-/* Get PRNG struct from object */
-#define EXTRACT_PRNG(obj)                                       \
-        tmp = SvIV((SV*)SvRV(*hv_fetch(obj, "PRNG", 4, 0)));    \
+/* Get PRNG struct from object for OO interface */
+#define EXTRACT_PRNG(obj) \
+        tmp = SvIV((SV*)SvRV(*hv_fetch(obj, "PRNG", 4, 0)));            \
         prng = INT2PTR(my_cxt_t *, tmp)
+
+/* Variable declarations for OO and functional interfaces */
+#define PRNG_VARS       \
+        dMY_CXT;        \
+        HV *rand_obj;   \
+        IV tmp;         \
+        my_cxt_t *prng; \
+        int idx = 0;
+
+/* Sets up PRNG for OO and functional interfaces */
+#define PRNG_PREP \
+        if (items && SvROK(ST(0)) && SvTYPE(SvRV(ST(0)))==SVt_PVHV) {   \
+            /* OO interface */                                          \
+            rand_obj = (HV*)SvRV(ST(0));                                \
+            /* prng = */ EXTRACT_PRNG(rand_obj);                        \
+            items--;                                                    \
+            idx = 1;                                                    \
+        } else {                                                        \
+            /* Standalone PRNG */                                       \
+            prng = &MY_CXT;                                             \
+        }
 
 
 /* The PRNG state structure */
@@ -158,7 +181,7 @@ struct mt {
 };
 
 typedef struct mt my_cxt_t;
-typedef struct mt *Math__Random__MT__Auto;
+typedef struct mt *Math__Random__MT__Auto___PRNG_;
 
 
 /* The guts of the Mersenne Twister algorithm */
@@ -186,42 +209,6 @@ _mt_algo(my_cxt_t *prng)
     prng->left = N;
 
     return (n1);
-}
-
-
-/* Seed the PRNG */
-static void
-_mt_seed(my_cxt_t *prng, UV *seed, int len)
-{
-    int ii, jj, kk;
-    UV *st = prng->state;
-
-    /* Initialize */
-    st[0]= 19650218;
-    for (ii=1; ii<N; ii++) {
-        st[ii] = (MAGIC1 * (st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) + ii);
-    }
-
-    /* Add supplied seed */
-    ii=1; jj=0;
-    for (kk = ((N>len) ? N : len); kk; kk--) {
-        st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) * MAGIC2))
-                        + seed[jj] + jj;
-        if (++ii >= N) { st[0] = st[N-1]; ii=1; }
-        if (++jj >= len) jj=0;
-    }
-
-    /* Final shuffle */
-    for (kk=N-1; kk; kk--) {
-        st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) * MAGIC3)) - ii;
-        if (++ii >= N) { st[0] = st[N-1]; ii=1; }
-    }
-
-    /* Guarantee non-zero initial state */
-    st[0] = HI_BIT;
-
-    /* Forces twist when first random is requested */
-    prng->left = 1;
 }
 
 
@@ -269,14 +256,16 @@ BOOT:
     MY_CXT_INIT;
 }
 
-Math::Random::MT::Auto
+Math::Random::MT::Auto::_PRNG_
 SA_prng()
     PREINIT:
         dMY_CXT;
     CODE:
-        /* These initializations ensure that the PRNG is 'safe' */
-        MY_CXT.state[0]         = HI_BIT;
-        MY_CXT.left             = 1;
+        /*** Returns a pointer to the standalone PRNG context ***/
+
+        /* These initializations ensure that the standalone PRNG is 'safe' */
+        MY_CXT.state[0]          = HI_BIT;
+        MY_CXT.left              = 1;
         MY_CXT.gaussian.have     = 0;
         MY_CXT.gaussian.value    = 0.0;
         MY_CXT.poisson.mean      = -1;
@@ -298,7 +287,7 @@ mt_irand(...)
     PREINIT:
         dMY_CXT;
     CODE:
-        /* Random number on [0,0xFFFFFFFF] interval */
+        /*** Returns a random integer for the standalone PRNG ***/
         RETVAL = NEXT_ELEM(MY_CXT);
         TEMPER_ELEM(RETVAL);
     OUTPUT:
@@ -310,6 +299,8 @@ mt_rand(...)
         dMY_CXT;
         UV rand;
     CODE:
+        /*** Returns a random number for the standalone PRNG ***/
+
         /* Random number on [0,1) interval */
         rand = NEXT_ELEM(MY_CXT);
         TEMPER_ELEM(rand);
@@ -321,14 +312,14 @@ mt_rand(...)
     OUTPUT:
         RETVAL
 
-Math::Random::MT::Auto
+Math::Random::MT::Auto::_PRNG_
 OO_prng()
     CODE:
-        /* Create new PRNG for OO interface */
+        /*** Returns a pointer to a new PRNG context for the OO Interface ***/
         RETVAL = calloc(1, sizeof(my_cxt_t));
-        RETVAL->poisson.mean     = -1;
-        RETVAL->binomial.trials  = -1;
-        RETVAL->binomial.prob    = -1.0;
+        RETVAL->poisson.mean    = -1;
+        RETVAL->binomial.trials = -1;
+        RETVAL->binomial.prob   = -1.0;
     OUTPUT:
         RETVAL
 
@@ -339,10 +330,11 @@ irand(rand_obj)
         IV tmp;
         my_cxt_t *prng;
     CODE:
+        /*** Returns a random integer for a PRNG object ***/
+
         /* Extract PRNG context from object */
         /* prng = */ EXTRACT_PRNG(rand_obj);
 
-        /* Random number on [0,0xFFFFFFFF] interval */
         RETVAL = NEXT_ELEM_PTR(prng);
         TEMPER_ELEM(RETVAL);
     OUTPUT:
@@ -356,6 +348,8 @@ rand(rand_obj, ...)
         my_cxt_t *prng;
         UV rand;
     CODE:
+        /*** Returns a random number for a PRNG object ***/
+
         /* Extract PRNG context from object */
         /* prng = */ EXTRACT_PRNG(rand_obj);
 
@@ -372,44 +366,64 @@ rand(rand_obj, ...)
 
 void
 OO_DESTROY(prng)
-        Math::Random::MT::Auto prng
+        Math::Random::MT::Auto::_PRNG_ prng
     PREINIT:
         dMY_CXT;
     CODE:
-        /* Object cleanup */
+        /*** Object cleanup ***/
         if (prng && (prng != &MY_CXT)) {
             free(prng);
         }
 
 void
 X_seed(prng, seed)
-        Math::Random::MT::Auto prng
+        Math::Random::MT::Auto::_PRNG_ prng
         AV *seed
     PREINIT:
-        int ii;
+        int ii, jj, kk;
         int len;
-        UV *buff;
+        UV *st;
     CODE:
-        /* Length of the seed */
+        /*** Seeds a PRNG ***/
+
         len = av_len(seed)+1;
-        /* Copy the seed */
-        buff = (UV *)malloc(len * sizeof(UV));
-        for (ii=0; ii < len; ii++) {
-            buff[ii] = SvUV(*av_fetch(seed, ii, 0));
+        st = prng->state;
+
+        /* Initialize */
+        st[0]= 19650218;
+        for (ii=1; ii<N; ii++) {
+            st[ii] = (MAGIC1 * (st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) + ii);
         }
-        /* Set up the PRNG */
-        _mt_seed(prng, buff, len);
-        /* Cleanup */
-        free(buff);
+
+        /* Add supplied seed */
+        ii=1; jj=0;
+        for (kk = ((N>len) ? N : len); kk; kk--) {
+            st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) * MAGIC2))
+                            + SvUV(*av_fetch(seed, jj, 0)) + jj;
+            if (++ii >= N) { st[0] = st[N-1]; ii=1; }
+            if (++jj >= len) jj=0;
+        }
+
+        /* Final shuffle */
+        for (kk=N-1; kk; kk--) {
+            st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> BIT_SHIFT)) * MAGIC3)) - ii;
+            if (++ii >= N) { st[0] = st[N-1]; ii=1; }
+        }
+
+        /* Guarantee non-zero initial state */
+        st[0] = HI_BIT;
+
+        /* Forces twist when first random is requested */
+        prng->left = 1;
 
 SV *
 X_get_state(prng)
-        Math::Random::MT::Auto prng
+        Math::Random::MT::Auto::_PRNG_ prng
     PREINIT:
         int ii;
         AV *state;
     CODE:
-        /* Returns array ref containing PRNG state vector */
+        /*** Returns array ref containing PRNG state vector ***/
         state = newAV();
         for (ii=0; ii<N; ii++) {
             av_push(state, newSVuv(prng->state[ii]));
@@ -432,12 +446,12 @@ X_get_state(prng)
 
 void
 X_set_state(prng, state)
-        Math::Random::MT::Auto prng
+        Math::Random::MT::Auto::_PRNG_ prng
         AV *state
     PREINIT:
         int ii;
     CODE:
-        /* Sets PRNG state vector from input array ref */
+        /*** Sets PRNG state vector from input array ref ***/
         for (ii=0; ii<N; ii++) {
             prng->state[ii] = SvUV(*av_fetch(state, ii, 0));
         }
@@ -460,34 +474,22 @@ X_set_state(prng, state)
 SV *
 shuffle(...)
     PREINIT:
-        dMY_CXT;
-        HV *rand_obj;
-        IV tmp;
-        my_cxt_t *prng;
-        int idx = 0;
+        PRNG_VARS;
         AV *ary;
         I32 ii, jj;
         UV rand;
         SV *elem;
     CODE:
-        if (items && SvROK(ST(0)) && SvTYPE(SvRV(ST(0)))==SVt_PVHV) {
-            /* OO interface */
-            rand_obj = (HV*)SvRV(ST(0));
-            /* prng = */ EXTRACT_PRNG(rand_obj);
+        PRNG_PREP;
 
-            items--;
-            idx = 1;
-
-        } else {
-            /* Standalone PRNG */
-            prng = &MY_CXT;
-        }
+        /*** Shuffles input data using the Fisher-Yates shuffle algorithm ***/
 
         /* Handle arguments */
         if (items == 1 && SvROK(ST(idx)) && SvTYPE(SvRV(ST(idx)))==SVt_PVAV) {
             /* User supplied array reference */
             ary = (AV*)SvRV(ST(idx));
             RETVAL = newRV_inc((SV *)ary);
+
         } else {
             /* Create an array from user supplied values */
             ary = newAV();
@@ -497,7 +499,6 @@ shuffle(...)
             RETVAL = newRV_noinc((SV *)ary);
         }
 
-        /*** Fisher-Yates shuffle ***/
         /* Process elements from last to second */
         for (ii=av_len(ary); ii > 0; ii--) {
             /* Pick a random element from the beginning
@@ -516,25 +517,13 @@ shuffle(...)
 NV
 gaussian(...)
     PREINIT:
-        dMY_CXT;
-        HV *rand_obj;
-        IV tmp;
-        my_cxt_t *prng;
-        int idx = 0;
+        PRNG_VARS;
         UV u1, u2;
         NV v1, v2, r, factor;
     CODE:
-        if (items && SvROK(ST(0))) {
-            /* OO interface */
-            rand_obj = (HV*)SvRV(ST(0));
-            /* prng = */ EXTRACT_PRNG(rand_obj);
+        PRNG_PREP;
 
-            items--;
-            idx = 1;
-        } else {
-            /* Standalone PRNG */
-            prng = &MY_CXT;
-        }
+        /*** Returns random number from a Gaussian distribution ***/
 
         if (prng->gaussian.have) {
             /* Use number generated during previous call */
@@ -563,10 +552,10 @@ gaussian(...)
         }
 
         if (items) {
-            /* Normal distribution with SD = X */
+            /* Gaussian distribution with SD = X */
             RETVAL *= SvNV(ST(idx));
             if (items > 1) {
-                /* Normal distribution with mean = Y */
+                /* Gaussian distribution with mean = Y */
                 RETVAL += SvNV(ST(idx+1));
             }
         }
@@ -576,31 +565,14 @@ gaussian(...)
 NV
 exponential(...)
     PREINIT:
-        dMY_CXT;
-        HV *rand_obj;
-        IV tmp;
-        my_cxt_t *prng;
-        int idx = 0;
-        UV rand;
+        PRNG_VARS;
     CODE:
-        if (items && SvROK(ST(0))) {
-            /* OO interface */
-            rand_obj = (HV*)SvRV(ST(0));
-            /* prng = */ EXTRACT_PRNG(rand_obj);
-            rand = NEXT_ELEM_PTR(prng);
+        PRNG_PREP;
 
-            items--;
-            idx = 1;
-
-        } else {
-            /* Standalone PRNG */
-            rand = NEXT_ELEM(MY_CXT);
-        }
-        TEMPER_ELEM(rand);
+        /*** Returns random number from an exponential distribution ***/
 
         /* Exponential distribution with mean = 1 */
-        RETVAL = -log(RAND_0x_1x(rand));
-
+        RETVAL = -log(_rand(prng));
         if (items) {
             /* Exponential distribution with mean = X */
             RETVAL *= SvNV(ST(idx));
@@ -611,28 +583,15 @@ exponential(...)
 NV
 erlang(...)
     PREINIT:
-        dMY_CXT;
-        HV *rand_obj;
-        IV tmp;
-        my_cxt_t *prng;
-        int idx = 0;
+        PRNG_VARS;
         IV order;
         IV ii;
         NV am, ss, tang, bound;
         UV ytmp;
     CODE:
-        if (items && SvROK(ST(0))) {
-            /* OO interface */
-            rand_obj = (HV*)SvRV(ST(0));
-            /* prng = */ EXTRACT_PRNG(rand_obj);
+        PRNG_PREP;
 
-            items--;
-            idx = 1;
-
-        } else {
-            /* Standalone PRNG */
-            prng = &MY_CXT;
-        }
+        /*** Returns random number from an Erlang distribution ***/
 
         /* Check argument */
         if (! items) {
@@ -657,7 +616,7 @@ erlang(...)
             ss = sqrt(2.0 * am + 1.0);
             do {
                 do {
-                    tang = tan(3.1415926535897932 * _rand(prng));
+                    tang = tan(PI * _rand(prng));
                     RETVAL = (tang * ss) + am;
                 } while (RETVAL <= 0.0);
                 bound = ((tang*tang) + 1.0) * exp(am * log(RETVAL/am) - ss*tang);
@@ -674,26 +633,13 @@ erlang(...)
 IV
 poisson(...)
     PREINIT:
-        dMY_CXT;
-        HV *rand_obj;
-        IV tmp;
-        my_cxt_t *prng;
-        int idx = 0;
+        PRNG_VARS;
         NV mean;
         NV em, tang, bound, limit;
     CODE:
-        if (items && SvROK(ST(0))) {
-            /* OO interface */
-            rand_obj = (HV*)SvRV(ST(0));
-            /* prng = */ EXTRACT_PRNG(rand_obj);
+        PRNG_PREP;
 
-            items--;
-            idx = 1;
-
-        } else {
-            /* Standalone PRNG */
-            prng = &MY_CXT;
-        }
+        /*** Returns random number from a Poisson distribution ***/
 
         /* Check argument(s) */
         if (! items) {
@@ -732,7 +678,7 @@ poisson(...)
             }
             do {
                 do {
-                    tang = tan(3.1415926535897932 * _rand(prng));
+                    tang = tan(PI * _rand(prng));
                     em = (tang * prng->poisson.sqrt2mean) + mean;
                 } while (em < 0.0);
                 em = floor(em);
@@ -749,29 +695,16 @@ poisson(...)
 IV
 binomial(...)
     PREINIT:
-        dMY_CXT;
-        HV *rand_obj;
-        IV tmp;
-        my_cxt_t *prng;
-        int idx = 0;
+        PRNG_VARS;
         NV prob;
         IV trials;
         int ii;
         NV p, pc, mean;
         NV en, em, tang, bound, limit, sq;
     CODE:
-        if (items && SvROK(ST(0))) {
-            /* OO interface */
-            rand_obj = (HV*)SvRV(ST(0));
-            /* prng = */ EXTRACT_PRNG(rand_obj);
+        PRNG_PREP;
 
-            items--;
-            idx = 1;
-
-        } else {
-            /* Standalone PRNG */
-            prng = &MY_CXT;
-        }
+        /*** Returns random number from a binomial distribution ***/
 
         /* Check argument(s) */
         if (items < 2) {
@@ -819,14 +752,14 @@ binomial(...)
                     prng->binomial.term = _ln_gamma(en + 1.0);
                 }
                 if (p != prng->binomial.prob) {
-                    prng->binomial.prob = p;
-                    prng->binomial.plog = log(p);
+                    prng->binomial.prob  = p;
+                    prng->binomial.plog  = log(p);
                     prng->binomial.pclog = log(pc);
                 }
 
                 do {
                     do {
-                        tang = tan(3.1415926535897932 * _rand(prng));
+                        tang = tan(PI * _rand(prng));
                         em = (sq * tang) + mean;
                     } while (em < 0.0 || em >= (en+1.0));
                     em = floor(em);

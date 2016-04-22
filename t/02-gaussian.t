@@ -43,10 +43,9 @@ sub cdf
 }
 
 my %df;
-foreach my $ii (-40 .. 39) {
+for my $ii (-40 .. 39) {
     $df{$ii} = cdf(($ii+1)/10) * $CNT;
 }
-
 for (my $ii=39; $ii > -40; $ii--) {
     $df{$ii} -= $df{$ii-1};
 }
@@ -60,7 +59,7 @@ my (%bell, $x, $dev);
 my $loops = 3;
 LOOP1:
 undef(%bell);
-for (my $ii=0; $ii < $CNT; $ii++) {
+for (1 .. $CNT) {
     eval { $x = gaussian(10); };
     if ($@) {
         fail('gaussian(10) failed: ' . $@);
@@ -84,7 +83,7 @@ for (my $ii=0; $ii < $CNT; $ii++) {
 }
 
 $dev = 0;
-foreach my $ii (-40 .. 39) {
+for my $ii (-40 .. 39) {
     my $bar1 = 3 * sqrt($df{$ii});
     my $bar2 = .025 * $df{$ii};
     my $bar = ($bar1 < $bar2) ? $bar2 : $bar1;
@@ -106,13 +105,14 @@ eval { $prng = Math::Random::MT::Auto->new(); };
 if (! ok(! $@, '->new() worked')) {
     diag('->new() died: ' . $@);
 }
-can_ok($prng, 'gaussian');
+can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
+                 shuffle srand seed state warnings/);
 
 # Get random numbers and put them in bins
 $loops = 3;
 LOOP2:
 undef(%bell);
-for (my $ii=0; $ii < $CNT; $ii++) {
+for (1 .. $CNT) {
     eval { $x = $prng->gaussian(10); };
     if ($@) {
         fail('$prng->gaussian(10) failed: ' . $@);
@@ -136,7 +136,7 @@ for (my $ii=0; $ii < $CNT; $ii++) {
 }
 
 $dev=0;
-foreach my $ii (-40 .. 39) {
+for my $ii (-40 .. 39) {
     my $bar1 = 3 * sqrt($df{$ii});
     my $bar2 = .025 * $df{$ii};
     my $bar = ($bar1 < $bar2) ? $bar2 : $bar1;

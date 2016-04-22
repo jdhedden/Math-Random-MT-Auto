@@ -11,7 +11,7 @@ BEGIN {
     $SIG{__WARN__} = sub { push(@WARN, @_); };
 }
 
-if ($^O eq 'MSWin32') {
+if (($^O eq 'MSWin32') || ($^O eq 'cygwin')) {
     my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
     if (defined($minor) &&
         (($id > 2) ||
@@ -38,7 +38,7 @@ if ($^O eq 'MSWin32') {
         plan(skip_all => 'Not Win XP');
     }
 } else {
-    plan(skip_all => 'Not Win32');
+    plan(skip_all => 'Not MSWin32 or Cygwin');
 }
 
 use_ok('Math::Random::MT::Auto', qw(rand irand), 'win32');

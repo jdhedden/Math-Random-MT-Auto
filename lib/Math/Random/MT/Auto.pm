@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.13';
+our $VERSION = '6.14';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -347,7 +347,7 @@ my $FULL_SEED   = 2496 / $INT_SIZE;
 
 
 # If Windows XP and Win32::API, then make 'win32' a valid source
-if ($^O eq 'MSWin32') {
+if (($^O eq 'MSWin32') || ($^O eq 'cygwin')) {
     my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
     if (defined($minor) &&
         (($id > 2) ||
@@ -665,7 +665,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.13
+This documentation refers to Math::Random::MT::Auto version 6.14
 
 =head1 SYNOPSIS
 
@@ -887,8 +887,8 @@ or specify multiple sources:
 
 =item Windows XP Random Data
 
-Under MSWin32 on Windows XP, you can acquire random seed data from the
-system.
+Under MSWin32 or Cygwin on Windows XP, you can acquire random seed data from
+the system.
 
  use Math::Random::MT::Auto 'win32';
 
@@ -918,9 +918,10 @@ added, and the number of integers (64- or 32-bit as the case may be) needed.
 =back
 
 The default list of seeding sources is determined when the module is loaded.
-Under MSWin32 on Windows XP, C<win32> is added to the list if L<Win32::API> is
-available.  Otherwise, F</dev/urandom> and then F</dev/random> are checked.
-The first one found is added to the list.  Finally, C<random_org> is added.
+Under MSWin32 or Cygwin on Windows XP, C<win32> is added to the list if
+L<Win32::API> is available.  Otherwise, F</dev/urandom> and then
+F</dev/random> are checked.  The first one found is added to the list.
+Finally, C<random_org> is added.
 
 For the functional interface to the standalone PRNG, these defaults can be
 overridden by specifying the desired sources when the module is declared, or
@@ -1553,7 +1554,7 @@ message.
 The specified seeding source is not recognized by this module.
 
 This error also occurs if you try to use the L<win32|/"Windows XP Random Data">
-random data source on something other than MSWin32 on Windows XP.
+random data source on something other than MSWin32 or Cygwin on Windows XP.
 
 See L</"Seeding Sources"> for more information.
 
@@ -1674,8 +1675,8 @@ To utilize the option of acquiring seed data from Internet sources, you need
 to install the L<LWP::UserAgent> module.
 
 To utilize the option of acquiring seed data from the system's random data
-source under MSWin32 on Windows XP, you need to install the L<Win32::API>
-module.
+source under MSWin32 or Cygwin on Windows XP, you need to install the
+L<Win32::API> module.
 
 =head1 BUGS AND LIMITATIONS
 
@@ -1698,7 +1699,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.13/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.14/lib/Math/Random/MT/Auto.pm>
 
 Source repository:
 L<http://code.google.com/p/mrma/>

@@ -3,7 +3,7 @@ package Math::Random::MT::Auto::Range; {
 use strict;
 use warnings;
 
-our $VERSION = '6.14';
+our $VERSION = '6.15';
 $VERSION = eval $VERSION;
 
 use Scalar::Util 1.18;
@@ -414,7 +414,7 @@ Jerry D. Hedden, S<E<lt>jdhedden AT cpan DOT orgE<gt>>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2005 - 2008 Jerry D. Hedden. All rights reserved.
+Copyright 2005 - 2009 Jerry D. Hedden. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.

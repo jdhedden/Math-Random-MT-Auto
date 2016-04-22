@@ -1,5 +1,9 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.15 Fri Mar  5 18:06:27 2010
+	- Explicitly require Win32 where needed
+	- Upgraded ppport.h to Devel::PPPort 3.19
+
 6.14 Wed Jun 11 16:44:48 2008
 	- Support 'win32' source under Cygwin
 

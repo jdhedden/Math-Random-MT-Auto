@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.14';
+our $VERSION = '6.15';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -348,24 +348,27 @@ my $FULL_SEED   = 2496 / $INT_SIZE;
 
 # If Windows XP and Win32::API, then make 'win32' a valid source
 if (($^O eq 'MSWin32') || ($^O eq 'cygwin')) {
-    my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
-    if (defined($minor) &&
-        (($id > 2) ||
-         ($id == 2 && $major > 5) ||
-         ($id == 2 && $major == 5 && $minor >= 1)))
-    {
-        eval {
-            # Suppress (harmless) warning about Win32::API::Type's INIT block
-            local $SIG{__WARN__} = sub {
-                if ($_[0] !~ /^Too late to run INIT block/) {
-                    print(STDERR "$_[0]\n");    # Output other warnings
-                }
-            };
+    eval { require Win32; };
+    if (! $@) {
+        my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
+        if (defined($minor) &&
+            (($id > 2) ||
+             ($id == 2 && $major > 5) ||
+             ($id == 2 && $major == 5 && $minor >= 1)))
+        {
+            eval {
+                # Suppress (harmless) warning about Win32::API::Type's INIT block
+                local $SIG{__WARN__} = sub {
+                    if ($_[0] !~ /^Too late to run INIT block/) {
+                        print(STDERR "$_[0]\n");    # Output other warnings
+                    }
+                };
 
-            require Win32::API;
-        };
-        if (! $@) {
-            $DISPATCH{'win32'} = \&_acq_win32;
+                require Win32::API;
+            };
+            if (! $@) {
+                $DISPATCH{'win32'} = \&_acq_win32;
+            }
         }
     }
 }
@@ -665,7 +668,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.14
+This documentation refers to Math::Random::MT::Auto version 6.15
 
 =head1 SYNOPSIS
 
@@ -1699,7 +1702,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.14/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.15/lib/Math/Random/MT/Auto.pm>
 
 Source repository:
 L<http://code.google.com/p/mrma/>
@@ -1769,7 +1772,7 @@ and including Shawn Cokus's optimizations.
  Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
   All rights reserved.
  Copyright (C) 2005, Mutsuo Saito, All rights reserved.
- Copyright 2005 - 2008 Jerry D. Hedden <jdhedden AT cpan DOT org>
+ Copyright 2005 - 2009 Jerry D. Hedden <jdhedden AT cpan DOT org>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions

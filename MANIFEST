@@ -19,6 +19,7 @@ t/08-hotbits.t
 t/09-state.t
 t/10-deviates.t
 t/11-range.t
+t/12-rn_info.t
 samples/timings.pl
 samples/bell.pl
 samples/decay.pl

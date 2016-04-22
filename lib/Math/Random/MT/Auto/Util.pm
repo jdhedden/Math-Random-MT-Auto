@@ -3,7 +3,7 @@ use warnings;
 
 package Math::Random::MT::Auto::Util; {
 
-our $VERSION = '4.11.00';
+our $VERSION = '4.12.00';
 
 use Carp ();
 

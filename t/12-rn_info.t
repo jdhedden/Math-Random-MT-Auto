@@ -1,4 +1,4 @@
-# Tests for random.org site
+# Tests for RandomNumbers.info site
 
 use strict;
 use warnings;
@@ -10,22 +10,19 @@ eval { require LWP::UserAgent; };
 if ($@) {
     plan skip_all => 'LWP::UserAgent not available';
 } else {
-    # See if we can connect to random.org
+    # See if we can connect
     my $res;
     eval {
-        # Create user agent
         my $ua = LWP::UserAgent->new( timeout => 5, env_proxy => 1 );
-        # Create request to random.org
-        my $req = HTTP::Request->new(GET => "http://www.random.org/cgi-bin/randbyte?nbytes=4");
-        # Get the data
+        my $req = HTTP::Request->new(GET => "http://www.randomnumbers.info/cgibin/wqrng?limit=255&amount=1");
         $res = $ua->request($req);
     };
     if ($@) {
-        plan skip_all => "Failure contacting random.org: $@";
+        plan skip_all => "Failure contacting RandomNumbers.info: $@";
     } elsif ($res->is_success) {
         plan tests => 89;
     } else {
-        plan skip_all => 'Failure getting data from random.org: ' . $res->status_line;
+        plan skip_all => 'Failure getting data from RandomNumbers.info: ' . $res->status_line;
     }
 }
 
@@ -34,12 +31,18 @@ BEGIN {
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
 
-    use_ok('Math::Random::MT::Auto', qw/rand irand/, 'random_org');
+    use_ok('Math::Random::MT::Auto', qw/rand irand get_seed/, 'rn_info');
 }
 
 # Check for warnings
 if (@WARN) {
-    diag('Seed warnings: ' . join(' | ', @WARN));
+    @WARN = grep { $_ !~ /Partial seed/ } @WARN;
+    if (@WARN) {
+        diag('Seed warnings: ' . join(' | ', @WARN));
+    }
+} else {
+    ok(@WARN, 'No short seed error');
+    diag('seed: ' . scalar(@{get_seed()}));
 }
 undef(@WARN);
 

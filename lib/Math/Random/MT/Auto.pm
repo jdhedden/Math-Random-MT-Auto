@@ -5,7 +5,7 @@ use warnings;
 
 package Math::Random::MT::Auto; {
 
-our $VERSION = '4.11.00';
+our $VERSION = '4.12.00';
 
 use Carp ();
 use Scalar::Util 1.10 qw(blessed looks_like_number weaken);
@@ -432,13 +432,10 @@ sub DESTROY {
 
 
 ### Internal Subroutines ###
-#
-# Anonymous subroutine refs are used to hide internal functionality from the
-# outside world.
 
 use Config ();
 
-### Constants
+# Constants #
 
 # Size of Perl's integers (32- or 64-bit) and corresponding unpack code
 my $INT_SIZE    = $Config::Config{'uvsize'};
@@ -446,6 +443,9 @@ my $UNPACK_CODE = ($INT_SIZE == 8) ? 'Q' : 'L';
 # Number of ints for a full 19968-bit seed
 my $FULL_SEED   = 2496 / $INT_SIZE;
 
+
+# Anonymous subroutine refs are used to hide internal functionality from the
+# outside world.
 
 # Acquire seed data from a device/file
 my $_src_device = sub {
@@ -498,47 +498,89 @@ my $_src_device = sub {
 };
 
 
-# Acquire seed data from random.org
-my $_src_random_org = sub {
-    my $prng  = $_[0];
-    my $need  = $_[1];
-    my $bytes = $need * $INT_SIZE;
+# Process data from random.org
+my $_data_random_org = sub {
+    my $prng    = $_[0];
+    my $content = $_[1];
 
-    # Load LWP::UserAgent module
-    eval {
-        require LWP::UserAgent;
-    };
-    if ($@) {
-        Carp::carp("Failure loading LWP::UserAgent: $@");
-        return;
-    }
+    # Add data to seed array
+    push(@{$seed_for{$$prng}}, unpack("$UNPACK_CODE*", $content));
+};
 
-    my $res;
-    eval {
-        # Create user agent
-        my $ua = LWP::UserAgent->new( timeout => 5, env_proxy => 1 );
-        # Create request to random.org
-        my $req = HTTP::Request->new(GET =>
-                "http://www.random.org/cgi-bin/randbyte?nbytes=$bytes");
-        # Get the seed
-        $res = $ua->request($req);
-    };
-    if ($@) {
-        Carp::carp("Failure contacting random.org: $@");
-    } elsif ($res->is_success) {
-        # Add data to seed array
-        push(@{$seed_for{$$prng}}, unpack("$UNPACK_CODE*", $res->content));
+
+# Process data from HotBits
+my $_data_hotbits = sub {
+    my $prng    = $_[0];
+    my $content = $_[1];
+
+    if ($content =~ /exceeded your 24-hour quota/) {
+        # Complain about exceeding Hotbits quota
+        Carp::carp($content);
     } else {
-        Carp::carp('Failure getting data from random.org: ' . $res->status_line);
+        # Add data to seed array
+        push(@{$seed_for{$$prng}}, unpack("$UNPACK_CODE*", $content));
     }
 };
 
 
-# Acquire seed data from HotBits
-my $_src_hotbits = sub {
-    my $prng  = $_[0];
-    my $need  = $_[1];
+# Process data from RandomNumbers.info
+my $_data_rn_info = sub {
+    my $prng    = $_[0];
+    my $content = $_[1];
+
+    # Extract digits from web page
+    my (@bytes) = $content =~ / ([\d]+)/g;
+    # Make sure we have correct number of bytes for complete integers.
+    # Also gets rid of copyright year that gets picked up from end of web page.
+    do {
+        pop(@bytes);
+    } while (@bytes % $INT_SIZE);
+    while (@bytes) {
+        # Construct integers from bytes
+        my $num = 0;
+        for (1 .. $INT_SIZE) {
+            $num = ($num << 8) + pop(@bytes);
+        }
+        # Add integer data to seed array
+        push(@{$seed_for{$$prng}}, $num);
+    }
+};
+
+
+# Internet seed source information table
+my %_WWW = (
+    'random_org' => {
+        'sitename'  => 'random.org',
+        'URL'       => 'http://www.random.org/cgi-bin/randbyte?nbytes=',
+        'max_bytes' => $FULL_SEED * $INT_SIZE,
+        'processor' => $_data_random_org,
+    },
+    'hotbits' => {
+        'sitename'  => 'HotBits',
+        'URL'       => 'http://www.fourmilab.ch/cgi-bin/uncgi/Hotbits?fmt=bin&nbytes=',
+        'max_bytes' => 2048,
+        'processor' => $_data_hotbits,
+    },
+    'rn_info' => {
+        'sitename'  => 'RandomNumbers.info',
+        'URL'       => 'http://www.randomnumbers.info/cgibin/wqrng?limit=255&amount=',
+        'max_bytes' => 1000,
+        'processor' => $_data_rn_info,
+    },
+);
+
+
+# Acquire seed data from Internet source
+my $_src_www = sub {
+    my $src  = $_[0];
+    my $prng = $_[1];
+    my $need = $_[2];
+
+    # Number of bytes to request (observing maximum data limit)
     my $bytes = $need * $INT_SIZE;
+    if ($bytes > $_WWW{$src}{'max_bytes'}) {
+        $bytes = $_WWW{$src}{'max_bytes'};
+    }
 
     # Load LWP::UserAgent module
     eval {
@@ -549,41 +591,35 @@ my $_src_hotbits = sub {
         return;
     }
 
+    # Request the data
     my $res;
     eval {
         # Create user agent
-        my $ua = LWP::UserAgent->new( timeout => 5, env_proxy => 1 );
-        # HotBits only allows 2048 bytes max.
-        if ($bytes > 2048) {
-            $bytes = 2048;
-            $need  = $bytes / $INT_SIZE;
-        }
-        # Create request for HotBits
-        my $req = HTTP::Request->new(GET =>
-                "http://www.fourmilab.ch/cgi-bin/uncgi/Hotbits?fmt=bin&nbytes=$bytes");
-        # Get the seed
+        my $ua = LWP::UserAgent->new('timeout' => 5, 'env_proxy' => 1);
+        # Create request
+        my $req = HTTP::Request->new('GET' => $_WWW{$src}{'URL'} . $bytes);
+        # Send the request
         $res = $ua->request($req);
     };
+
+    # Handle the response
     if ($@) {
-        Carp::carp("Failure contacting HotBits: $@");
+        Carp::carp("Failure contacting $_WWW{$src}{'sitename'}: $@");
     } elsif ($res->is_success) {
-        if ($res->content =~ /exceeded your 24-hour quota/) {
-            # Complain about exceeding Hotbits quota
-            Carp::carp($res->content);
-        } else {
-            # Add data to seed array
-            push(@{$seed_for{$$prng}}, unpack("$UNPACK_CODE*", $res->content));
-        }
+        # Process the data
+        $_WWW{$src}{'processor'}->($prng, $res->content);
     } else {
-        Carp::carp('Failure getting data from HotBits: ' . $res->status_line);
+        Carp::carp("Failure getting data from $_WWW{$src}{'sitename'}: "
+                                                    . $res->status_line);
     }
 };
 
 
 # Acquire seed data from Win XP random source
 my $_src_win32 = sub {
-    my $prng  = $_[0];
-    my $need  = $_[1];
+    my $src   = $_[0];   # Not used
+    my $prng  = $_[1];
+    my $need  = $_[2];
     my $bytes = $need * $INT_SIZE;
 
     # Check OS type and version
@@ -638,8 +674,9 @@ my $_src_win32 = sub {
 
 # Seed source subroutine dispatch table
 my %_DISPATCH = (
-    'random_org' => $_src_random_org,
-    'hotbits'    => $_src_hotbits,
+    'random_org' => $_src_www,
+    'hotbits'    => $_src_www,
+    'rn_info'    => $_src_www,
     'win32'      => $_src_win32
 );
 
@@ -659,6 +696,7 @@ $acq_seed = sub {
          $ii++)
     {
         my $src = $sources->[$ii];
+        my $src_key = lc($src);   # Suitable as hash key
 
         # Determine amount of data needed
         my $need = $FULL_SEED - @{$seed};
@@ -672,10 +710,10 @@ $acq_seed = sub {
             # User-supplied seeding subroutine
             &$src($seed, $need);
 
-        } elsif (defined($_DISPATCH{lc($src)})) {
+        } elsif (defined($_DISPATCH{$src_key})) {
             # Module defined seeding source
             # Execute subroutine ref from dispatch table
-            $_DISPATCH{lc($src)}->($prng, $need);
+            $_DISPATCH{$src_key}->($src_key, $prng, $need);
 
         } elsif (-e $src) {
             # Random device or file
@@ -715,7 +753,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 4.11.00.
+This documentation refers to Math::Random::MT::Auto version 4.12.00.
 
 =head1 SYNOPSIS
 
@@ -902,24 +940,30 @@ also use random data previously stored in files (in binary format).
 
 =item Internet Sites
 
-This module provides support for acquiring seed data from two Internet
-sites:  random.org and HotBits.  An Internet connection and
-L<LWP::UserAgent> are required to utilize these sources.
+This module provides support for acquiring seed data from several Internet
+sites:  random.org, HotBits and RandomNumbers.info.  An Internet connection
+and L<LWP::UserAgent> are required to utilize these sources.
 
     use Math::Random::MT::Auto 'random_org';
       # or
     use Math::Random::MT::Auto 'hotbits';
+      # or
+    use Math::Random::MT::Auto 'rn_info';
 
 If you connect to the Internet through an HTTP proxy, then you must set
 the L<http_proxy|LWP/"http_proxy"> variable in your environment when using
 these sources.  (See L<LWP::UserAgent/"Proxy attributes">.)
 
 The HotBits site will only provide a maximum of 2048 bytes of data per
-request.  If you want to get the full seed from HotBits, then specify
-the C<hotbits> source twice in the module declaration.
+request, and RandomNumbers.info's maximum is 1000.  If you want to get the
+full seed from these sites, then you can specify the source multiple times:
 
     my $prng = Math::Random::MT::Auto->new('SOURCE' => ['hotbits',
                                                         'hotbits']);
+
+or specify multiple sources:
+
+    use Math::Random::MT::Auto qw(rn_info hotbits random_org);
 
 =item Windows XP Random Data
 
@@ -1457,16 +1501,12 @@ data in it.
 To utilize the option of acquiring seed data from Internet sources, you need
 to install the L<LWP::UserAgent> module.
 
-=item * Failure contacting random.org: ...
+=item * Failure contacting XXX: ...
 
-=item * Failure contacting HotBits: ...
+=item * Failure getting data from XXX: 500 Can't connect to ... (connect: timeout)
 
-=item * Failure getting data from random.org: 500 Can't connect to www.random.org:80 (connect: timeout)
-
-=item * Failure getting data from HotBits: 500 Can't connect to www.fourmilab.ch:80 (connect: timeout)
-
-You need to have an Internet connection to utilize
-L<random.org or HotBits|/"Internet Sites"> as random seed sources.
+You need to have an Internet connection to utilize L</"Internet Sites"> as
+random seed sources.
 
 If you connect to the Internet through an HTTP proxy, then you must set the
 L<http_proxy|LWP/"http_proxy"> variable in your environment when using the
@@ -1560,11 +1600,11 @@ distribution, can be used to compare timing results.
 
 If you connect to the Internet via a phone modem, acquiring seed data may take
 a second or so.  This delay might be apparent when your application is first
-started, or after creating a new PRNG object.  This is especially true if you
-specify the L<hotbits|/"Internet Sites"> source twice (so as to get the full
-seed from the HotBits site) as this results in two accesses to the Internet.
-(If F</dev/urandom> is available on your machine, then you should definitely
-consider using the Internet sources only as a secondary source.)
+started, or when creating a new PRNG object.  This is especially true if you
+specify multiple L</"Internet Sites"> (so as to get the full seed from them)
+as this results in multiple accesses to the Internet.  (If F</dev/urandom> is
+available on your machine, then you should definitely consider using the
+Internet sources only as a secondary source.)
 
 =head1 DEPENDENCIES
 
@@ -1643,6 +1683,9 @@ L<http://random.org/>
 
 HotBits generates random number from a radioactive decay source.
 L<http://www.fourmilab.ch/hotbits/>
+
+RandomNumbers.info generates random number from a quantum optical source.
+L<http://www.randomnumbers.info/>
 
 OpenBSD random devices:
 L<http://www.openbsd.org/cgi-bin/man.cgi?query=arandom&sektion=4&apropos=0&manpath=OpenBSD+Current&arch=>

@@ -14,7 +14,7 @@ if ($@) {
     my $res;
     eval {
         # Create user agent
-        my $ua = LWP::UserAgent->new( timeout => 3, env_proxy => 1 );
+        my $ua = LWP::UserAgent->new( timeout => 5, env_proxy => 1 );
         # Create request to random.org
         my $req = HTTP::Request->new(GET => "http://www.fourmilab.ch/cgi-bin/uncgi/Hotbits?fmt=bin&nbytes=4");
         # Get the data

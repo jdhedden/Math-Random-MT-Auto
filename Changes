@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.12.00 Wed Sep 21 14:48:00 2005
+	- Added RandomNumbers.info
+
 4.11.00 Tue Sep 20 11:07:00 2005
 	- Require Scalar::Util 1.10 or higher
 	- Properly handle no threads in tests

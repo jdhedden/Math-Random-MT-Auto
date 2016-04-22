@@ -21,18 +21,37 @@ use Config;
 my @WARN;
 $SIG{__WARN__} = sub { push(@WARN, @_); };
 
+
+# Potentially available sources
+my %SRCS = (
+    '/dev/random' => 1,
+    'win32'       => 1,
+    'random_org'  => 1,
+    'hotbits'     => 1,
+    'rn_info'     => 1,
+);
+
+# Internet sources
+my @INET = qw(random_org hotbits rn_info);
+
+my $DEFAULT_SRC = 'random_org';
+
 MAIN:
 {
     # Command line arguments
-    my $local = 0;
     my $count = 3120000;
+    my $local = 0;
     for my $arg (@ARGV) {
         if ($arg eq '--local') {
+            # Local mode - no Internet sources
             $local = 1;
         } else {
             $count = 0 + $arg;
         }
     }
+
+    # Check sources
+    check_sources($local);
 
     my ($cnt, $start, $end);
 
@@ -94,47 +113,13 @@ MAIN:
 
     print("\n- Math::Random::MT::Auto - Standalone PRNG -\n");
 
-    if ($^O eq 'MSWin32') {
-        # Call srand to load Win32::API
-        undef(@WARN);
-        srand('win32');
-        # If errors, then ignore (probably not XP or no Win32::API)
-        if (! @WARN) {
-            # Time our srand() for win32
+    # Time our srand()
+    while (my ($src, $available) = each(%SRCS)) {
+        if ($available) {
             $start = Time::HiRes::time();
-            srand('win32');
+            srand($src, $DEFAULT_SRC);
             $end = Time::HiRes::time();
-            printf("srand:\t\t%f secs. (Win32 XP)\n", $end - $start);
-            @seed = @{get_seed()};
-        }
-
-    } else {
-        # Run srand once to load fcntl
-        srand('/dev/random');
-
-        # Time our srand() for /dev/random
-        undef(@WARN);
-        $start = Time::HiRes::time();
-        srand('/dev/random');
-        $end = Time::HiRes::time();
-        # If errors, then ignore (probably no /dev/random)
-        if (! @WARN) {
-            printf("srand:\t\t%f secs. (/dev/random)\n", $end - $start);
-            @seed = @{get_seed()};
-        }
-    }
-
-    if (! $local) {
-        # Call srand to load LWP::UserAgent
-        undef(@WARN);
-        srand('random_org');
-        # If errors, then ignore (probably no LWP::UserAgent)
-        if (! @WARN) {
-            # Time our srand() for random.org
-            $start = Time::HiRes::time();
-            srand('random_org');
-            $end = Time::HiRes::time();
-            printf("srand:\t\t%f secs. (random.org)\n", $end - $start);
+            printf("srand:\t\t%f secs. (%s %s)\n", $end - $start, $src, $DEFAULT_SRC);
             @seed = @{get_seed()};
         }
     }
@@ -225,38 +210,14 @@ MAIN:
 
     print("\n- Math::Random::MT::Auto - OO Interface -\n");
 
-    # Time OO interface
+    # Time our ->new()
     my $rand;
-    if ($^O eq 'MSWin32') {
-        undef(@WARN);
-        $start = Time::HiRes::time();
-        $rand = Math::Random::MT::Auto->new('SOURCE' => ['win32']);
-        $end = Time::HiRes::time();
-        # If errors, then ignore (probably not XP or no Win32::API)
-        if (! @WARN) {
-            printf("new:\t\t%f secs. (Win32 XP)\n", $end - $start);
-        }
-
-    } else {
-        undef(@WARN);
-        $start = Time::HiRes::time();
-        $rand = Math::Random::MT::Auto->new('SOURCE' => ['/dev/random']);
-        $end = Time::HiRes::time();
-        # If errors, then ignore (probably no /dev/random)
-        if (! @WARN) {
-            printf("new:\t\t%f secs. (/dev/random)\n", $end - $start);
-        }
-    }
-
-    if (! $local) {
-        # Time our srand() for random.org
-        undef(@WARN);
-        $start = Time::HiRes::time();
-        $rand = Math::Random::MT::Auto->new('SOURCE' => ['random_org']);
-        $end = Time::HiRes::time();
-        # If errors, then ignore (probably no LWP::UserAgent)
-        if (! @WARN) {
-            printf("new:\t\t%f secs. (random.org)\n", $end - $start);
+    while (my ($src, $available) = each(%SRCS)) {
+        if ($available) {
+            $start = Time::HiRes::time();
+            $rand = Math::Random::MT::Auto->new('SOURCE' => [$src, $DEFAULT_SRC]);
+            $end = Time::HiRes::time();
+            printf("new:\t\t%f secs. (%s %s)\n", $end - $start, $src, $DEFAULT_SRC);
         }
     }
 
@@ -427,5 +388,68 @@ MAIN:
 }
 
 exit(0);
+
+
+### Subroutines ###
+
+sub check_sources
+{
+    my $local = $_[0];
+
+    print('Checking seed sources...');
+
+    # Check availability of win32 source
+    srand('win32');
+    if (@WARN) {
+        $SRCS{'win32'} = 0;
+        undef(@WARN);
+    } else {
+        $SRCS{'win32'} = 1;
+        $DEFAULT_SRC = 'win32';
+    }
+
+   # Check availability of /dev/random source
+    if (-e '/dev/random') {
+        srand('/dev/random');
+        if (@WARN) {
+            $SRCS{'/dev/random'} = 0;
+            undef(@WARN);
+        } else {
+            $SRCS{'/dev/random'} = 1;
+            $DEFAULT_SRC = '/dev/random';
+        }
+    } else {
+        $SRCS{'/dev/random'} = 0;
+    }
+
+    # Local mode - no Internet sources
+    if ($local) {
+        @SRCS{@INET} = 0;
+        return;
+    }
+
+    # Check for LWP::UserAgent module
+    eval {
+        require LWP::UserAgent;
+    };
+    if ($@) {
+        @SRCS{@INET} = 0;
+        return;
+    }
+
+    # Check availability of Internet sources
+    for my $src (@INET) {
+        srand($src, $DEFAULT_SRC);
+        if (@WARN) {
+            $SRCS{$src} = 0;
+            undef(@WARN);
+        } else {
+            $SRCS{$src} = 1;
+        }
+    }
+
+    # Done
+    print("\n\n");
+}
 
 # EOF

@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = 5.01;
+our $VERSION = 5.02;
 
 use Carp ();
 use Scalar::Util 1.18;
@@ -34,8 +34,8 @@ use Exception::Class (
 #
 # These hashes are declared using the 'Field' attribute.
 
-my %sources_for : Field;   # Sources from which to obtain random seed data
-my %seed_for    : Field;   # Last seed sent to the PRNG
+my %sources_for :Field;   # Sources from which to obtain random seed data
+my %seed_for    :Field;   # Last seed sent to the PRNG
 
 
 ### Standalone PRNG pseudo-object
@@ -214,25 +214,25 @@ sub set_state
 ### Inside-out Object Internal Subroutines ###
 
 # Object Constructor
-sub new_prng : ID
+sub new_prng :ID
 {
     return (Math::Random::MT::Auto::_::new_prng());
-};
+}
 
-sub clone_state : Replicate
+sub clone_state :Replicate
 {
     my ($from_obj, $to_obj) = @_;
 
     my $state = Math::Random::MT::Auto::_::get_state($from_obj);
     Math::Random::MT::Auto::_::set_state($to_obj, $state);
-};
+}
 
-sub free_prng : Destroy
+sub free_prng :Destroy
 {
     Math::Random::MT::Auto::_::free_prng(shift);
-};
+}
 
-my %init_args : InitArgs = (
+my %init_args :InitArgs = (
     'SOURCE' => {
         'REGEX'   => qr/^(?:source|src)s?$/i,
         'FIELD'   => \%sources_for,
@@ -251,7 +251,7 @@ my %init_args : InitArgs = (
 );
 
 # Object initializer - for internal use only
-sub _init : Init
+sub _init :Init
 {
     my $self = $_[0];
     my $args = $_[1];   # Hash ref containing arguments from object
@@ -280,17 +280,17 @@ sub _init : Init
 
 ### Overloading ###
 
-sub as_string : STRINGIFY NUMERIFY
+sub as_string :Stringify :Numerify
 {
     return ($_[0]->irand());
 }
 
-sub bool : BOOLIFY
+sub bool :Boolify
 {
     return ($_[0]->irand() & 1);
 }
 
-sub array : ARRAYIFY
+sub array :Arrayify
 {
     my $self  = $_[0];
     my $count = $_[1] || 1;
@@ -303,7 +303,7 @@ sub array : ARRAYIFY
     return (\@ary);
 }
 
-sub _code : CODIFY
+sub _code :Codify
 {
     my $self = $_[0];
     return (sub { $self->irand(); });
@@ -313,7 +313,7 @@ sub _code : CODIFY
 ### Serialization ###
 
 # Support for ->dump() method
-sub _dump : DUMPER
+sub _dump :DUMPER
 {
     my $obj = shift;
 
@@ -330,7 +330,7 @@ sub _dump : DUMPER
 }
 
 # Support for Object::InsideOut::pump()
-sub _pump : PUMPER
+sub _pump :PUMPER
 {
     my ($obj, $data) = @_;
 
@@ -361,7 +361,7 @@ my %DISPATCH = (
     'rn_info'    => \&acq_www,
 );
 
-# If ActivePerl and Windows XP, then make 'win32' a valid source
+# If Windows XP and Win32::API, then make 'win32' a valid source
 if ($^O eq 'MSWin32') {
     my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
     if (defined($minor) &&
@@ -369,13 +369,25 @@ if ($^O eq 'MSWin32') {
          ($id == 2 && $major > 5) ||
          ($id == 2 && $major == 5 && $minor >= 1)))
     {
-        $DISPATCH{'win32'} = \&acq_win32;
+        eval {
+            # Suppress (harmless) warning about Win32::API::Type's INIT block
+            local $SIG{__WARN__} = sub {
+                if ($_[0] !~ /^Too late to run INIT block/) {
+                    print(STDERR "$_[0]\n");    # Output other warnings
+                }
+            };
+
+            require Win32::API;
+        };
+        if (! $@) {
+            $DISPATCH{'win32'} = \&acq_win32;
+        }
     }
 }
 
 
 # Acquire seed data from specific sources
-sub acquire_seed : PRIVATE
+sub acquire_seed :PRIVATE
 {
     my $prng    = $_[0];
 
@@ -429,11 +441,11 @@ sub acquire_seed : PRIVATE
         # Complain about not getting a full seed
         Carp::carp('Partial seed - only ' . scalar(@{$seed}) . ' of ' . $FULL_SEED);
     }
-};
+}
 
 
 # Acquire seed data from a device/file
-sub acq_device : PRIVATE
+sub acq_device :PRIVATE
 {
     my $device = $_[0];
     my $prng   = $_[1];
@@ -481,14 +493,14 @@ sub acq_device : PRIVATE
     } else {
         Carp::carp("Failure reading from random device '$device': $!");
     }
-};
+}
 
 
 # Cached LWP::UserAgent object
 my $LWP_UA;
 
 # Subroutine to acquire seed data from Internet sources
-sub acq_www : PRIVATE
+sub acq_www :PRIVATE
 {
     my $src  = $_[0];
     my $prng = $_[1];
@@ -605,7 +617,7 @@ sub acq_www : PRIVATE
 
 
 # Acquire seed data from Win XP random source
-sub acq_win32 : PRIVATE
+sub acq_win32 :PRIVATE
 {
     my $src   = $_[0];   # Not used
     my $prng  = $_[1];
@@ -613,16 +625,6 @@ sub acq_win32 : PRIVATE
     my $bytes = $need * $INT_SIZE;
 
     eval {
-        # Suppress (harmless) warning about Win32::API::Type's INIT block
-        local $SIG{__WARN__} = sub {
-            if ($_[0] !~ /^Too late to run INIT block/) {
-                Carp::carp($_[0]);    # Output other warnings
-            }
-        };
-
-        # Load Win32::API module
-        require Win32::API;
-
         # Import the random source function
         my $func = Win32::API->new('ADVAPI32.DLL',
                                    'SystemFunction036',
@@ -648,7 +650,7 @@ sub acq_win32 : PRIVATE
 
 # Returns default set of seed sources which have been set for the standalone
 # PRNG
-sub default_sources : PRIVATE
+sub default_sources :PRIVATE
 {
     # Set up sources for standalone PRNG
     if (! exists($sources_for{$$SA})) {
@@ -668,7 +670,7 @@ sub default_sources : PRIVATE
 
 
 # Seeds a PRNG
-sub seed_prng : PRIVATE
+sub seed_prng :PRIVATE
 {
     my $prng = $_[0];
 
@@ -698,7 +700,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 5.01
+This documentation refers to Math::Random::MT::Auto version 5.02
 
 =head1 SYNOPSIS
 
@@ -912,7 +914,7 @@ or specify multiple sources:
 
 =item Windows XP Random Data
 
-Under ActivePerl on Windows XP, you can acquire random seed data from the
+Under MSWin32 on Windows XP, you can acquire random seed data from the
 system.
 
  use Math::Random::MT::Auto 'win32';
@@ -942,10 +944,10 @@ added, and the number of integers (64- or 32-bit as the case may be) needed.
 
 =back
 
-The default list of seeding sources is determined when the module is loaded
-Under ActivePerl on Windows XP, C<win32> is added to the list.  Otherwise,
-F</dev/urandom> and then F</dev/random> are checked.  The first one found is
-added to the list.  Finally, C<random_org> is added.
+The default list of seeding sources is determined when the module is loaded.
+Under MSWin32 on Windows XP, C<win32> is added to the list if L<Win32::API> is
+available.  Otherwise, F</dev/urandom> and then F</dev/random> are checked.
+The first one found is added to the list.  Finally, C<random_org> is added.
 
 For the functional interface to the standalone PRNG, these defaults can be
 overridden by specifying the desired sources when the module is declared, or
@@ -1552,7 +1554,7 @@ message.
 The specified seeding source is not recognized by this module.
 
 This error also occurs if you try to use the L<win32|/"Windows XP Random Data">
-random data source on something other than ActivePerl on Windows XP.
+random data source on something other than MSWin32 on Windows XP.
 
 See L</"Seeding Sources"> for more information.
 
@@ -1675,7 +1677,7 @@ To utilize the option of acquiring seed data from Internet sources, you need
 to install the L<LWP::UserAgent> module.
 
 To utilize the option of acquiring seed data from the system's random data
-source under ActivePerl on Windows XP, you need to install the L<Win32::API>
+source under MSWin32 on Windows XP, you need to install the L<Win32::API>
 module.
 
 =head1 BUGS AND LIMITATIONS
@@ -1693,7 +1695,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-5.01/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-5.02/lib/Math/Random/MT/Auto.pm>
 
 The Mersenne Twister is the (current) quintessential pseudorandom number
 generator. It is fast, and has a period of 2^19937 - 1.  The Mersenne
@@ -1760,7 +1762,7 @@ and including Shawn Cokus's optimizations.
  Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
   All rights reserved.
  Copyright (C) 2005, Mutsuo Saito, All rights reserved.
- Copyright 2005 Jerry D. Hedden <jdhedden AT cpan DOT org>
+ Copyright 2005, 2006 Jerry D. Hedden <jdhedden AT cpan DOT org>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions

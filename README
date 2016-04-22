@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 5.01
+Math-Random-MT-Auto version 5.02
 ================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
@@ -71,7 +71,7 @@ the following module is needed:
   LWP::UserAgent
 
 To utilize the option of acquiring seed data from the system's random data
-source under ActivePerl on Windows XP, the following module is needed:
+source under MSWin32 on Windows XP, the following module is needed:
 
   Win32::API
 
@@ -84,7 +84,7 @@ and including Shawn Cokus's optimizations.
 Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
 All rights reserved.
 Copyright (C) 2005, Mutsuo Saito, All rights reserved.
-Copyright 2005 Jerry D. Hedden <jdhedden AT cpan DOT org>
+Copyright 2005, 2006 Jerry D. Hedden <jdhedden AT cpan DOT org>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions

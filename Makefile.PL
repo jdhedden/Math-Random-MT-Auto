@@ -6,12 +6,12 @@ use strict;
 use warnings;
 
 use ExtUtils::MakeMaker;
-use File::Spec ();
-use Config;
 
 # Check for C compiler
 sub check_cc
 {
+    require File::Spec;
+
     my $cmd = $_[0];
     if (-x $cmd or MM->maybe_command($cmd)) {
         return (1);       # CC command found
@@ -27,7 +27,7 @@ sub check_cc
 
 sub have_cc
 {
-    eval { require Config_m; };     # ExtUtils::FakeConfig (+ ActivePerl)
+    eval { require Config_m; };     # ExtUtils::FakeConfig (+ MSWin32)
     if ($@) {
         eval { require Config; };   # Everyone else
     }
@@ -61,9 +61,9 @@ WriteMakefile(
                          'Test::More'        => 0,
                          'Scalar::Util'      => 1.18 },
     'OBJECT'        => 'MRMA.o',
-    (($ExtUtils::MakeMaker::VERSION < 6.25) ?
+    (($ExtUtils::MakeMaker::VERSION lt '6.25') ?
         ('PL_FILES' => { })            : ()),
-    (($ExtUtils::MakeMaker::VERSION > 6.30) ?
+    (($ExtUtils::MakeMaker::VERSION gt '6.30') ?
         ('LICENSE'  => 'unrestricted') : ()),
 );
 
@@ -71,7 +71,7 @@ WriteMakefile(
 # Add additional target to Makefile for use by module maintainer
 sub MY::postamble
 {
-    if (exists($Config{'osname'}) && $Config{'osname'} eq 'cygwin') {
+    if ($^O eq 'cygwin') {
         return <<'_EXTRAS_';
 # Check version strings in various files
 vcheck:
@@ -80,6 +80,8 @@ vcheck:
 	@if ! head -1 README | grep $(VERSION)$ >/dev/null; then echo "Version error in README"; fi
 	@if ! grep "VERSION = $(VERSION)" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto.pm"; fi
 	@if ! grep "version $(VERSION)" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in POD of lib/Math/Random/MT/Auto.pm"; fi
+	@if ! grep "Math-Random-MT-Auto-$(VERSION)" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in Anno link in lib/Math/Random/MT/Auto.pm"; fi
+	@if ! grep "VERSION = $(VERSION)" lib/Math/Random/MT/Auto/Range.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto/Range.pm"; fi
 
 chmod:
 	@$(CHMOD) 644 Build.PL `cat MANIFEST`

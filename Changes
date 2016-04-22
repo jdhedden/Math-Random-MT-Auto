@@ -1,5 +1,9 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+5.02 Thu Jul 20 10:00:43 EDT 2006
+	- Upgraded ppport.h to Devel::PPPort 3.09
+	- Handle Win32::API missing under MSWin32 on Win XP
+
 5.01 Wed Dec 28 08:50:00 2005
 	- Converted to using Object::InsideOut and Exception::Class
 	- Added support for Object::InsideOut style serialization
@@ -51,7 +55,7 @@ Revision history for Perl extension Math::Random::MT::Auto.
 
 4.04.00 Tue Aug 30 09:08:00 2005
 	- Improved check for 'C' compiler in Makefile.PL
-	- Removed Build.PL due to Module::Build bug under ActivePerl
+	- Removed Build.PL due to Module::Build bug under MSWin32
 
 4.03.00 Mon Aug 29 09:34:25 2005
 	- Speed improvements

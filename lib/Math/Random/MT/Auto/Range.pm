@@ -3,7 +3,7 @@ package Math::Random::MT::Auto::Range; {
 use strict;
 use warnings;
 
-our $VERSION = 5.01;
+our $VERSION = 5.02;
 
 use Scalar::Util 1.18;
 
@@ -19,16 +19,16 @@ use Object::InsideOut 'Math::Random::MT::Auto' => [ ':!auto' ];
 # These hashes are declared using the 'Field' attribute.
 
 # Range information for our objects
-my %type_of   : Field;  # Type of return value:  INTEGER or DOUBLE
-my %low_for   : Field;  # Low end of the range
-my %high_for  : Field;  # High end of the range
-my %range_for : Field;  # 'Difference' between LOW and HIGH
-                        #   (used for performance considerations)
+my %type_of   :Field;  # Type of return value:  INTEGER or DOUBLE
+my %low_for   :Field;  # Low end of the range
+my %high_for  :Field;  # High end of the range
+my %range_for :Field;  # 'Difference' between LOW and HIGH
+                       #   (used for performance considerations)
 
 
 ### Inside-out Object Internal Subroutines ###
 
-my %init_args : InitArgs = (
+my %init_args :InitArgs = (
     'LOW' => {
         'REGEX'     => qr/^lo(?:w)?$/i,
         'MANDATORY' => 1,
@@ -43,7 +43,7 @@ my %init_args : InitArgs = (
 );
 
 # Object initializer
-sub _init : Init
+sub _init :Init
 {
     my $self = $_[0];
     my $args = $_[1];   # Hash ref containing arguments from object
@@ -62,7 +62,7 @@ sub _init : Init
     # Initialize object
     $self->set_range_type($$args{'TYPE'});
     $self->set_range($$args{'LOW'}, $$args{'HIGH'});
-};
+}
 
 
 ### Object Methods ###
@@ -165,17 +165,17 @@ sub rrand
 
 ### Overloading ###
 
-sub as_string : STRINGIFY NUMERIFY
+sub as_string :Stringify :Numerify
 {
     return ($_[0]->rrand());
 }
 
-sub bool : BOOLIFY
+sub bool :Boolify
 {
     return ($_[0]->rrand() & 1);
 }
 
-sub array : ARRAYIFY
+sub array :Arrayify
 {
     my $self  = $_[0];
     my $count = $_[1] || 1;
@@ -188,7 +188,7 @@ sub array : ARRAYIFY
     return (\@ary);
 }
 
-sub _code : CODIFY
+sub _code :Codify
 {
     my $self = $_[0];
     return (sub { $self->rrand(); });
@@ -198,7 +198,7 @@ sub _code : CODIFY
 ### Serialization ###
 
 # Support for ->dump() method
-sub _dump : DUMPER
+sub _dump :Dumper
 {
     my $obj = shift;
 
@@ -210,7 +210,7 @@ sub _dump : DUMPER
 }
 
 # Support for Object::InsideOut::pump()
-sub _pump : PUMPER
+sub _pump :Pumper
 {
     my ($obj, $data) = @_;
 
@@ -413,7 +413,7 @@ Jerry D. Hedden, S<E<lt>jdhedden AT cpan DOT orgE<gt>>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2005 Jerry D. Hedden. All rights reserved.
+Copyright 2005, 2006 Jerry D. Hedden. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.

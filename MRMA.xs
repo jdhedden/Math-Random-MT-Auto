@@ -7,7 +7,7 @@
    Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
    All rights reserved.
    Copyright (C) 2005, Mutsuo Saito, All rights reserved.
-   Copyright 2005 Jerry D. Hedden <jdhedden AT cpan DOT org>
+   Copyright 2005, 2006 Jerry D. Hedden <jdhedden AT cpan DOT org>
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions

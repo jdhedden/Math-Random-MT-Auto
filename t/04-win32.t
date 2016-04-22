@@ -4,19 +4,34 @@ use strict;
 use warnings;
 
 use Test::More;
-if ($^O ne 'MSWin32') {
-    plan(skip_all => 'Not Win32');
-} else {
+if ($^O eq 'MSWin32') {
     my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
     if (defined($minor) &&
         (($id > 2) ||
          ($id == 2 && $major > 5) ||
          ($id == 2 && $major == 5 && $minor >= 1)))
     {
-        plan(tests => 90);
+        eval {
+            # Suppress (harmless) warning about Win32::API::Type's INIT block
+            local $SIG{__WARN__} = sub {
+                if ($_[0] !~ /^Too late to run INIT block/) {
+                    print(STDERR "# $_[0]");    # Output other warnings
+                }
+            };
+
+            # Load Win32::API module
+            require Win32::API;
+        };
+        if (! $@) {
+            plan(tests => 90);
+        } else {
+            plan(skip_all => 'No Win32::API');
+        }
     } else {
         plan(skip_all => 'Not Win XP');
     }
+} else {
+    plan(skip_all => 'Not Win32');
 }
 
 my @WARN;

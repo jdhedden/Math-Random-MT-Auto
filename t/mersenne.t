@@ -1,17 +1,14 @@
-# Tests to verify Mersenne Twister code
+# Verify Mersenne Twister algorithm
+# and test srand(\&sub), seed() and state() functions
 
-use Test::More tests => 10002;
+use Test::More tests => 10508;
 use Scalar::Util 'looks_like_number';
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/seed rand rand32 :!auto/);
+    use_ok('Math::Random::MT::Auto', qw/rand rand32 srand seed state :!auto/);
 };
 
-# Fixed seed
-eval { seed(0x123, 0x234, 0x345, 0x456); };
-ok(! $@, 'seed() died: ' . $@);
-
-# Test known values
+# Known test values for rand32()
 @r32 = (
     1067595299,  955945823,  477289528, 4107218783, 4228976476,
     3344332714, 3355579695,  227628506,  810200273, 2591290167,
@@ -214,17 +211,7 @@ ok(! $@, 'seed() died: ' . $@);
      988064871, 3515461600, 4089077232, 2225147448, 1249609188,
     2643151863, 3896204135, 2416995901, 1397735321, 3460025646);
 
-my $rn;
-for (my $ii=0; $ii < 1000; $ii++) {
-    eval { $rn = rand32(); };
-    ok(! $@,                  'rand32() died: ' . $@);
-    ok(defined($rn),          'Got a random number');
-    ok(looks_like_number($rn),'Is a number: ' . $rn);
-    ok(int($rn) == $rn,       'Integer: ' . $rn);
-    ok($rn == $r32[$ii],      'Known value');
-}
-
-# Test known values
+# Known test values for rand()
 @rdoub = qw/
     0.76275443 0.99000644 0.98670464 0.10143112 0.27933125
     0.69867227 0.94218740 0.03427201 0.78842173 0.28180608
@@ -427,6 +414,73 @@ for (my $ii=0; $ii < 1000; $ii++) {
     0.64178757 0.45583809 0.70694291 0.85212760 0.86074305
     0.33163422 0.85739792 0.59908488 0.74566046 0.72157152/;
 
+# Set predetermined seed for verification test
+sub myseed
+{
+    my $seed = $_[0];
+    my $need = $_[1];  # Ignored
+
+    push(@$seed, 0x123, 0x234, 0x345, 0x456);
+}
+eval { srand(\&myseed); };
+ok(! $@, 'srand() died: ' . $@);
+
+# Fetch and verify seed
+my @seed;
+eval { @seed = @{seed()}; };
+ok(! $@, 'Get seed() died: ' . $@);
+ok(@seed == 4 &&
+   $seed[0] == 0x123 &&
+   $seed[1] == 0x234 &&
+   $seed[2] == 0x345 &&
+   $seed[3] == 0x456,    "Retrieved seed: @seed");
+
+# Test for known output from PRNG for rand32()
+my $rn;
+for (my $ii=0; $ii < 500; $ii++) {
+    eval { $rn = rand32(); };
+    ok(! $@,                  'rand32() died: ' . $@);
+    ok(defined($rn),          'Got a random number');
+    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(int($rn) == $rn,       'Integer: ' . $rn);
+    ok($rn == $r32[$ii],      'Known value');
+}
+
+# Save the current PRNG state
+my $state;
+eval { $state = state(); };
+ok(! $@, 'Get state() died: ' . $@);
+ok(ref($state) eq 'ARRAY', 'State is array ref');
+
+# Reset the seed
+eval { seed(\@seed); };
+ok(! $@, 'Set seed() died: ' . $@);
+
+# Test again with reset seed
+for (my $ii=0; $ii < 100; $ii++) {
+    eval { $rn = rand32(); };
+    ok(! $@,                  'rand32() died: ' . $@);
+    ok(defined($rn),          'Got a random number');
+    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(int($rn) == $rn,       'Integer: ' . $rn);
+    ok($rn == $r32[$ii],      'Known value');
+}
+
+# Restore previous state
+eval { state($state); };
+ok(! $@, 'Set state() died: ' . $@);
+
+# Continue from previous state
+for (my $ii=500; $ii < 1000; $ii++) {
+    eval { $rn = rand32(); };
+    ok(! $@,                  'rand32() died: ' . $@);
+    ok(defined($rn),          'Got a random number');
+    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(int($rn) == $rn,       'Integer: ' . $rn);
+    ok($rn == $r32[$ii],      'Known value');
+}
+
+# Test for known output from PRNG for rand()
 for (my $ii=0; $ii < 1000; $ii++) {
     eval { $rn = rand(); };
     ok(! $@,                                 'rand() died: ' . $@);

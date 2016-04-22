@@ -50,18 +50,18 @@ MAIN:
     $end = time();
     printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
 
-    my @seed = @Math::Random::MT::Auto::seed;
+    my @seed = @{seed()};
 
     # Time our srand() for /dev/random
     print("\n- Math::Random::MT::Auto -\n");
     @Math::Random::MT::Auto::errors = ();
     $start = time();
-    srand('dev_random');
+    srand('/dev/random');
     $end = time();
     # If errors, then ignore (probably no /dev/random)
     if (! @Math::Random::MT::Auto::errors) {
         printf("srand:\t\t%f secs. (/dev/random)\n", $end - $start);
-        @seed = @Math::Random::MT::Auto::seed;
+        @seed = @{seed()};
     }
 
     # Time our srand() for random.org
@@ -72,7 +72,7 @@ MAIN:
     # If errors, then ignore (probably no LWP::UserAgent)
     if (! @Math::Random::MT::Auto::errors) {
         printf("srand:\t\t%f secs. (random.org)\n", $end - $start);
-        @seed = @Math::Random::MT::Auto::seed;
+        @seed = @{seed()};
     }
 
     # Time our rand32()
@@ -85,7 +85,7 @@ MAIN:
     printf("rand32:\t\t%f secs. (%d)\n", $end - $start, $count);
 
     # Reseed
-    seed(@seed);
+    seed(\@seed);
 
     # Time our rand()
     $cnt = $count-1;
@@ -97,7 +97,7 @@ MAIN:
     printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
 
     # Reseed
-    seed(@seed);
+    seed(\@seed);
 
     # Time our rand(arg)
     $cnt = $count-1;
@@ -109,7 +109,7 @@ MAIN:
     printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
 
     # See if Math::Random::MT is available
-    eval { use Math::Random::MT; };
+    eval { require Math::Random::MT; };
     if (! $@) {
         # Time its new(@seed) method
         print("\n- Math::Random::MT -\n");

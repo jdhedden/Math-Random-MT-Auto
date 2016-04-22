@@ -10,7 +10,7 @@ if (! -e '/dev/urandom') {
 }
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand rand32 dev_urandom/);
+    use_ok('Math::Random::MT::Auto', qw/rand rand32/, '/dev/urandom');
 }
 
 ok(! @Math::Random::MT::Auto::errors,

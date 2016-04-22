@@ -10,7 +10,7 @@ if (! -e '/dev/random') {
 }
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand rand32 dev_random/);
+    use_ok('Math::Random::MT::Auto', qw/rand rand32/, '/dev/random');
 }
 
 if (@Math::Random::MT::Auto::errors) {

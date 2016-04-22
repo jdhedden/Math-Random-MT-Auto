@@ -11,7 +11,7 @@ if ($@) {
 }
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand rand32 hotbits/);
+    use_ok('Math::Random::MT::Auto', qw/rand rand32 seed hotbits/);
 }
 
 if (@Math::Random::MT::Auto::errors) {
@@ -25,7 +25,7 @@ if (@Math::Random::MT::Auto::errors) {
             'Seed errors: ' . join("\n", @Math::Random::MT::Auto::errors));
 } else {
     ok(@Math::Random::MT::Auto::errors, 'No short seed error');
-    diag('seed: ' . scalar(@Math::Random::MT::Auto::seed));
+    diag('seed: ' . scalar(@{seed()}));
 }
 
 my ($rn, @rn);

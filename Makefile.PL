@@ -2,7 +2,7 @@ use ExtUtils::MakeMaker;
 
 WriteMakefile(
     NAME              => 'Math::Random::MT::Auto',
-    OBJECT            => 'MRMA.o mt19937ar.o',
+    OBJECT            => 'MRMA.o',
     VERSION_FROM      => 'lib/Math/Random/MT/Auto.pm',
     PREREQ_PM         => { },
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005

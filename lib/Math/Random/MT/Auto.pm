@@ -3,15 +3,14 @@ package Math::Random::MT::Auto;
 use strict;
 use warnings;
 
-use 5.006_000;   # Imposed because of 64-bit support
-
+use 5.006;   # 64-bit support
 use Config;
 use Scalar::Util qw/looks_like_number weaken/;
 
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.32;
+our $VERSION = 1.33;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 

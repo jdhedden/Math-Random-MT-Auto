@@ -1,7 +1,6 @@
 MANIFEST
 README
 Changes
-META.yml
 Makefile.PL
 lib/Math/Random/MT/Auto.pm
 MRMA.xs
@@ -17,3 +16,4 @@ t/07-random_org.t
 t/08-hotbits.t
 t/09-state.t
 samples/random
+META.yml                                 Module meta-data (added by MakeMaker)

@@ -1,8 +1,13 @@
 use ExtUtils::MakeMaker;
 
+if ($] < 5.006) {
+    die("Math::Random::MT::Auto requires Perl v5.6.0 or higher\n");
+}
+
 WriteMakefile(
     NAME              => 'Math::Random::MT::Auto',
     OBJECT            => 'MRMA.o',
+    VERSION           => 1.33,
     VERSION_FROM      => 'lib/Math/Random/MT/Auto.pm',
     PREREQ_PM         => { },
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005

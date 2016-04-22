@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+1.33  Fri Jul 08 13:20:00 2005
+	- Mandate >5.6.0 in Makefile.pl
+
 1.32  Fri Jul 08 11:53:25 2005
 	- Use $Config{'uvsize'} to determine 64-bit support
 	- Mandate >5.6.0 (for the above)

@@ -827,6 +827,11 @@ set_state(...)
         /* Extract argument */
         state = (AV*)SvRV(ST(1));
 
+        /* Validate size of argument */
+        if (av_len(state) != N+11) {
+            Perl_croak(aTHX_ "Invalid state vector");
+        }
+
         /* Extract internal PRNG state from array */
         for (ii=0; ii<N; ii++) {
             prng->state[ii] = SvUV(*av_fetch(state, ii, 0));

@@ -455,7 +455,7 @@ if (! ok(! $@, 'Create object')) {
 }
 
 my $dump;
-if ($[ > 5.006) {
+if ($] > 5.006) {
     $dump = $robj->dump(1);
 } else {
     $dump = $robj->dump();

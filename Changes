@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.19 Fri Jul 27 00:48:20 2012
+	- Prevent use of incompatible state vectors
+
 6.18 Thu Jan 26 14:58:57 2012
 	- Ignore warnings from other modules during tests
 

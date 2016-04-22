@@ -81,8 +81,8 @@ sub metafile
     my $inherited = shift->SUPER::metafile_target(@_);
     $inherited .= <<'_MOREMETA_';
 	$(NOECHO) $(ECHO) 'recommends:' >>$(DISTVNAME)/META.yml
-	$(NOECHO) $(ECHO) '    LWP::UserAgent: 0' >>$(DISTVNAME)/META.yml
-	$(NOECHO) $(ECHO) '    Win32::API: 0' >>$(DISTVNAME)/META.yml
+	$(NOECHO) $(ECHO) '  LWP::UserAgent: 0' >>$(DISTVNAME)/META.yml
+	$(NOECHO) $(ECHO) '  Win32::API: 0' >>$(DISTVNAME)/META.yml
 _MOREMETA_
 
     return $inherited;

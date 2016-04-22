@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.18';
+our $VERSION = '6.19';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -668,7 +668,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.18
+This documentation refers to Math::Random::MT::Auto version 6.19
 
 =head1 SYNOPSIS
 
@@ -1599,6 +1599,12 @@ have the following error messages:
 L</"set_seed"> must be called with an array ref, or a list of integer seed
 data.
 
+=item * Invalid state vector
+
+L</"set_state"> was called with an incompatible state vector.  For example, a
+state vector from a 32-bit integer version of Perl being used with a 64-bit
+integer version of Perl.
+
 =back
 
 =head1 PERFORMANCE
@@ -1692,6 +1698,10 @@ call C<-E<gt>irand()> directly:
 
  # my $neg_rand = 0 - $prng;          # Result is a floating-point number
  my $neg_rand = 0 - $prng->irand();   # Result is an integer number
+
+The transfer of state vector arrays and serialized objects between 32- and
+64-bit integer versions of Perl is not supported, and will produce an 'Invalid
+state vector' error.
 
 Please submit any bugs, problems, suggestions, patches, etc. to:
 L<http://rt.cpan.org/Public/Dist/Display.html?Name=Math-Random-MT-Auto>

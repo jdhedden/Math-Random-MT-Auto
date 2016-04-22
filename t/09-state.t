@@ -35,7 +35,7 @@ for (1 .. 500) {
 
 
 our @state = @my_state;
-if ($[ > 5.006) {
+if ($] > 5.006) {
     # Save state to file
     if (open(FH, '>state_data.tmp')) {
         print(FH Data::Dumper->Dump([\@my_state], ['*state']));

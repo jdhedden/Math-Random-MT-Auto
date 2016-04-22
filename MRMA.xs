@@ -308,9 +308,10 @@ PROTOTYPES: DISABLE
 
 =pod
 
-The functions below are the random number deviates for the module.  They
-support both the functional interface for the standalone PRNG, as well as
-the OO interface for PRNG objects.
+The functions below are the random number deviates for the module.
+
+They work both as regular 'functions' for the functional interface to the
+standalone PRNG, as well as methods for the OO interface to PRNG objects.
 
 
 =item irand
@@ -778,34 +779,6 @@ new_prng(...)
         RETVAL
 
 
-=item readonly
-
-Sets the readonly flag on an object
-
-=cut
-
-void
-readonly(obj)
-        SV *obj;
-    CODE:
-        obj = SvRV(obj);
-        SvREADONLY_on(obj);
-
-
-=item modifiable
-
-Clears the readonly flag on an object
-
-=cut
-
-void
-modifiable(obj)
-        SV *obj;
-    CODE:
-        obj = SvRV(obj);
-        SvREADONLY_off(obj);
-
-
 =item free_prng
 
 Frees the PRNG context as part of object destruction.
@@ -970,5 +943,33 @@ set_state(...)
         prng->binomial.prob     = SvNV(*av_fetch(state, ii, 0)); ii++;
         prng->binomial.plog     = SvNV(*av_fetch(state, ii, 0)); ii++;
         prng->binomial.pclog    = SvNV(*av_fetch(state, ii, 0));
+
+
+=pod
+
+The function below belongs to the 'Util' package
+
+=cut
+
+MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto::Util
+
+
+=item SvREADONLY
+
+Set/clear readonly flag
+
+Exported as Internals::SvREADONLY for Perl < 5.8
+
+=cut
+
+void
+SvREADONLY(...)
+    PROTOTYPE: \[$%@]$
+    CODE:
+        if (SvTRUE(ST(1))) {
+            SvREADONLY_on(SvRV(ST(0)));
+        } else {
+            SvREADONLY_off(SvRV(ST(0)));
+        }
 
  /* EOF */

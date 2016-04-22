@@ -4,8 +4,10 @@ Changes
 Makefile.PL
 lib/Math/Random/MT/Auto.pm
 lib/Math/Random/MT/Auto/Range.pm
+lib/Math/Random/MT/Auto/Util.pm
 MRMA.xs
 ppport.h
+t/00-util.t
 t/01-mersenne.t
 t/02-gaussian.t
 t/03-threads.t

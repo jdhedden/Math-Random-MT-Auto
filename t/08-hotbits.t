@@ -10,7 +10,27 @@ eval { require LWP::UserAgent; };
 if ($@) {
     plan skip_all => 'LWP::UserAgent not available';
 } else {
-    plan tests => 89;
+    # See if we can connect to HotBits
+    my $res;
+    eval {
+        # Create user agent
+        my $ua = LWP::UserAgent->new( timeout => 3, env_proxy => 1 );
+        # Create request to random.org
+        my $req = HTTP::Request->new(GET => "http://www.fourmilab.ch/cgi-bin/uncgi/Hotbits?fmt=bin&nbytes=4");
+        # Get the data
+        $res = $ua->request($req);
+    };
+    if ($@) {
+        plan skip_all => "Failure contacting HotBits: $@";
+    } elsif ($res->is_success) {
+        if ($res->content =~ /exceeded your 24-hour quota/) {
+            plan skip_all => $res->content;
+        } else {
+            plan tests => 89;
+        }
+    } else {
+        plan skip_all => 'Failure getting data from HotBits: ' . $res->status_line;
+    }
 }
 
 my @WARN;

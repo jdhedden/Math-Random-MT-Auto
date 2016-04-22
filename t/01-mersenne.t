@@ -7,7 +7,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 32;
+use Test::More tests => 33;
 use Scalar::Util 'looks_like_number';
 use Config;
 
@@ -883,7 +883,6 @@ isa_ok($prng2, 'Math::Random::MT::Auto');
 can_ok($prng2, qw/rand irand gaussian exponential erlang poisson binomial
                   shuffle srand get_seed set_seed get_state set_state/);
 
-
 # Test for known output from PRNG for irand()
 my @test_rint;
 for (1 .. 500) {
@@ -1032,5 +1031,15 @@ for (1 .. 1000) {
     push(@test_rint, $prng3->irand());
 }
 is_deeply(\@test_rint, \@base_rint);
+
+
+### Test 'readonly'
+
+eval{
+    my $old = $$prng;
+    $$prng = 99;
+    $$prng = $old;   # Just in case
+};
+ok($@, "Readonly: $@");
 
 # EOF

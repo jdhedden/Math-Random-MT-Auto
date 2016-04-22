@@ -1,5 +1,13 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.09.00 Sat Sep 17 08:45:30 2005
+	- use Attribute::Handlers;
+	- Added 'Utils' module
+	- Removed ->_rebless() - not needed
+	- Reduced internet timeout to 5 secs.
+	- Skip internet tests if can't connect
+	- Permit any version of Scalar::Util
+
 4.08.00 Fri Sep 09 10:06:40 2005
 	- Changed subclass object ID usage
 	- Bug fix in seed acquisition routine

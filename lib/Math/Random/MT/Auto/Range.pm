@@ -1,118 +1,81 @@
 package Math::Random::MT::Auto::Range; {
 
+our $VERSION = '4.09.00';
+
 use strict;
 use warnings;
+
 use Carp ();
-use Scalar::Util 1.16 qw(weaken looks_like_number);
+use Scalar::Util qw(looks_like_number);
+use Math::Random::MT::Auto::Util;
 
 # Declare ourself as a subclass
 use base 'Math::Random::MT::Auto';
 
-our $VERSION = '4.08.00';
 
+### Inside-out Object Attributes ###
 
-### Package Global Variables ###
-
-# Object attribute hashes used by inside-out object model
+# Object data is stored in these attribute hashes, and is keyed to the object
+# by a unique ID that is stored in the object's scalar reference.
 #
-# Data stored in these hashes is keyed to the object by a unique ID that is
-# stored in the object's scalar reference.
+# These hashes are declared with the 'Field' attribute which is defined in the
+# base class.
 
 # Range information for our objects
-my %TYPE;       # Type of range:  INTEGER or DOUBLE
-my %LOW;        # Low end of the range
-my %HIGH;       # High end of the range
-my %RANGE;      # 'Difference' between LOW and HIGH
-                #   (used for performance considerations)
-
-# Maintains weak references to objects for thread cloning
-my %REGISTRY;
+my %type_of   : Field;  # Type of return value:  INTEGER or DOUBLE
+my %low_for   : Field;  # Low end of the range
+my %high_for  : Field;  # High end of the range
+my %range_for : Field;  # 'Difference' between LOW and HIGH
+                        #   (used for performance considerations)
 
 
 ### Object Methods ###
 
-# Constructor - creates a new object
+# Object Constructor - creates a new PRNG object
 sub new
 {
     my $thing = shift;
     my $class = ref($thing) || $thing;
 
-    # Separate '@_' into args for this subclass and args for parent class
-    # Best practices call for all args to come in 'pairs'
-    #   (i.e., 'name' => 'value'), so they can be accessed via hashes.
-    my (%my_args, %parent_args);
-    while (my $arg = shift) {
-        # Only the 'TYPE', 'LOW' and 'HIGH' args are for this subclass
-        if ($arg =~ /^(TYPE|LO(W)?|HI(GH)?)$/i) {
-            # Allow synonyms
-            $arg = uc($arg);
-            if ($arg eq 'LO') {
-                $arg = 'LOW'
-            }
-            if ($arg eq 'HI') {
-                $arg = 'HIGH'
-            }
-            $my_args{$arg} = shift;
-        } else {
-            # All other args will be passed to the parent class
-            $parent_args{$arg} = shift;
-        }
-    }
+    ### Extract arguments needed by this class
 
-    # Check arguments
+    my %args = extract_args( {
+                                'LOW'  => '/^lo(?:w)?$/i',
+                                'HIGH' => '/^hi(?:gh)?$/i',
+                                'TYPE' => '/^type$/i'
+                             },
+                             @_ );
+
+    ### Validate arguments and/or add defaults
+
     # 'LOW' and 'HIGH' are required
-    if (! exists($my_args{'LOW'})) {
+    if (! exists($args{'LOW'})) {
         Carp::croak('Missing parameter: LOW');
     }
-    if (! exists($my_args{'HIGH'})) {
+    if (! exists($args{'HIGH'})) {
         Carp::croak('Missing parameter: HIGH');
     }
 
     # Default 'TYPE' to 'INTEGER' if 'LOW' and 'HIGH' are both integers
-    if (! exists($my_args{'TYPE'})) {
-        my $lo = $my_args{'LOW'};
-        my $hi = $my_args{'HIGH'};
-        $my_args{'TYPE'} = (($lo == int($lo)) && ($hi == int($hi)))
+    if (! exists($args{'TYPE'})) {
+        my $lo = $args{'LOW'};
+        my $hi = $args{'HIGH'};
+        $args{'TYPE'} = (($lo == int($lo)) && ($hi == int($hi)))
                          ? 'INTEGER'
                          : 'DOUBLE';
     }
 
+    ### Create object
+
     # Obtain new object from parent class
-    my $self = __PACKAGE__->SUPER::new(%parent_args);
+    my $self = $class->SUPER::new(@_);
 
-    # Rebless object into specified class
-    # 'bless()' cannot be used because the object
-    #   is set to 'readonly' by ->new()
-    $self->_rebless($class);
+    ### Initialize object
 
-    # Save weakened reference to object for thread cloning
-    weaken($REGISTRY{$$self} = $self);
+    $self->set_range_type($args{'TYPE'});
+    $self->set_range($args{'LOW'}, $args{'HIGH'});
 
-    # Perform subclass initialization
-    $self->set_range_type($my_args{'TYPE'});
-    $self->set_range($my_args{'LOW'}, $my_args{'HIGH'});
-
-    # Done - return object
-    return ($self);
-}
-
-
-# Creates a copy of a PRNG object
-sub clone
-{
-    my $parent = shift;
-
-    # Call parent class 'clone' method
-    my $self = $parent->SUPER::clone();
-
-    # Save weakened reference to object for thread cloning
-    weaken($REGISTRY{$$self} = $self);
-
-    # Perform subclass initialization using parent's properties
-    $self->set_range_type($parent->get_range_type());
-    $self->set_range($parent->get_range());
-
-    # Done - return object
+    ### Done - return object
     return ($self);
 }
 
@@ -128,7 +91,7 @@ sub set_range_type
         Carp::croak('Arg to ->set_range_type() must be \'INTEGER\' or \'DOUBLE\'');
     }
 
-    $TYPE{$$self} = ($type =~ /^I/i) ? 'INTEGER' : 'DOUBLE';
+    $type_of{$$self} = ($type =~ /^I/i) ? 'INTEGER' : 'DOUBLE';
 }
 
 
@@ -136,7 +99,7 @@ sub set_range_type
 sub get_range_type
 {
     my $self = shift;
-    return ($TYPE{$$self});
+    return ($type_of{$$self});
 }
 
 
@@ -152,7 +115,7 @@ sub set_range
     }
 
     # Ensure arguments are of the proper type
-    if ($TYPE{$$self} eq 'INTEGER') {
+    if ($type_of{$$self} eq 'INTEGER') {
         $lo = int($lo);
         $hi = int($hi);
     } else {
@@ -169,12 +132,12 @@ sub set_range
     }
 
     # Set range parameters
-    $LOW{$$self}  = $lo;
-    $HIGH{$$self} = $hi;
-    if ($TYPE{$$self} eq 'INTEGER') {
-        $RANGE{$$self} = ($HIGH{$$self} - $LOW{$$self}) + 1;
+    $low_for{$$self}  = $lo;
+    $high_for{$$self} = $hi;
+    if ($type_of{$$self} eq 'INTEGER') {
+        $range_for{$$self} = ($high_for{$$self} - $low_for{$$self}) + 1;
     } else {
-        $RANGE{$$self} = $HIGH{$$self} - $LOW{$$self};
+        $range_for{$$self} = $high_for{$$self} - $low_for{$$self};
     }
 }
 
@@ -183,7 +146,7 @@ sub set_range
 sub get_range
 {
     my $self = shift;
-    return ($LOW{$$self}, $HIGH{$$self});
+    return ($low_for{$$self}, $high_for{$$self});
 }
 
 
@@ -193,55 +156,12 @@ sub rrand
 {
     my $self = $_[0];
 
-    if ($TYPE{$$self} eq 'INTEGER') {
+    if ($type_of{$$self} eq 'INTEGER') {
         # Integer random number range [LOW, HIGH]
-        return (($self->irand() % $RANGE{$$self}) + $LOW{$$self});
+        return (($self->irand() % $range_for{$$self}) + $low_for{$$self});
     } else {
         # Floating-point random number range [LOW, HIGH)
-        return ($self->rand($RANGE{$$self}) + $LOW{$$self});
-    }
-}
-
-
-# Object Destructor
-sub DESTROY {
-    my $self = $_[0];
-
-    # Call parent's destructor first
-    $self->SUPER::DESTROY();
-
-    # Delete all subclass data used for the object
-    delete($TYPE{$$self});
-    delete($LOW{$$self});
-    delete($HIGH{$$self});
-    delete($RANGE{$$self});
-
-    # Remove object from thread cloning registry
-    delete($REGISTRY{$$self});
-}
-
-
-### Thread Cloning Support ###
-
-# Called after thread is cloned
-sub CLONE
-{
-    # Don't execute when called for sub-classes
-    if ($_[0] eq __PACKAGE__) {
-        # Process each object in the registry
-        for my $old_id (keys(%REGISTRY)) {
-            # Get cloned object associated with old ID
-            my $obj = delete($REGISTRY{$old_id});
-
-            # Relocate object data
-            $TYPE{$$obj}  = delete($TYPE{$old_id});
-            $LOW{$$obj}   = delete($LOW{$old_id});
-            $HIGH{$$obj}  = delete($HIGH{$old_id});
-            $RANGE{$$obj} = delete($RANGE{$old_id});
-
-            # Save weak reference to this cloned object
-            weaken($REGISTRY{$$obj} = $obj);
-        }
+        return ($self->rand($range_for{$$self}) + $low_for{$$self});
     }
 }
 
@@ -257,18 +177,18 @@ Math::Random::MT::Auto::Range - Range-valued PRNGs
 
 =head1 SYNOPSIS
 
-  use strict;
-  use warnings;
-  use Math::Random::MT::Auto::Range;
+    use strict;
+    use warnings;
+    use Math::Random::MT::Auto::Range;
 
-  # Integer random number range
-  my $die = Math::Random::MT::Auto::Range->new(LO => 1, HI => 6);
-  my $roll = $die->rrand();
+    # Integer random number range
+    my $die = Math::Random::MT::Auto::Range->new(LO => 1, HI => 6);
+    my $roll = $die->rrand();
 
-  # Floating-point random number range
-  my $compass = Math::Random::MT::Auto::Range->new(LO => 0, HI => 360,
-                                                   TYPE => 'DOUBLE');
-  my $course = $compass->rrand();
+    # Floating-point random number range
+    my $compass = Math::Random::MT::Auto::Range->new(LO => 0, HI => 360,
+                                                     TYPE => 'DOUBLE');
+    my $course = $compass->rrand();
 
 =head1 DESCRIPTION
 
@@ -283,9 +203,9 @@ inside-out object model.
 
 Add the following to the top of our application code:
 
-  use strict;
-  use warnings;
-  use Math::Random::MT::Auto::Range;
+    use strict;
+    use warnings;
+    use Math::Random::MT::Auto::Range;
 
 This module is strictly OO, and does not export any functions or symbols.
 
@@ -297,7 +217,7 @@ This module is strictly OO, and does not export any functions or symbols.
 
 Creates a new range-valued PRNG.
 
-  my $prng = Math::Random::MT::Auto::Range->new( %options );
+    my $prng = Math::Random::MT::Auto::Range->new( %options );
 
 Available options are:
 
@@ -338,19 +258,13 @@ and C<STATE>.
 Creates a new PRNG in the same manner as
 L</"Math::Random::MT::Auto::Range-E<gt>new">.
 
-  my $prng2 = $prng1->new( %options );
-
-=item $obj->clone
-
-Creates a new PRNG that is a copy of the referenced PRNG.
-
-  my $prng2 = $prng1->clone();
+    my $prng2 = $prng1->new( %options );
 
 =back
 
 In addition to the methods describe below, the objects created by this package
-also support all the object methods provided by the L<Math::Random::MT::Auto>
-class.
+inherit all the object methods provided by the L<Math::Random::MT::Auto>
+class, including the C<->clone()> method.
 
 =over
 
@@ -358,7 +272,7 @@ class.
 
 Returns a random number of the configured type within the configured range.
 
-  my $rand = $prng->rrand();
+    my $rand = $prng->rrand();
 
 If the C<TYPE> for the PRNG is C<INTEGER>, then the range will be C<LOW> to
 C<HIGH> inclusive (i.e., [LOW, HIGH]).  If C<DOUBLE>, then C<LOW> inclusive to
@@ -368,22 +282,22 @@ C<HIGH> exclusive (i.e., [LOW, HIGH)).
 
 Sets the numeric type for the random numbers returned by the PRNG.
 
-  $prng->set_range_type('INTEGER');
-    # or
-  $prng->set_range_type('DOUBLE');
+    $prng->set_range_type('INTEGER');
+      # or
+    $prng->set_range_type('DOUBLE');
 
 =item $obj->get_range_type
 
 Returns the numeric type ('INTEGER' or 'DOUBLE') for the random numbers
 returned by the PRNG.
 
-  my $type = $prng->get_range_type();
+    my $type = $prng->get_range_type();
 
 =item $obj->set_range
 
 Sets the limits for the PRNG's return value range.
 
-  $prng->set_range($lo, $hi);
+    $prng->set_range($lo, $hi);
 
 C<$lo> must not be equal to C<$hi>.
 
@@ -391,7 +305,7 @@ C<$lo> must not be equal to C<$hi>.
 
 Returns a list of the PRNG's range limits.
 
-  my ($lo, $hi) = $prng->get_range();
+    my ($lo, $hi) = $prng->get_range();
 
 =back
 
@@ -420,12 +334,14 @@ You cannot specify a range of zero width.
 
 =back
 
-This module will reverse the range limits if they are specified in the
-wrong order (i.e., it makes sure that C<LOW < HIGH>).
+This module will reverse the range limits if they are specified in the wrong
+order (i.e., it makes sure that C<LOW < HIGH>).
 
 =head1 SEE ALSO
 
 L<Math::Random::MT::Auto>
+
+L<Math::Random::MT::Auto::Util>
 
 =head1 AUTHOR
 
@@ -435,7 +351,7 @@ Jerry D. Hedden, S<E<lt>jdhedden AT 1979 DOT usna DOT comE<gt>>
 
 Copyright 2005 Jerry D. Hedden. All rights reserved.
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This program is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
 
 =cut

@@ -14,7 +14,7 @@ if (! $Config{useithreads}) {
 } elsif ($] < 5.007002) {
     plan(skip_all => 'Not thread-safe prior to 5.7.2');
 } else {
-    plan(tests => 93);
+    plan(tests => 94);
 }
 
 BEGIN {
@@ -31,6 +31,7 @@ if (! ok(! $@, '->new worked')) {
     diag('->new died: ' . $@);
 }
 isa_ok($prng, 'Math::Random::MT::Auto');
+isa_ok($prng, 'IMA::Subclass');
 can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
                  shuffle srand get_seed set_seed get_state set_state/);
 

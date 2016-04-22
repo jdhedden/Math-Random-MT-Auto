@@ -10,7 +10,23 @@ eval { require LWP::UserAgent; };
 if ($@) {
     plan skip_all => 'LWP::UserAgent not available';
 } else {
-    plan tests => 90;
+    # See if we can connect to random.org
+    my $res;
+    eval {
+        # Create user agent
+        my $ua = LWP::UserAgent->new( timeout => 3, env_proxy => 1 );
+        # Create request to random.org
+        my $req = HTTP::Request->new(GET => "http://www.random.org/cgi-bin/randbyte?nbytes=4");
+        # Get the data
+        $res = $ua->request($req);
+    };
+    if ($@) {
+        plan skip_all => "Failure contacting random.org: $@";
+    } elsif ($res->is_success) {
+        plan tests => 90;
+    } else {
+        plan skip_all => 'Failure getting data from random.org: ' . $res->status_line;
+    }
 }
 
 my @WARN;

@@ -10,7 +10,7 @@ use warnings;
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/rand rand32 srand seed :!auto/;
+use Math::Random::MT::Auto qw/rand rand32 srand seed warnings :!auto/;
 use Time::HiRes 'time';
 
 MAIN:
@@ -50,27 +50,49 @@ MAIN:
     $end = time();
     printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
 
-    my @seed = @{seed()};
 
-    # Time our srand() for /dev/random
-    print("\n- Math::Random::MT::Auto -\n");
-    @Math::Random::MT::Auto::errors = ();
-    $start = time();
-    srand('/dev/random');
-    $end = time();
-    # If errors, then ignore (probably no /dev/random)
-    if (! @Math::Random::MT::Auto::errors) {
-        printf("srand:\t\t%f secs. (/dev/random)\n", $end - $start);
-        @seed = @{seed()};
+    my @seed = @{seed()};       # Copy of existing seed
+
+    my @warnings = warnings(1); # Clear any existing error messages
+
+    if ($^O eq 'MSWin32') {
+        # Call srand to load Win32::API::Prototype
+        srand('win32');
+        # If errors, then ignore (probably not XP or no Win32::API::Prototype)
+        @warnings = warnings(1);
+        if (! @warnings) {
+            # Time our srand() for win32
+            $start = time();
+            srand('win32');
+            $end = time();
+            printf("srand:\t\t%f secs. (Win32 XP)\n", $end - $start);
+            @seed = @{seed()};
+        }
+
+    } else {
+        # Time our srand() for /dev/random
+        print("\n- Math::Random::MT::Auto - Standalone PRNG -\n");
+        $start = time();
+        srand('/dev/random');
+        $end = time();
+        # If errors, then ignore (probably no /dev/random)
+        @warnings = warnings(1);
+        if (! @warnings) {
+            printf("srand:\t\t%f secs. (/dev/random)\n", $end - $start);
+            @seed = @{seed()};
+        }
     }
 
-    # Time our srand() for random.org
-    @Math::Random::MT::Auto::errors = ();
-    $start = time();
+    # Call srand to load LWP::UserAgent
+    @warnings = warnings(1);
     srand('random_org');
-    $end = time();
     # If errors, then ignore (probably no LWP::UserAgent)
-    if (! @Math::Random::MT::Auto::errors) {
+    @warnings = warnings(1);
+    if (! @warnings) {
+        # Time our srand() for random.org
+        $start = time();
+        srand('random_org');
+        $end = time();
         printf("srand:\t\t%f secs. (random.org)\n", $end - $start);
         @seed = @{seed()};
     }
@@ -108,13 +130,85 @@ MAIN:
     $end = time();
     printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
 
+
+    # Time OO interface
+    print("\n- Math::Random::MT::Auto - OO Interface -\n");
+    my $rand;
+    if ($^O eq 'MSWin32') {
+        $start = time();
+        $rand = Math::Random::MT::Auto->new('SOURCE' => ['win32']);
+        $end = time();
+        # If errors, then ignore (probably not XP or no Win32::API::Prototype)
+        @warnings = $rand->warnings(1);
+        if (! @warnings) {
+            printf("new:\t\t%f secs. (Win32 XP)\n", $end - $start);
+        }
+
+    } else {
+        $start = time();
+        $rand = Math::Random::MT::Auto->new('SOURCE' => ['/dev/random']);
+        $end = time();
+        # If errors, then ignore (probably no /dev/random)
+        @warnings = $rand->warnings(1);
+        if (! @warnings) {
+            printf("new:\t\t%f secs. (/dev/random)\n", $end - $start);
+        }
+    }
+
+    # Time our srand() for random.org
+    $start = time();
+    $rand = Math::Random::MT::Auto->new('SOURCE' => ['random_org']);
+    $end = time();
+    # If errors, then ignore (probably no LWP::UserAgent)
+    @warnings = $rand->warnings(1);
+    if (! @warnings) {
+        printf("new:\t\t%f secs. (random.org)\n", $end - $start);
+    }
+
+    # Reseed
+    $rand->seed(\@seed);
+
+    # Time our rand32()
+    $cnt = $count-1;
+    $start = time();
+    do {
+        $rand->rand32();
+    } while ($cnt--);
+    $end = time();
+    printf("rand32:\t\t%f secs. (%d)\n", $end - $start, $count);
+
+    # Reseed
+    $rand->seed(\@seed);
+
+    # Time our rand()
+    $cnt = $count-1;
+    $start = time();
+    do {
+        $rand->rand();
+    } while ($cnt--);
+    $end = time();
+    printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
+
+    # Reseed
+    $rand->seed(\@seed);
+
+    # Time our rand(arg)
+    $cnt = $count-1;
+    $start = time();
+    do {
+        $rand->rand(5);
+    } while ($cnt--);
+    $end = time();
+    printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);
+
+
     # See if Math::Random::MT is available
     eval { require Math::Random::MT; };
     if (! $@) {
         # Time its new(@seed) method
         print("\n- Math::Random::MT -\n");
         $start = time();
-        my $mt = Math::Random::MT->new(@seed);
+        $rand = Math::Random::MT->new(@seed);
         $end = time();
         printf("new:\t\t%f secs. (+ seed acquisition time)\n", $end - $start);
 
@@ -122,19 +216,19 @@ MAIN:
         $cnt = $count-1;
         $start = time();
         do {
-            $mt->rand();
+            $rand->rand();
         } while ($cnt--);
         $end = time();
         printf("rand:\t\t%f secs. (%d)\n", $end - $start, $count);
 
         # Reseed
-        $mt = Math::Random::MT->new(@seed);
+        $rand = Math::Random::MT->new(@seed);
 
         # Time its rand(arg) method
         $cnt = $count-1;
         $start = time();
         do {
-            $mt->rand(5);
+            $rand->rand(5);
         } while ($cnt--);
         $end = time();
         printf("rand(5):\t%f secs. (%d)\n", $end - $start, $count);

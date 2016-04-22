@@ -6,21 +6,22 @@ use Test::More;
 if (! -e '/dev/random') {
     plan skip_all => '/dev/random not available';
 } else {
-    plan tests => 90;
+    plan tests => 91;
 }
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand rand32/, '/dev/random');
+    use_ok('Math::Random::MT::Auto', qw/rand rand32 warnings/, '/dev/random');
 }
 
-if (@Math::Random::MT::Auto::errors) {
-    if (grep { /exhausted/ } (@Math::Random::MT::Auto::errors)) {
-        diag('/dev/random exhausted');
-        @Math::Random::MT::Auto::errors = ();
-    }
+# Check for warnings
+my @warnings;
+eval { @warnings = warnings(1); };
+ok(! $@, 'warnings(1) died: ' . $@);
+if (grep { /exhausted/ } @warnings) {
+    diag('/dev/random exhausted');
+    @warnings = ();
 }
-ok(! @Math::Random::MT::Auto::errors,
-        'Seed errors: ' . join("\n", @Math::Random::MT::Auto::errors));
+ok(! @warnings, 'Seed errors: ' . join("\n", @warnings));
 
 my ($rn, @rn);
 
@@ -36,8 +37,8 @@ for (my $ii=0; $ii < 10; $ii++) {
     eval { $rn[$ii] = rand32(); };
     ok(! $@,                        'rand32() died: ' . $@);
     ok(defined($rn[$ii]),           'Got a random number');
-    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn);
-    ok(int($rn[$ii]) == $rn[$ii],   'Integer: ' . $rn);
+    ok(looks_like_number($rn[$ii]), 'Is a number: ' . $rn[$ii]);
+    ok(int($rn[$ii]) == $rn[$ii],   'Integer: ' . $rn[$ii]);
     for (my $jj=0; $jj < $ii; $jj++) {
         ok($rn[$jj] != $rn[$ii],    'Randomized');
     }

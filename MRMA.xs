@@ -46,22 +46,26 @@
 #include "XSUB.h"
 #include "ppport.h"
 
+#include <stdlib.h>
+
 #define N 624
 #define M 397
 
-typedef struct {
+struct mt {
     U32 state[N];
     U32 *next;
     int left;
-} my_cxt_t;
+};
 
+typedef struct mt my_cxt_t;
+typedef struct mt *Math__Random__MT__Auto;
 
 #define MIXBITS(u,v) ( ((u) & 0x80000000) | ((v) & 0x7FFFFFFF) )
 #define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? 0x9908B0DF : 0UL))
 
 /* The guts of the Mersenne Twister algorithm */
 U32
-_mersenne_twister(my_cxt_t *self)
+_mt_algo(my_cxt_t *self)
 {
     U32 *st = self->state;
     U32 *sn = &st[2];
@@ -87,17 +91,39 @@ _mersenne_twister(my_cxt_t *self)
 }
 
 
-/* Generates a random number on [0,0xFFFFFFFF] interval */
-U32
-_rand32(my_cxt_t *self)
+/* Seed the PRNG */
+void
+_mt_seed(my_cxt_t *self, U32 *seed, int len)
 {
-    U32 rand = (--self->left == 0)
-                            ? _mersenne_twister(self)
-                            : *self->next++;
-    rand ^= (rand >> 11);
-    rand ^= (rand << 7)  & 0x9D2C5680;
-    rand ^= (rand << 15) & 0xEFC60000;
-    return (rand ^ (rand >> 18));
+    int ii, jj, kk;
+    U32 *st = self->state;
+
+    /* Initialize */
+    st[0]= 19650218;
+    for (ii=1; ii<N; ii++) {
+        st[ii] = (1812433253 * (st[ii-1] ^ (st[ii-1] >> 30)) + ii);
+    }
+
+    /* Add supplied seed */
+    ii=1; jj=0;
+    for (kk = ((N>len) ? N : len); kk; kk--) {
+        st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> 30)) * 1664525))
+                        + seed[jj] + jj;
+        if (++ii >= N) { st[0] = st[N-1]; ii=1; }
+        if (++jj >= len) jj=0;
+    }
+
+    /* Final shuffle */
+    for (kk=N-1; kk; kk--) {
+        st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> 30)) * 1566083941)) - ii;
+        if (++ii >= N) { st[0] = st[N-1]; ii=1; }
+    }
+
+    /* Guarantee non-zero initial state */
+    st[0] = 0x80000000;
+
+    /* Forces twist when first random is requested */
+    self->left = 1;
 }
 
 
@@ -113,98 +139,155 @@ BOOT:
     MY_CXT_INIT;
 }
 
-void
-_init(seed)
-        AV *seed
+Math::Random::MT::Auto
+SA_prng()
     PREINIT:
         dMY_CXT;
     CODE:
-        /* Initialize the PRNG with seed values from input array ref */
-
-        int ii, jj, kk;
-        int len=av_len(seed)+1;
-        U32 *st = MY_CXT.state;
-
-        /* Initialize */
-        st[0]= 19650218;
-        for (ii=1; ii<N; ii++) {
-            st[ii] = (1812433253 * (st[ii-1] ^ (st[ii-1] >> 30)) + ii);
-        }
-
-        /* Add supplied seed */
-        ii=1; jj=0;
-        for (kk = ((N>len) ? N : len); kk; kk--) {
-            st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> 30)) * 1664525))
-                            + SvUV(*av_fetch(seed, jj, 0)) + jj;
-            if (++ii >= N) { st[0] = st[N-1]; ii=1; }
-            if (++jj >= len) jj=0;
-        }
-
-        /* Final shuffle */
-        for (kk=N-1; kk; kk--) {
-            st[ii] = (st[ii] ^ ((st[ii-1] ^ (st[ii-1] >> 30)) * 1566083941)) - ii;
-            if (++ii >= N) { st[0] = st[N-1]; ii=1; }
-        }
-
-        /* Guarantee non-zero initial state */
-        st[0] = 0x80000000;
-
-        /* Forces twist when first random is requested */
+        /* These initializations ensure that the PRNG is 'safe' */
+        MY_CXT.state[0] = 0x80000000;
         MY_CXT.left = 1;
-
-SV *
-_get_state()
-    PREINIT:
-        dMY_CXT;
-    CODE:
-        /* Returns array ref containing PRNG state vector */
-
-        int ii;
-        AV *state = newAV();
-        for (ii=0; ii<N; ii++) {
-            av_push(state, newSVuv(MY_CXT.state[ii]));
-        }
-        av_push(state, newSViv(MY_CXT.left));
-        RETVAL = newRV((SV *)state);
+        RETVAL = &MY_CXT;
     OUTPUT:
         RETVAL
 
-void
-_set_state(state)
-        AV *state
-    PREINIT:
-        dMY_CXT;
-    CODE:
-        /* Sets PRNG state vector from input array ref */
-
-        int ii;
-        MY_CXT.left = SvIV(*av_fetch(state, N, 0));
-        av_push(state, newSViv(MY_CXT.left));
-        for (ii=0; ii<N; ii++) {
-            MY_CXT.state[ii] = SvUV(*av_fetch(state, ii, 0));
-        }
-        MY_CXT.next = &MY_CXT.state[(N+1)-MY_CXT.left];
-
 U32
-rand32()
+mt_rand32()
     PREINIT:
         dMY_CXT;
     CODE:
         /* Random number on [0,0xFFFFFFFF] interval */
-        RETVAL = _rand32(&MY_CXT);
+        RETVAL = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
+                                      : *MY_CXT.next++;
+        RETVAL ^= (RETVAL >> 11);
+        RETVAL ^= (RETVAL << 7)  & 0x9D2C5680;
+        RETVAL ^= (RETVAL << 15) & 0xEFC60000;
+        RETVAL ^= (RETVAL >> 18);
     OUTPUT:
         RETVAL
 
 double
-rand(...)
+mt_rand(...)
     PREINIT:
         dMY_CXT;
     CODE:
         /* Random number on [0,1) interval */
-        RETVAL = (double)_rand32(&MY_CXT) / 4294967296.0;
+        U32 rand = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
+                                        : *MY_CXT.next++;
+        rand ^= (rand >> 11);
+        rand ^= (rand << 7)  & 0x9D2C5680;
+        rand ^= (rand << 15) & 0xEFC60000;
+        RETVAL = (double)(rand ^ (rand >> 18)) / 4294967296.0;
         if (items >= 1) {
             /* Random number on [0,X) interval */
             RETVAL *= SvNV(ST(0));
         }
     OUTPUT:
         RETVAL
+
+Math::Random::MT::Auto
+OO_prng()
+    CODE:
+        /* Create new PRNG for OO interface */
+        RETVAL = malloc(sizeof(my_cxt_t));
+    OUTPUT:
+        RETVAL
+
+U32
+rand32(rand_obj);
+        HV *rand_obj
+    INIT:
+        /* Extract PRNG context from object */
+        IV tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
+        my_cxt_t *prng = INT2PTR(my_cxt_t *, tmp);
+    CODE:
+        /* Random number on [0,0xFFFFFFFF] interval */
+        RETVAL = (--prng->left == 0) ? _mt_algo(prng)
+                                     : *prng->next++;
+        RETVAL ^= (RETVAL >> 11);
+        RETVAL ^= (RETVAL << 7)  & 0x9D2C5680;
+        RETVAL ^= (RETVAL << 15) & 0xEFC60000;
+        RETVAL ^= (RETVAL >> 18);
+    OUTPUT:
+        RETVAL
+
+double
+rand(rand_obj, ...);
+        HV *rand_obj
+    INIT:
+        /* Extract PRNG context from object */
+        IV tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
+        my_cxt_t *prng = INT2PTR(my_cxt_t *, tmp);
+    CODE:
+        /* Random number on [0,1) interval */
+        U32 rand = (--prng->left == 0) ? _mt_algo(prng)
+                                       : *prng->next++;
+        rand ^= (rand >> 11);
+        rand ^= (rand << 7)  & 0x9D2C5680;
+        rand ^= (rand << 15) & 0xEFC60000;
+        RETVAL = (double)(rand ^ (rand >> 18)) / 4294967296.0;
+        if (items >= 2) {
+            /* Random number on [0,X) interval */
+            RETVAL *= SvNV(ST(1));
+        }
+    OUTPUT:
+        RETVAL
+
+void
+OO_DESTROY(prng)
+        Math::Random::MT::Auto prng
+    PREINIT:
+        dMY_CXT;
+    CODE:
+        /* Object cleanup */
+        if (prng && (prng != &MY_CXT)) {
+            free(prng);
+        }
+
+void
+X_seed(prng, seed)
+        Math::Random::MT::Auto prng
+        AV *seed
+    CODE:
+        /* Length of the seed */
+        int len = av_len(seed)+1;
+        /* Copy the seed */
+        U32 *buff = (U32 *)malloc(len * sizeof(U32));
+        int ii;
+        for (ii=0; ii < len; ii++) {
+            buff[ii] = SvUV(*av_fetch(seed, ii, 0));
+        }
+        /* Set up the PRNG */
+        _mt_seed(prng, buff, len);
+        /* Cleanup */
+        free(buff);
+
+SV *
+X_get_state(prng)
+        Math::Random::MT::Auto prng
+    CODE:
+        /* Returns array ref containing PRNG state vector */
+        AV *state = newAV();
+        int ii;
+        for (ii=0; ii<N; ii++) {
+            av_push(state, newSVuv(prng->state[ii]));
+        }
+        av_push(state, newSViv(prng->left));
+        RETVAL = newRV((SV *)state);
+    OUTPUT:
+        RETVAL
+
+void
+X_set_state(prng, state)
+        Math::Random::MT::Auto prng
+        AV *state
+    CODE:
+        /* Sets PRNG state vector from input array ref */
+        int ii;
+        for (ii=0; ii<N; ii++) {
+            prng->state[ii] = SvUV(*av_fetch(state, ii, 0));
+        }
+        prng->left = SvIV(*av_fetch(state, N, 0));
+        if (prng->left > 1) {
+            prng->next = &prng->state[(N+1) - prng->left];
+        }

@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 1.11
+Math-Random-MT-Auto version 1.20
 ================================
 
 This module provides two random number functions (rand32 and a
@@ -27,6 +27,11 @@ To utilize the option of acquiring seed data from Internet sources,
 the following module is needed:
 
   LWP::UserAgent
+
+On Windows XP, to utilize the option of acquiring seed data from
+the system's random number source, the following module is needed:
+
+  Win32::API::Prototypes
 
 COPYRIGHT AND LICENCE
 

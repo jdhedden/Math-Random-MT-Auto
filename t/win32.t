@@ -1,16 +1,25 @@
-# Tests for /dev/urandom
+# Tests for Windows XP random source
 
 use Scalar::Util 'looks_like_number';
 
 use Test::More;
-if (! -e '/dev/urandom') {
-    plan skip_all => '/dev/urandom not available';
+if ($^O ne 'MSWin32') {
+    plan(skip_all => 'Not Win32');
 } else {
-    plan tests => 91;
+    my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
+    if (defined($minor) &&
+        (($id > 2) ||
+         ($id == 2 && $major > 5) ||
+         ($id == 2 && $major == 5 && $id >= 1)))
+    {
+        plan(tests => 91);
+    } else {
+        plan(skip_all => 'Not Win XP');
+    }
 }
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand rand32 warnings/, '/dev/urandom');
+    use_ok('Math::Random::MT::Auto', qw/rand rand32 warnings/, 'win32');
 }
 
 # Check for warnings

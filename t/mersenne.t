@@ -1,11 +1,14 @@
 # Verify Mersenne Twister algorithm
-# and test srand(\&sub), seed() and state() functions
+# Test standalone PRNG - srand(\&sub), seed() and state()
+# Test OO interface - seeding from file, $obj->seed() and $obj->state()
+# Test PRNG 'cloning'
 
-use Test::More tests => 10508;
+use Test::More tests => 22022;
 use Scalar::Util 'looks_like_number';
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand rand32 srand seed state :!auto/);
+    use_ok('Math::Random::MT::Auto',
+                qw/rand rand32 srand seed state warnings :!auto/);
 };
 
 # Known test values for rand32()
@@ -414,6 +417,8 @@ BEGIN {
     0.64178757 0.45583809 0.70694291 0.85212760 0.86074305
     0.33163422 0.85739792 0.59908488 0.74566046 0.72157152/;
 
+### - Standalone PRNG - ###
+
 # Set predetermined seed for verification test
 sub myseed
 {
@@ -425,6 +430,15 @@ sub myseed
 eval { srand(\&myseed); };
 ok(! $@, 'srand() died: ' . $@);
 
+# Check for warnings
+my @warnings;
+eval { @warnings = warnings(1); };
+ok(! $@, 'warnings(1) died: ' . $@);
+if ($warnings[0] eq 'Partial seed - only 4 long-ints') {
+    shift(@warnings);
+}
+ok(! @warnings, 'Seed errors: ' . join("\n", @warnings));
+
 # Fetch and verify seed
 my @seed;
 eval { @seed = @{seed()}; };
@@ -434,6 +448,13 @@ ok(@seed == 4 &&
    $seed[1] == 0x234 &&
    $seed[2] == 0x345 &&
    $seed[3] == 0x456,    "Retrieved seed: @seed");
+
+
+# Create PRNG object using state of standalone PRNG
+my $prng2;
+eval { $prng2 = Math::Random::MT::Auto->new('STATE' => state()); };
+ok(! $@, 'SA cloning died: ' . $@);
+
 
 # Test for known output from PRNG for rand32()
 my $rn;
@@ -472,7 +493,7 @@ ok(! $@, 'Set state() died: ' . $@);
 
 # Continue from previous state
 for (my $ii=500; $ii < 1000; $ii++) {
-    eval { $rn = rand32(); };
+    eval { $rn = Math::Random::MT::Auto::mt_rand32(); };
     ok(! $@,                  'rand32() died: ' . $@);
     ok(defined($rn),          'Got a random number');
     ok(looks_like_number($rn),'Is a number: ' . $rn);
@@ -481,13 +502,142 @@ for (my $ii=500; $ii < 1000; $ii++) {
 }
 
 # Test for known output from PRNG for rand()
-for (my $ii=0; $ii < 1000; $ii++) {
+for (my $ii=0; $ii < 500; $ii++) {
     eval { $rn = rand(); };
     ok(! $@,                                 'rand() died: ' . $@);
     ok(defined($rn),                         'Got a random number');
     ok(looks_like_number($rn),               'Is a number: ' . $rn);
     ok($rn >= 0.0 && $rn < 1.0,              'In range: ' . $rn);
     ok(sprintf('%0.8f', $rn) eq $rdoub[$ii], 'Known value');
+}
+
+# Test for known output from PRNG for Math::Random::MT::Auto::mt_rand()
+for (my $ii=500; $ii < 1000; $ii++) {
+    eval { $rn = Math::Random::MT::Auto::mt_rand(); };
+    ok(! $@,                                 'rand() died: ' . $@);
+    ok(defined($rn),                         'Got a random number');
+    ok(looks_like_number($rn),               'Is a number: ' . $rn);
+    ok($rn >= 0.0 && $rn < 1.0,              'In range: ' . $rn);
+    ok(sprintf('%0.8f', $rn) eq $rdoub[$ii], 'Known value');
+}
+
+
+### - OO INterface - ###
+
+# Create binary seed file
+if (open(FH, '>seed_data.tmp')) {
+    print(FH pack('L4', 0x123, 0x234, 0x345, 0x456));
+    close(FH);
+} else {
+    diag('Failure writing seed to file');
+}
+
+# Create PRNG object
+my $prng;
+eval { $prng = Math::Random::MT::Auto->new('SOURCE' => 'seed_data.tmp'); };
+unlink('seed_data.tmp');
+ok(! $@, 'Creating rand obj failed: ' . $@);
+ok(ref($prng), 'Got rand obj');
+
+# Check for warnings
+eval { @warnings = $prng->warnings(); };
+ok(! $@, '$prng->warnings() died: ' . $@);
+if ($warnings[0] eq 'seed_data.tmp exhausted') {
+    shift(@warnings);
+}
+if ($warnings[0] eq 'Partial seed - only 4 long-ints') {
+    shift(@warnings);
+}
+ok(! @warnings, 'Seed errors: ' . join("\n", @warnings));
+
+# Fetch and verify seed
+eval { @seed = @{$prng->seed()}; };
+ok(! $@, 'Get $prng->seed() died: ' . $@);
+ok(@seed == 4 &&
+   $seed[0] == 0x123 &&
+   $seed[1] == 0x234 &&
+   $seed[2] == 0x345 &&
+   $seed[3] == 0x456,    "Retrieved seed: @seed");
+
+# Test for known output from PRNG for $prng->rand32()
+for (my $ii=0; $ii < 500; $ii++) {
+    eval { $rn = $prng->rand32(); };
+    ok(! $@,                  '$prng->rand32() died: ' . $@);
+    ok(defined($rn),          'Got a random number');
+    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(int($rn) == $rn,       'Integer: ' . $rn);
+    ok($rn == $r32[$ii],      'Known value');
+}
+
+# Save the current PRNG state
+eval { $state = $prng->state(); };
+ok(! $@, 'Get $prng->state() died: ' . $@);
+ok(ref($state) eq 'ARRAY', 'State is array ref');
+
+# Reset the seed
+eval { $prng->seed(\@seed); };
+ok(! $@, 'Set $prng->seed() died: ' . $@);
+
+# Test again with reset seed
+for (my $ii=0; $ii < 100; $ii++) {
+    eval { $rn = $prng->rand32(); };
+    ok(! $@,                  '$prng->rand32() died: ' . $@);
+    ok(defined($rn),          'Got a random number');
+    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(int($rn) == $rn,       'Integer: ' . $rn);
+    ok($rn == $r32[$ii],      'Known value');
+}
+
+# Restore previous state
+eval { $prng->state($state); };
+ok(! $@, 'Set $prng->state() died: ' . $@);
+
+# Continue from previous state
+for (my $ii=500; $ii < 1000; $ii++) {
+    eval { $rn = $prng->rand32(); };
+    ok(! $@,                  '$prng->rand32() died: ' . $@);
+    ok(defined($rn),          'Got a random number');
+    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(int($rn) == $rn,       'Integer: ' . $rn);
+    ok($rn == $r32[$ii],      'Known value');
+}
+
+# Test for known output from PRNG for rand()
+for (my $ii=0; $ii < 1000; $ii++) {
+    eval { $rn = $prng->rand(); };
+    ok(! $@,                                 '$prng->rand() died: ' . $@);
+    ok(defined($rn),                         'Got a random number');
+    ok(looks_like_number($rn),               'Is a number: ' . $rn);
+    ok($rn >= 0.0 && $rn < 1.0,              'In range: ' . $rn);
+    ok(sprintf('%0.8f', $rn) eq $rdoub[$ii], 'Known value');
+}
+
+
+### - Cloning Tests - ###
+
+# Create PRNG object using state of another PRNG object
+my $prng3;
+eval { $prng3 = $prng2->new(); };
+ok(! $@, 'OO cloning died: ' . $@);
+
+# Test OO copy of SA PRNG
+for (my $ii=0; $ii < 100; $ii++) {
+    eval { $rn = $prng2->rand32(); };
+    ok(! $@,                  '$prng2->rand32() died: ' . $@);
+    ok(defined($rn),          'Got a random number');
+    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(int($rn) == $rn,       'Integer: ' . $rn);
+    ok($rn == $r32[$ii],      'Known value');
+}
+
+# Test OO copy of OO PRNG
+for (my $ii=0; $ii < 100; $ii++) {
+    eval { $rn = $prng3->rand32(); };
+    ok(! $@,                  '$prng3->rand32() died: ' . $@);
+    ok(defined($rn),          'Got a random number');
+    ok(looks_like_number($rn),'Is a number: ' . $rn);
+    ok(int($rn) == $rn,       'Integer: ' . $rn);
+    ok($rn == $r32[$ii],      'Known value');
 }
 
 # EOF

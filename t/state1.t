@@ -40,9 +40,12 @@ for (my $ii=0; $ii < 500; $ii++) {
 
 
 # Save state and numbers to file
-open(FH, '>state_data.tmp');
-print(FH Data::Dumper->Dump([$state, \@rn], ['state', '*rn']));
-print(FH "1;\n");
-close(FH)
+if (open(FH, '>state_data.tmp')) {
+    print(FH Data::Dumper->Dump([$state, \@rn], ['state', '*rn']));
+    print(FH "1;\n");
+    close(FH);
+} else {
+    diag('Failure writing state to file');
+}
 
 # EOF

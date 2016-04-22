@@ -5,10 +5,15 @@ META.yml
 Makefile.PL
 lib/Math/Random/MT/Auto.pm
 MRMA.xs
+typemap
 ppport.h
 t/mersenne.t
 t/dev_random.t
 t/dev_urandom.t
+t/win32.t
 t/random_org.t
 t/hotbits.t
+t/state1.t
+t/state2.t
+t/threads.t
 samples/random

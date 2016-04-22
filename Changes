@@ -1,5 +1,10 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+5.04 Mon Oct  9 16:11:50 EDT 2006
+	- Uses OIO's :hash_only flag
+	- Added tests for POD and exports
+	- Upgraded ppport.h to Devel::PPPort 3.10
+
 5.03 Thu Aug 10 13:42:12 EDT 2006
 	- Fix to overload test
 

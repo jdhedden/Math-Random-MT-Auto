@@ -30,6 +30,7 @@ BEGIN {
     $Math::Random::MT::Auto::shared = 1;
 }
 use Math::Random::MT::Auto qw(set_seed get_seed set_state get_state);
+can_ok('main', qw(set_seed get_seed set_state get_state));
 
 # 'Empty subclass' test  (cf. perlmodlib)
 {

@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = 5.03;
+our $VERSION = 5.04;
 
 use Carp ();
 use Scalar::Util 1.18;
@@ -13,8 +13,8 @@ use Scalar::Util 1.18;
 use XSLoader;
 XSLoader::load('Math::Random::MT::Auto', $VERSION);
 
-use Object::InsideOut;
-use Object::InsideOut::Util;
+use Object::InsideOut 2.06 ':hash_only';
+use Object::InsideOut::Util 'shared_copy';
 
 # Exceptions thrown by this package
 use Exception::Class (
@@ -92,23 +92,23 @@ sub import
 
     # Use user-specified seed sources for standalone PRNG
     if (@sources) {
-        $sources_for{$$SA} = Object::InsideOut::Util::shared_copy(\@sources);
+        $sources_for{$$SA} = shared_copy(\@sources);
     } else {
-        default_sources();
+        _default_sources();
     }
 
     # Auto-seed the standalone PRNG
-    $seed_for{$$SA} = Object::InsideOut::Util::shared_copy([]);
+    $seed_for{$$SA} = shared_copy([]);
     if ($auto_seed) {
         # Automatically acquire seed from sources for standalone PRNG
-        acquire_seed($SA);
+        _acquire_seed($SA);
 
     } else {
         # Minimal seed when ':!auto' specified
         push(@{$seed_for{$$SA}}, $$, time(), $$SA);
     }
     # Apply seed
-    seed_prng($SA);
+    _seed_prng($SA);
 }
 
 
@@ -136,14 +136,14 @@ sub srand
         }
 
         # Save specified sources
-        $sources_for{$$obj} = Object::InsideOut::Util::shared_copy(\@_);
+        $sources_for{$$obj} = shared_copy(\@_);
     }
 
     # Acquire seed from sources
-    acquire_seed($obj);
+    _acquire_seed($obj);
 
     # Seed the PRNG
-    seed_prng($obj);
+    _seed_prng($obj);
 }
 
 
@@ -173,13 +173,13 @@ sub set_seed
 
     # Save a copy of the seed
     if (ref($_[0]) eq 'ARRAY') {
-        $seed_for{$$obj} = Object::InsideOut::Util::shared_copy($_[0]);
+        $seed_for{$$obj} = shared_copy($_[0]);
     } else {
-        $seed_for{$$obj} = Object::InsideOut::Util::shared_copy(\@_);
+        $seed_for{$$obj} = shared_copy(\@_);
     }
 
     # Seed the PRNG
-    seed_prng($obj);
+    _seed_prng($obj);
 }
 
 
@@ -214,12 +214,12 @@ sub set_state
 ### Inside-out Object Internal Subroutines ###
 
 # Object Constructor
-sub new_prng :ID
+sub _new_prng :ID
 {
     return (Math::Random::MT::Auto::_::new_prng());
 }
 
-sub clone_state :Replicate
+sub _clone_state :Replicate
 {
     my ($from_obj, $to_obj) = @_;
 
@@ -227,7 +227,7 @@ sub clone_state :Replicate
     Math::Random::MT::Auto::_::set_state($to_obj, $state);
 }
 
-sub free_prng :Destroy
+sub _free_prng :Destroy
 {
     Math::Random::MT::Auto::_::free_prng(shift);
 }
@@ -259,7 +259,7 @@ sub _init :Init
 
     # If no sources specified, then use default sources from standalone PRNG
     if (! exists($sources_for{$$self})) {
-        $self->set(\%sources_for, default_sources());
+        $self->set(\%sources_for, _default_sources());
     }
 
     # If state is specified, then use it
@@ -269,11 +269,11 @@ sub _init :Init
     } else {
         # Acquire seed, if none provided
         if (! @{$seed_for{$$self}}) {
-            acquire_seed($self);
+            _acquire_seed($self);
         }
 
         # Seed the PRNG
-        seed_prng($self);
+        _seed_prng($self);
     }
 }
 
@@ -355,10 +355,10 @@ my $FULL_SEED   = 2496 / $INT_SIZE;
 
 # Seed source subroutine dispatch table
 my %DISPATCH = (
-    'device'     => \&acq_device,
-    'random_org' => \&acq_www,
-    'hotbits'    => \&acq_www,
-    'rn_info'    => \&acq_www,
+    'device'     => \&_acq_device,
+    'random_org' => \&_acq_www,
+    'hotbits'    => \&_acq_www,
+    'rn_info'    => \&_acq_www,
 );
 
 # If Windows XP and Win32::API, then make 'win32' a valid source
@@ -380,14 +380,14 @@ if ($^O eq 'MSWin32') {
             require Win32::API;
         };
         if (! $@) {
-            $DISPATCH{'win32'} = \&acq_win32;
+            $DISPATCH{'win32'} = \&_acq_win32;
         }
     }
 }
 
 
 # Acquire seed data from specific sources
-sub acquire_seed :PRIVATE
+sub _acquire_seed :PRIVATE
 {
     my $prng    = $_[0];
 
@@ -445,7 +445,7 @@ sub acquire_seed :PRIVATE
 
 
 # Acquire seed data from a device/file
-sub acq_device :PRIVATE
+sub _acq_device :PRIVATE
 {
     my $device = $_[0];
     my $prng   = $_[1];
@@ -500,7 +500,7 @@ sub acq_device :PRIVATE
 my $LWP_UA;
 
 # Subroutine to acquire seed data from Internet sources
-sub acq_www :PRIVATE
+sub _acq_www :PRIVATE
 {
     my $src  = $_[0];
     my $prng = $_[1];
@@ -617,7 +617,7 @@ sub acq_www :PRIVATE
 
 
 # Acquire seed data from Win XP random source
-sub acq_win32 :PRIVATE
+sub _acq_win32 :PRIVATE
 {
     my $src   = $_[0];   # Not used
     my $prng  = $_[1];
@@ -650,11 +650,11 @@ sub acq_win32 :PRIVATE
 
 # Returns default set of seed sources which have been set for the standalone
 # PRNG
-sub default_sources :PRIVATE
+sub _default_sources :PRIVATE
 {
     # Set up sources for standalone PRNG
     if (! exists($sources_for{$$SA})) {
-        $sources_for{$$SA} = Object::InsideOut::Util::shared_copy([]);
+        $sources_for{$$SA} = shared_copy([]);
         if (exists($DISPATCH{'win32'})) {
             push(@{$sources_for{$$SA}}, 'win32');
         } elsif (-e '/dev/urandom') {
@@ -670,7 +670,7 @@ sub default_sources :PRIVATE
 
 
 # Seeds a PRNG
-sub seed_prng :PRIVATE
+sub _seed_prng :PRIVATE
 {
     my $prng = $_[0];
 
@@ -700,7 +700,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 5.03
+This documentation refers to Math::Random::MT::Auto version 5.04
 
 =head1 SYNOPSIS
 
@@ -1364,7 +1364,7 @@ The I<stringification> of the PRNG object is accomplished by calling
 C<-E<gt>irand()> on the object, and returning the integer so obtained as the
 I<coerced> result.
 
-Similarly when used in a numeric context:
+Similarly, when used in a numeric context:
 
  my $neg_rand = 0 - $prng;
 
@@ -1665,7 +1665,7 @@ This module uses the following modules available through CPAN:
 
 =over
 
-=item Object::InsideOut (1.26 or later)
+=item Object::InsideOut (2.06 or later)
 
 =item Exception::Class (1.22 or later)
 
@@ -1695,7 +1695,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-5.03/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-5.04/lib/Math/Random/MT/Auto.pm>
 
 The Mersenne Twister is the (current) quintessential pseudorandom number
 generator. It is fast, and has a period of 2^19937 - 1.  The Mersenne

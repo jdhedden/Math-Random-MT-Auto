@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 5.03
+Math-Random-MT-Auto version 5.04
 ================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
@@ -62,7 +62,7 @@ This module uses the following 'standard' modules:
 
 This module uses the following modules available through CPAN:
 
-  Object::InsideOut (1.26 or later)
+  Object::InsideOut (2.06 or later)
   Exception::Class (1.22 or later)
 
 To utilize the option of acquiring seed data from Internet sources,

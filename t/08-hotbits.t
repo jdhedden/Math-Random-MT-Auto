@@ -8,7 +8,7 @@ eval { require LWP::UserAgent; };
 if ($@) {
     plan skip_all => 'LWP::UserAgent not available';
 } else {
-    plan tests => 89;
+    plan tests => 90;
 }
 
 my @WARN;
@@ -18,6 +18,7 @@ BEGIN {
 
     use_ok('Math::Random::MT::Auto', qw(rand irand get_seed), 'hotbits');
 }
+can_ok('main', qw(rand irand get_seed));
 
 # Check for warnings
 if (@WARN) {

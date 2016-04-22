@@ -9,6 +9,7 @@ use Data::Dumper;
 BEGIN {
     use_ok('Math::Random::MT::Auto', qw(irand get_state set_state));
 };
+can_ok('main', qw(irand get_state set_state));
 
 
 # Work the PRNG a bit

@@ -23,7 +23,7 @@ if ($^O eq 'MSWin32') {
             require Win32::API;
         };
         if (! $@) {
-            plan(tests => 90);
+            plan(tests => 91);
         } else {
             plan(skip_all => 'No Win32::API');
         }
@@ -41,6 +41,7 @@ BEGIN {
 
     use_ok('Math::Random::MT::Auto', qw(rand irand), 'win32');
 }
+can_ok('main', qw(rand irand));
 
 # Check for warnings
 if (! ok(! @WARN, 'Acquired seed data')) {

@@ -21,6 +21,8 @@ BEGIN {
 
 can_ok('Math::Random::MT::Auto', qw(rand irand srand get_seed set_seed
                                     get_state set_state));
+can_ok('main', qw(rand irand srand get_seed set_seed
+                                    get_state set_state));
 
 # Known test values for irand()
 my @base_rint = ($Config{'uvsize'} == 8) ?

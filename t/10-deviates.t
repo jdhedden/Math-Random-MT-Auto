@@ -15,6 +15,8 @@ BEGIN {
 }
 can_ok('Math::Random::MT::Auto', qw(exponential erlang poisson
                                     binomial shuffle));
+can_ok('main', qw(exponential erlang poisson
+                                    binomial shuffle));
 
 # Check for warnings
 if (! ok(! @WARN, 'Acquired seed data')) {

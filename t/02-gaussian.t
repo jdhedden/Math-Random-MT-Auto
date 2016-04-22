@@ -12,6 +12,7 @@ BEGIN {
 };
 
 can_ok('Math::Random::MT::Auto', qw/gaussian/);
+can_ok('main', qw/gaussian/);
 
 # Cumulative distribution function
 sub cdf
@@ -62,6 +63,7 @@ for (1 .. $CNT) {
     eval { $x = gaussian(10); };
     if ($@) {
         fail('gaussian(10) failed: ' . $@);
+        exit(1);
     }
 
     # Handle 'rounding' using int()
@@ -115,6 +117,7 @@ for (1 .. $CNT) {
     eval { $x = $prng->gaussian(10); };
     if ($@) {
         fail('$prng->gaussian(10) failed: ' . $@);
+        exit(1);
     }
 
     # Handle 'rounding' using int()

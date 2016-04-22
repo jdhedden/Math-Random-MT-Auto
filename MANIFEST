@@ -22,6 +22,7 @@ t/12-rn_info.t
 t/13-overload.t
 t/14-serialize.t
 t/15-shared.t
+t/99-pod.t
 samples/timings.pl
 samples/bell.pl
 samples/decay.pl

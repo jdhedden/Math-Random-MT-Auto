@@ -7,7 +7,7 @@ use Test::More;
 if (! -e '/dev/urandom') {
     plan skip_all => '/dev/urandom not available';
 } else {
-    plan tests => 90;
+    plan tests => 91;
 }
 
 my @WARN;
@@ -17,6 +17,7 @@ BEGIN {
 
     use_ok('Math::Random::MT::Auto', qw(rand irand), '/dev/urandom');
 }
+can_ok('main', qw(rand irand));
 
 # Check for warnings
 if (! ok(! @WARN, 'Acquired seed data')) {

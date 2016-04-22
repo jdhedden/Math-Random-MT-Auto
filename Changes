@@ -1,12 +1,15 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+1.31  Fri Jul 08 10:45:30 2005
+	- Fix for when 'use64bitint' is 'undef'
+
 1.30  Thu Jul 07 20:16:00 2005
 	- Belated version bump for 64-bit support
 	- Fix for non-gcc compilers
 	- More speed comparisons in samples/random
 
 1.23  Thu Jul 07 11:41:00 2005
-	- 64-bit algorithm on Perls with 'use64bitint' (66% faster)
+	- 64-bit algorithm on Perls with 'use64bitint'
 	- Added irand for random integers
 	- rand32 deprecated (see POD)
 

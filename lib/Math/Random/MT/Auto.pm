@@ -9,7 +9,7 @@ use Config;
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.30;
+our $VERSION = 1.31;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -33,7 +33,18 @@ my @CLONING_LIST;
 
 ### Module Initialization ###
 
-# 1. Handles importation of random functions,
+# 1. Size of Perl's integers
+my ($INT_SIZE, $UNPACK_CODE);
+if (exists($Config{'use64bitint'}) && ($Config{'use64bitint'} eq 'define')) {
+    $INT_SIZE = 8;
+    $UNPACK_CODE = 'Q';
+} else {
+    $INT_SIZE = 4;
+    $UNPACK_CODE = 'L';
+}
+
+
+# 2. Handles importation of random functions,
 # and specification of seeding sources by user.
 sub import
 {
@@ -94,7 +105,7 @@ sub import
 }
 
 
-# 2. Auto seed the standalone PRNG after the module is loaded.
+# 3. Auto seed the standalone PRNG after the module is loaded.
 # Even when $STANDALONE{'AUTO'} is false, the PRNG is still seeded
 # using time and PID.
 {
@@ -467,7 +478,7 @@ sub _acq_seed
     my $warnings = $_[2];
 
     @$seed = ();
-    my $FULL_SEED = 2496 / $Config{'uvsize'};
+    my $FULL_SEED = 2496 / $INT_SIZE;
 
     for (my $ii=0; $ii < @$sources; $ii++) {
         my $source = $$sources[$ii];
@@ -525,7 +536,7 @@ sub _acq_dev
     my $seed     = $_[1];
     my $need     = $_[2];
     my $warnings = $_[3];
-    my $bytes    = $need * $Config{'uvsize'};
+    my $bytes    = $need * $INT_SIZE;
 
     # Try opening device/file
     my $FH;
@@ -563,8 +574,8 @@ sub _acq_dev
         if ($cnt < $bytes) {
             push(@$warnings, "$device exhausted");
         }
-        if ($cnt = int($cnt / $Config{'uvsize'})) {
-            push(@$seed, unpack((exists($Config{'use64bitint'})) ? "Q$cnt" : "L$cnt", $data));
+        if ($cnt = int($cnt / $INT_SIZE)) {
+            push(@$seed, unpack("$UNPACK_CODE$cnt", $data));
         }
     } else {
         push(@$warnings, "Failure reading from $device: $!");
@@ -578,7 +589,7 @@ sub _acq_random_org
     my $seed     = $_[0];
     my $need     = $_[1];
     my $warnings = $_[2];
-    my $bytes    = $need * $Config{'uvsize'};
+    my $bytes    = $need * $INT_SIZE;
 
     # Load LWP::UserAgent module
     eval {
@@ -603,7 +614,7 @@ sub _acq_random_org
     if ($@) {
         push(@$warnings, "Failure contacting random.org: $@");
     } elsif ($res->is_success) {
-        push(@$seed, unpack((exists($Config{'use64bitint'})) ? 'Q*' : 'L*', $res->content));
+        push(@$seed, unpack("$UNPACK_CODE*", $res->content));
     } else {
         push(@$warnings, 'Failure getting data from random.org: '
                             . $res->status_line);
@@ -617,7 +628,7 @@ sub _acq_hotbits
     my $seed     = $_[0];
     my $need     = $_[1];
     my $warnings = $_[2];
-    my $bytes    = $need * $Config{'uvsize'};
+    my $bytes    = $need * $INT_SIZE;
 
     # Load LWP::UserAgent module
     eval {
@@ -636,7 +647,7 @@ sub _acq_hotbits
         # HotBits only allows 2048 bytes max.
         if ($bytes > 2048) {
             $bytes = 2048;
-            $need  = $bytes / $Config{'uvsize'};
+            $need  = $bytes / $INT_SIZE;
         }
         # Create request for HotBits
         my $req = HTTP::Request->new(GET =>
@@ -650,7 +661,7 @@ sub _acq_hotbits
         if ($res->content =~ /exceeded your 24-hour quota/) {
             push(@$warnings, $res->content);
         } else {
-            push(@$seed, unpack((exists($Config{'use64bitint'})) ? 'Q*' : 'L*', $res->content));
+            push(@$seed, unpack("$UNPACK_CODE*", $res->content));
         }
     } else {
         push(@$warnings, 'Failure getting data from HotBits: '
@@ -665,7 +676,7 @@ sub _acq_win32
     my $seed     = $_[0];
     my $need     = $_[1];
     my $warnings = $_[2];
-    my $bytes    = $need * $Config{'uvsize'};
+    my $bytes    = $need * $INT_SIZE;
 
     # Load Win32::API::Prototype module
     eval {
@@ -686,7 +697,7 @@ sub _acq_win32
     # Acquire the random data
     my $buffer = chr(0) x $bytes;
     if (SystemFunction036($buffer, $bytes)) {
-        push(@$seed, unpack((exists($Config{'use64bitint'})) ? 'Q*' : 'V*', $buffer));
+        push(@$seed, unpack("$UNPACK_CODE*", $buffer));
     } else {
         push(@$warnings, "Failure acquiring Win32 seed data: $^E");
     }
@@ -741,9 +752,10 @@ For Perl compiled to support 64-bit integers, this module will use a 64-bit
 version of the Mersenne Twister algorithm, thus providing 64-bit random
 integers (and 53-bit random doubles).  (32-bits otherwise.)
 
-The code for this module has been optimized for speed, making it 2.5 times
-faster than Math::Random::MT for the functional interface, and 2 times
-faster for the OO interface.
+The code for this module has been optimized for speed.  Under Windows, it's
+2.5 times faster than Math::Random::MT for the functional interface, and 2
+times faster for the OO interface.  Under Solaris, it's 4x and 3.5x faster,
+respectively.
 
 =head2 Quickstart
 
@@ -783,12 +795,16 @@ L<Config> module:
 
   use Config;
 
-  if (exists($Config{'use64bitint')) {
+  if (exists($Config{'use64bitint'}) && ($Config{'use64bitint'} eq 'define')) {
       print("Perl is using 64-bit ints\n");
   } else {
       print("Perl is using 32-bit ints\n");
   }
-  print("Ints are $Config{'uvsize'} bytes in length\n");
+  if ($] >= 5.006) {
+      print("Ints are $Config{'uvsize'} bytes in length\n");
+  } else {
+      print("Ints are $Config{'intsize'} bytes in length\n");
+  }
 
 =head2 Seeding Sources
 
@@ -884,8 +900,6 @@ be) to be used from a source may be specified:
 
 (I would be interested to hear about other random data sources if they
 could easily be included in future versions of this module.)
-
-=back
 
 =head2 Functional Interface to the Standalone PRNG
 
@@ -1454,10 +1468,11 @@ state vectors.
 
 =head1 PERFORMANCE
 
-This module is 2.5 times faster than Math::Random::MT when using the
-functional interface to the standalone PRNG, and 2 times faster when using
-the OO interface.  The file F<samples/random>, included in this module's
-distribution, can be used to compare timing results.
+Under Windows, this module is 2.5 times faster than Math::Random::MT for
+the functional interface to the standalone PRNG, and 2 times faster for the
+OO interface.  Under Solaris, it's 4x and 3.5x faster, respectively.  The
+file F<samples/random>, included in this module's distribution, can be used
+to compare timing results.
 
 Depending on your connnection speed, acquiring seed data from the Internet
 may take up to couple of seconds.  This delay might be apparent when your

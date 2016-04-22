@@ -1,5 +1,5 @@
-Math-Random-MT-Auto version 2.1.0
-=================================
+Math-Random-MT-Auto version 2.20.00
+===================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
 on the Mersenne Twister algorithm.  There is a functional interface to a
@@ -25,7 +25,7 @@ This module also provides a function/method for shuffling data based on the
 Fisher-Yates shuffling algorithm.
 
 This module is thread-safe with respect to its OO interface for Perl v5.7.2
-and beyond.  The standalone PRNG is not thread-safe.
+and beyond.  (The standalone PRNG is not thread-safe.)
 
 For Perl compiled to support 64-bit integers, this module will use a 64-bit
 version of the Mersenne Twister algorithm, thus providing 64-bit random
@@ -33,7 +33,7 @@ integers (and 53-bit random doubles).  (32-bits otherwise.)
 
 The code for this module has been optimized for speed.  Under Windows, it's
 2.5 times faster than Math::Random::MT for the functional interface, and 2
-times faster for the OO interface.  Under Solaris, it's 4x and 3.5x faster,
+times faster for the OO interface.  Under Solaris, it's 4.4x and 3.5x faster,
 respectively.
 
 INSTALLATION

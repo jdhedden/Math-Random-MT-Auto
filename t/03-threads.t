@@ -11,7 +11,7 @@ if (! $Config{useithreads}) {
 } elsif ($] < 5.007002) {
     plan(skip_all => 'Not thread-safe prior to 5.7.2');
 } else {
-    plan(tests => 53);
+    plan(tests => 93);
 }
 
 BEGIN {
@@ -39,6 +39,10 @@ my $rands = threads->create(
                                 my $rand = $prng->irand();
                                 push(@rands, $rand);
                             }
+                            for (0 .. 9) {
+                                my $rand = $prng->rand(3);
+                                push(@rands, $rand);
+                            }
                             return (\@rands);
                         }
                     )->join();
@@ -47,10 +51,17 @@ my $rands = threads->create(
 my $rand;
 for my $ii (0 .. 9) {
     eval { $rand = $prng->irand(); };
-    ok(! $@,                     'irand() died: ' . $@);
+    ok(! $@,                     '$prng->irand() died: ' . $@);
     ok(defined($rand),           'Got a random number');
     ok(looks_like_number($rand), 'Is a number: ' . $rand);
     ok(int($rand) == $rand,      'Integer: ' . $rand);
+    ok($$rands[$ii] == $rand,    'Values equal: ' . $$rands[$ii] . ' ' . $rand);
+}
+for my $ii (10 .. 19) {
+    eval { $rand = $prng->rand(3); };
+    ok(! $@,                     '$prng->rand(3) died: ' . $@);
+    ok(defined($rand),           'Got a random number');
+    ok(looks_like_number($rand), 'Is a number: ' . $rand);
     ok($$rands[$ii] == $rand,    'Values equal: ' . $$rands[$ii] . ' ' . $rand);
 }
 

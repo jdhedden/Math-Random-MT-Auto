@@ -3,7 +3,8 @@
 # Compares random number generation timings for Perl's core function,
 # Math::Random::MT::Auto and Math::Random::MT (if available).
 
-# Usage:  timings.pl [COUNT]
+# Usage:  timings.pl [--local] [COUNT]
+#       --local = Don't try internet sources
 
 use strict;
 use warnings;
@@ -18,7 +19,16 @@ use Config;
 
 MAIN:
 {
-    my $count = (@ARGV) ? $ARGV[0] : 3120000;
+    # Command line arguments
+    my $local = 0;
+    my $count = 3120000;
+    for my $arg (@ARGV) {
+        if ($arg eq '--local') {
+            $local = 1;
+        } else {
+            $count = 0 + $arg;
+        }
+    }
 
     my ($cnt, $start, $end);
 
@@ -111,18 +121,20 @@ MAIN:
         }
     }
 
-    # Call srand to load LWP::UserAgent
-    @warnings = warnings(1);
-    srand('random_org');
-    # If errors, then ignore (probably no LWP::UserAgent)
-    @warnings = warnings(1);
-    if (! @warnings) {
-        # Time our srand() for random.org
-        $start = Time::HiRes::time();
+    if (! $local) {
+        # Call srand to load LWP::UserAgent
+        @warnings = warnings(1);
         srand('random_org');
-        $end = Time::HiRes::time();
-        printf("srand:\t\t%f secs. (random.org)\n", $end - $start);
-        @seed = @{seed()};
+        # If errors, then ignore (probably no LWP::UserAgent)
+        @warnings = warnings(1);
+        if (! @warnings) {
+            # Time our srand() for random.org
+            $start = Time::HiRes::time();
+            srand('random_org');
+            $end = Time::HiRes::time();
+            printf("srand:\t\t%f secs. (random.org)\n", $end - $start);
+            @seed = @{seed()};
+        }
     }
 
     # Time our irand()
@@ -245,14 +257,16 @@ MAIN:
         }
     }
 
-    # Time our srand() for random.org
-    $start = Time::HiRes::time();
-    $rand = Math::Random::MT::Auto->new('SOURCE' => ['random_org']);
-    $end = Time::HiRes::time();
-    # If errors, then ignore (probably no LWP::UserAgent)
-    @warnings = $rand->warnings(1);
-    if (! @warnings) {
-        printf("new:\t\t%f secs. (random.org)\n", $end - $start);
+    if (! $local) {
+        # Time our srand() for random.org
+        $start = Time::HiRes::time();
+        $rand = Math::Random::MT::Auto->new('SOURCE' => ['random_org']);
+        $end = Time::HiRes::time();
+        # If errors, then ignore (probably no LWP::UserAgent)
+        @warnings = $rand->warnings(1);
+        if (! @warnings) {
+            printf("new:\t\t%f secs. (random.org)\n", $end - $start);
+        }
     }
 
     # Reseed

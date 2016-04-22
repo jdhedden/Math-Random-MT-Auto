@@ -54,7 +54,7 @@ WriteMakefile(
     'VERSION_FROM'  => 'lib/Math/Random/MT/Auto.pm',
     'ABSTRACT_FROM' => 'lib/Math/Random/MT/Auto.pm',
     'PREREQ_PM'     => { 'Exception::Class'  => 1.32,
-                         'Object::InsideOut' => 3.85,
+                         'Object::InsideOut' => 3.88,
                          'strict'            => 0,
                          'warnings'          => 0,
                          'Carp'              => 0,

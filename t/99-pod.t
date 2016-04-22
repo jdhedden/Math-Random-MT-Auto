@@ -96,8 +96,15 @@ poisson
 pseudorandom
 src
 0xFFFFFFFF
+MERCHANTABILITY
+Matsumoto
+Redistributions
+optimizations
+selectable
+situ
 
 Arg
 PRNG's
+subclasses
 
 __END__

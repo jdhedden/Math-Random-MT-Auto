@@ -25,6 +25,7 @@ if (grep(/^Failure creating user-agent/, @WARN)) {
 plan tests => 91;
 
 @WARN = grep(!/^Partial seed/, @WARN);
+@WARN = grep(!/only once/, @WARN);   # Ingnore 'once' warnings from other modules
 ok(! @WARN, 'No warnings');
 diag('Warnings: ' . join(' | ', @WARN)) if (@WARN);
 

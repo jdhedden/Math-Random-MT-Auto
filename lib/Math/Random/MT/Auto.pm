@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.17';
+our $VERSION = '6.18';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -668,7 +668,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.17
+This documentation refers to Math::Random::MT::Auto version 6.18
 
 =head1 SYNOPSIS
 

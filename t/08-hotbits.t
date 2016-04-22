@@ -26,6 +26,7 @@ plan tests => 91;
 
 @WARN = grep(!/^Partial seed/, @WARN);
 @WARN = grep(!/^You have exceeded/, @WARN);
+@WARN = grep(!/only once/, @WARN);   # Ingnore 'once' warnings from other modules
 ok(! @WARN, 'No warnings');
 diag('Warnings: ' . join(' | ', @WARN)) if (@WARN);
 

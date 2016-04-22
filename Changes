@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.18 Thu Jan 26 14:58:57 2012
+	- Ignore warnings from other modules during tests
+
 6.17 Wed Jan 11 05:55:09 2012
 	- Require OIO 3.85 to fix some 'used only once' warnings
 

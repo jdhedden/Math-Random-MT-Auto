@@ -8,7 +8,7 @@ use strict;
 use warnings;
 
 use Test::More tests => 33;
-use Scalar::Util 'looks_like_number';
+use Scalar::Util 1.10 'looks_like_number';
 use Config;
 
 my @WARN;
@@ -870,8 +870,25 @@ eval { @seed = @{get_seed()}; };
 if (! ok(! $@, 'get_seed() works')) {
     diag('get_seed() died: ' . $@);
 }
-is_deeply(\@base_seed, \@seed, 'Seed is correct');
-
+eval { is_deeply(\@base_seed, \@seed, 'Seed is correct'); };
+if ($@) {
+    # Bug trap for Test::More under Perl 5.8.3
+    require Data::Dumper;
+    import Data::Dumper;
+    print(STDERR "\n", $@, "\n");
+    print(STDERR "### Bug in Test::More ###\n");
+    print(STDERR 'TEST: is_deeply(\@base_seed, \@seed, \'Seed is correct\');', "\n");
+    print(STDERR Data::Dumper->Dump([\@base_seed], ['*base_seed']));
+    print(STDERR 'ref(\@base_seed) is ', ref(\@base_seed), "\n");
+    print(STDERR 'UNIVERSAL::isa() says \@base_seed is ',
+                        (UNIVERSAL::isa(\@base_seed, 'ARRAY')) ? '' : 'not ',
+                        "an 'ARRAY'\n\n");
+    print(STDERR Data::Dumper->Dump([\@seed], ['*seed']));
+    print(STDERR 'ref(\@seed) is ', ref(\@seed), "\n");
+    print(STDERR 'UNIVERSAL::isa() says \@seed is ',
+                        (UNIVERSAL::isa(\@seed, 'ARRAY')) ? '' : 'not ',
+                        "an 'ARRAY'\n\n");
+}
 
 # Create PRNG object using state of standalone PRNG
 my $prng2;
@@ -904,7 +921,7 @@ my @test2_rint;
 for (1 .. 1000) {
     push(@test2_rint, irand());
 }
-is_deeply(\@test2_rint, \@base_rint);
+is_deeply(\@test2_rint, \@base_rint, '1000 ints');
 
 # Restore previous state
 eval { set_state($state); };
@@ -914,7 +931,7 @@ ok(! $@, 'set_state() died: ' . $@);
 for (501 .. 1000) {
     push(@test_rint, Math::Random::MT::Auto::irand());
 }
-is_deeply(\@test_rint, \@base_rint);
+is_deeply(\@test_rint, \@base_rint, '500 ints');
 
 # Test for known output from PRNG
 #  for rand() and Math::Random::MT::Auto::rand()
@@ -925,7 +942,7 @@ for (1 .. 500) {
 for (501 .. 1000) {
     push(@test_doub, sprintf('%0.8f', Math::Random::MT::Auto::rand()));
 }
-is_deeply(\@test_doub, \@base_doub);
+is_deeply(\@test_doub, \@base_doub, '1000 doubles');
 
 ### - OO INterface - ###
 
@@ -986,7 +1003,7 @@ ok(! $@, '$prng->set_seed() died: ' . $@);
 for (1 .. 1000) {
     push(@test2_rint, $prng->irand());
 }
-is_deeply(\@test2_rint, \@base_rint);
+is_deeply(\@test2_rint, \@base_rint, '1000 ints');
 
 # Restore previous state
 eval { $prng->set_state($state); };
@@ -997,14 +1014,14 @@ ok(! $@, '$prng->set_state() died: ' . $@);
 for (501 .. 1000) {
     push(@test_rint, $prng->irand());
 }
-is_deeply(\@test_rint, \@base_rint);
+is_deeply(\@test_rint, \@base_rint, '1000 ints');
 
 # Test for known output from PRNG for $prng->rand()
 @test_doub = ();
 for (1 .. 1000) {
     push(@test_doub, sprintf('%0.8f', $prng->rand()));
 }
-is_deeply(\@test_doub, \@base_doub);
+is_deeply(\@test_doub, \@base_doub, '1000 doubles');
 
 
 ### - Cloning Tests - ###
@@ -1023,14 +1040,14 @@ isa_ok($prng3, 'Math::Random::MT::Auto');
 for (1 .. 1000) {
     push(@test_rint, $prng2->irand());
 }
-is_deeply(\@test_rint, \@base_rint);
+is_deeply(\@test_rint, \@base_rint, '1000 ints');
 
 # Test OO copy of OO PRNG
 @test_rint = ();
 for (1 .. 1000) {
     push(@test_rint, $prng3->irand());
 }
-is_deeply(\@test_rint, \@base_rint);
+is_deeply(\@test_rint, \@base_rint, '1000 ints');
 
 
 ### Test 'readonly'

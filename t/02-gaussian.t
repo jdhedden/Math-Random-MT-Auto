@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Test::More tests => 6;
-use Scalar::Util 'looks_like_number';
+use Scalar::Util 1.10 'looks_like_number';
 
 my $CNT = 500000;
 

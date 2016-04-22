@@ -5,10 +5,10 @@ use warnings;
 
 package Math::Random::MT::Auto; {
 
-our $VERSION = '4.10.00';
+our $VERSION = '4.11.00';
 
 use Carp ();
-use Scalar::Util qw(blessed looks_like_number weaken);
+use Scalar::Util 1.10 qw(blessed looks_like_number weaken);
 
 use base 'DynaLoader';
 bootstrap Math::Random::MT::Auto $VERSION;
@@ -715,7 +715,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 4.10.00.
+This documentation refers to Math::Random::MT::Auto version 4.11.00.
 
 =head1 SYNOPSIS
 
@@ -1602,7 +1602,7 @@ This module uses the following 'standard' modules:
 
 =item Carp
 
-=item Scalar::Util - Standard in 5.8; install from CPAN otherwise
+=item Scalar::Util (1.10 or higher) - Standard in 5.8 or obtain from CPAN
 
 =item Dynaloader
 

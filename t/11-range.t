@@ -3,11 +3,10 @@
 use strict;
 use warnings;
 
-use Scalar::Util 'looks_like_number';
+use Scalar::Util 1.10 'looks_like_number';
 
 use Test::More tests => 227;
 use Config;
-use threads;
 
 my @WARN;
 BEGIN {
@@ -155,6 +154,12 @@ if (! $Config{useithreads}) {
     skip 'Threads not supported', 60;
 } elsif ($] < 5.007002) {
     skip 'Not thread-safe prior to 5.7.2', 60;
+} else {
+    eval { require threads;
+           import threads; };
+    if ($@) {
+        skip "Failure importing threads: $@", 60;
+    }
 }
 
 # Get random numbers from thread

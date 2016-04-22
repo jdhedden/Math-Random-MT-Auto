@@ -55,7 +55,7 @@ WriteMakefile(
     'ABSTRACT_FROM' => 'lib/Math/Random/MT/Auto.pm',
     'PREREQ_PM'     => { 'attributes'   => 0,
                          'Carp'         => 0,
-                         'Scalar::Util' => 0,
+                         'Scalar::Util' => 1.10,
                          'Dynaloader'   => 0,
                          'Test::More'   => 0 },
     'OBJECT'        => 'MRMA.o',

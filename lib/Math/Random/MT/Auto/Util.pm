@@ -3,7 +3,7 @@ use warnings;
 
 package Math::Random::MT::Auto::Util; {
 
-our $VERSION = '4.10.00';
+our $VERSION = '4.11.00';
 
 use Carp ();
 
@@ -253,11 +253,11 @@ In the above, class C<My::Class::Sub::Whatever> will get C<'param' =E<gt>
 'value'>, C<My::Class::Sub> will get C<'param' =E<gt> 'property'>, and
 C<My::Class> will get C<'param' =E<gt> 'item'>.
 
-
 The first argument to C<extract_args> is a hash ref containing specifications
 for the arguments to be extracted.  The keys in this hash will be the keys
 in the returned hash for any extracted arguments.  The values are regular
-expressions that are used to match the incoming
+expressions that are used to match the incoming argument keys.  If only an
+exact match is desired, then the value for the key should be set to C<undef>.
 
 =back
 

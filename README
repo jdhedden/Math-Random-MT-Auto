@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 4.10.00
+Math-Random-MT-Auto version 4.11.00
 ===================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
@@ -54,7 +54,7 @@ This module uses the following 'standard' modules:
 
   attributes
   Carp
-  Scalar::Util          - Standard in 5.8; obtain from CPAN if necessary
+  Scalar::Util (1.10 or higher) - Standard in 5.8 or obtain from CPAN
   Dynaloader
   ExtUtils::MakeMaker   - For installation
   File::Spec            - For installation

@@ -3,10 +3,10 @@ use warnings;
 
 package Math::Random::MT::Auto::Range; {
 
-our $VERSION = '4.10.00';
+our $VERSION = '4.11.00';
 
 use Carp ();
-use Scalar::Util qw(looks_like_number);
+use Scalar::Util 1.10 qw(looks_like_number);
 use Math::Random::MT::Auto::Util;
 
 # Declare ourself as a subclass

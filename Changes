@@ -1,5 +1,9 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+4.11.00 Tue Sep 20 11:07:00 2005
+	- Require Scalar::Util 1.10 or higher
+	- Properly handle no threads in tests
+
 4.10.00 Mon Sep 19 15:39:45 2005
 	- Use 'attributes' instead of 'Attribute::Handlers'
 	- Ensure PRNG memory is not freed twice
@@ -11,7 +15,6 @@ Revision history for Perl extension Math::Random::MT::Auto.
 	- Removed ->_rebless() - not needed
 	- Reduced internet timeout to 5 secs.
 	- Skip internet tests if can't connect
-	- Permit any version of Scalar::Util
 
 4.08.00 Fri Sep 09 10:06:40 2005
 	- Changed subclass object ID usage

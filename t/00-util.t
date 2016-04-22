@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Scalar::Util qw(looks_like_number);
+use Scalar::Util 1.10 qw(looks_like_number);
 
 use Test::More tests => 34;
 

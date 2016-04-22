@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Scalar::Util 'looks_like_number';
+use Scalar::Util 1.10 'looks_like_number';
 
 use Test::More;
 if (! -e '/dev/random') {

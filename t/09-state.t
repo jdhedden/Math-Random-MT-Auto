@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Test::More tests => 2005;
-use Scalar::Util 'looks_like_number';
+use Scalar::Util 1.10 'looks_like_number';
 use Data::Dumper;
 
 BEGIN {

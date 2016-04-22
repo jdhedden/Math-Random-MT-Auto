@@ -3,17 +3,21 @@
 use strict;
 use warnings;
 
-use Scalar::Util 'looks_like_number';
+use Scalar::Util 1.10 'looks_like_number';
 
 use Test::More;
 use Config;
-use threads;
 
 if (! $Config{useithreads}) {
     plan(skip_all => 'Threads not supported');
 } elsif ($] < 5.007002) {
     plan(skip_all => 'Not thread-safe prior to 5.7.2');
 } else {
+    eval { require threads;
+           import threads; };
+    if ($@) {
+        plan(skip_all => "Failure importing threads: $@");
+    }
     plan(tests => 94);
 }
 

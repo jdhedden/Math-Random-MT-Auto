@@ -22,17 +22,19 @@ if (! ok(! $@, '->new works')) {
 isa_ok($prng, 'Math::Random::MT::Auto');
 isa_ok($prng, 'Math::Random::MT::Auto::Range');
 can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
-                 shuffle srand seed state warnings new range_type range rrand/);
+                 shuffle srand get_seed set_seed get_state set_state
+                 get_warnings new get_range_type set_range_type get_range
+                 set_range rrand/);
 my @warnings;
-eval { @warnings = $prng->warnings(1); };
+eval { @warnings = $prng->get_warnings(1); };
 if (! ok(! $@, 'Get warnings')) {
-    diag('warnings(1) died: ' . $@);
+    diag('$prng->get_warnings(1) died: ' . $@);
 }
 if (! ok(! @warnings, 'Acquired seed data')) {
     diag('Seed warnings: ' . join(' | ', @warnings));
 }
-ok($prng->range_type() eq 'INTEGER', 'Int range type');
-my ($lo, $hi) = $prng->range();
+ok($prng->get_range_type() eq 'INTEGER', 'Int range type');
+my ($lo, $hi) = $prng->get_range();
 ok($lo == 100 && $hi == 199, "Range: $lo $hi");
 
 # Test several values from rrand()
@@ -61,16 +63,18 @@ my $prng2 = $prng->new(type=>'double');
 isa_ok($prng2, 'Math::Random::MT::Auto');
 isa_ok($prng2, 'Math::Random::MT::Auto::Range');
 can_ok($prng2, qw/rand irand gaussian exponential erlang poisson binomial
-                 shuffle srand seed state warnings new range_type range rrand/);
-eval { @warnings = $prng2->warnings(1); };
+                 shuffle srand get_seed set_seed get_state set_state
+                 get_warnings new get_range_type set_range_type get_range
+                 set_range rrand/);
+eval { @warnings = $prng2->get_warnings(1); };
 if (! ok(! $@, 'Get warnings')) {
-    diag('warnings(1) died: ' . $@);
+    diag('$prng->get_warnings(1) died: ' . $@);
 }
 if (! ok(! @warnings, 'Acquired seed data')) {
     diag('Seed warnings: ' . join(' | ', @warnings));
 }
-ok($prng2->range_type() eq 'DOUBLE', 'Double range type');
-($lo, $hi) = $prng2->range();
+ok($prng2->get_range_type() eq 'DOUBLE', 'Double range type');
+($lo, $hi) = $prng2->get_range();
 ok($lo == 100 && $hi == 199, "Range: $lo $hi");
 
 # Test several values from rrand()

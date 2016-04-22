@@ -1,4 +1,4 @@
-Math-Random-MT-Auto version 3.00.00
+Math-Random-MT-Auto version 4.00.00
 ===================================
 
 This module provides pseudorandom number generators (PRNGs) that are based
@@ -32,11 +32,12 @@ version of the Mersenne Twister algorithm, thus providing 64-bit random
 integers (and 53-bit random doubles).  (32-bits otherwise.)
 
 The code for this module has been optimized for speed.  Under Windows, it's
-2.5 times faster than Math::Random::MT for the functional interface, and 2
-times faster for the OO interface.  Under Solaris, it's 4.4x and 3.5x faster,
-respectively.
+more than twice as fast as Math::Random::MT, and under Solaris, it's more than
+four times faster.
 
 INSTALLATION
+
+A 'C' compiler is required for building this module.
 
 To install this module type the following:
 
@@ -44,6 +45,14 @@ To install this module type the following:
    make
    make test
    make install
+
+Optionally, if you have Module::Build (along with ExtUtils::ParseXS and
+ExtUtils::CBuilder) installed, you can install using:
+
+  perl Build.PL
+  perl Build
+  perl Build test
+  perl Build install
 
 DEPENDENCIES
 

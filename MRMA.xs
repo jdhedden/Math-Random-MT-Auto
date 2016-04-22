@@ -49,14 +49,16 @@
 #include <math.h>
 
 
-/* Constants related to the Mersenne Twister */
 #if UVSIZE == 8
-#   define N 312
+    /* Constants related to the Mersenne Twister */
+#   define N 312        /* Number of 64-bit ints in state vector */
 #   define M 156
 
+    /* Macros used inside Mersenne Twister algorithm */
 #   define MIXBITS(u,v) ( ((u) & 0xFFFFFFFF80000000ULL) | ((v) & 0x7FFFFFFFULL) )
 #   define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? 0xB5026F5AA96619E9ULL : 0ULL))
 
+    /* Final randomization of integer extracted from state vector */
 #   define TEMPER_ELEM(x)                       \
         x ^= (x >> 29) & 0x0000000555555555ULL; \
         x ^= (x << 17) & 0x71D67FFFEDA60000ULL; \
@@ -85,12 +87,15 @@
 #   define RAND_NEG1x_1x(x) ((((NV)(((IV)(x)) >> 11)) * TWOeMINUS52) + TWOeMINUS53)
 
 #else
-#   define N 624
+    /* Constants related to the Mersenne Twister */
+#   define N 624        /* Number of 32-bit ints in state vector */
 #   define M 397
 
+    /* Macros used inside Mersenne Twister algorithm */
 #   define MIXBITS(u,v) ( ((u) & 0x80000000) | ((v) & 0x7FFFFFFF) )
 #   define TWIST(u,v) ((MIXBITS((u),(v)) >> 1) ^ (((v)&1UL) ? 0x9908B0DF : 0UL))
 
+    /* Final randomization of integer extracted from state vector */
 #   define TEMPER_ELEM(x)            \
         x ^= (x >> 11);              \
         x ^= (x << 7)  & 0x9D2C5680; \
@@ -119,11 +124,6 @@
 #   define RAND_NEG1x_1x(x) ((((NV)((IV)(x))) * TWOeMINUS31) + TWOeMINUS32)
 #endif
 
-
-/* Get next element from the PRNG */
-#define NEXT_ELEM(x)     ((--x.left == 0)  ? _mt_algo(&x) : *x.next++)
-#define NEXT_ELEM_PTR(x) ((--x->left == 0) ? _mt_algo(x)  : *x->next++)
-
 /* Variable declarations for PRNG context */
 #define PRNG_VARS                       \
     IV addr;                            \
@@ -138,7 +138,7 @@
 #define DUAL_VARS                       \
     dMY_CXT;                            \
     PRNG_VARS;                          \
-    int idx = 0
+    int idx
 
 /* Sets up PRNG for dual-interface */
 #define DUAL_PREP                       \
@@ -150,7 +150,13 @@
     } else {                            \
         /* Standalone PRNG */           \
         prng = &MY_CXT;                 \
+        idx = 0;                        \
     }
+
+/* Get next random from a PRNG */
+#define IRAND(x,y) \
+    x = ((--y->left == 0) ? _mt_algo(y) : *y->next++); \
+    TEMPER_ELEM(x)
 
 
 /* The PRNG state structure (AKA the PRNG context) */
@@ -183,7 +189,20 @@ struct mt {
 typedef struct mt my_cxt_t;
 
 
-/* The guts of the Mersenne Twister algorithm */
+/* Initializes a new PRNG context with minimal data to ensure it is 'safe' */
+static void
+_init_prng(struct mt *prng)
+{
+    Zero(prng, 1, struct mt);
+    prng->state[0]        = HI_BIT;
+    prng->left            = 1;
+    prng->poisson.mean    = -1;
+    prng->binomial.trials = -1;
+    prng->binomial.prob   = -1.0;
+}
+
+
+/* The state mixing algorithm for the Mersenne Twister */
 static UV
 _mt_algo(struct mt *prng)
 {
@@ -215,8 +234,8 @@ _mt_algo(struct mt *prng)
 static NV
 _rand(struct mt *prng)
 {
-    UV x = NEXT_ELEM_PTR(prng);
-    TEMPER_ELEM(x);
+    UV x;
+    IRAND(x, prng);
     return (RAND_0x_1x(x));
 }
 
@@ -229,25 +248,23 @@ _tan(struct mt *prng)
     NV x2, y2;
 
     do {
-        x1 = NEXT_ELEM_PTR(prng);
-        y1 = NEXT_ELEM_PTR(prng);
-        TEMPER_ELEM(x1);
-        TEMPER_ELEM(y1);
+        IRAND(x1, prng);
+        IRAND(y1, prng);
         x2 = RAND_NEG1x_1x(x1);
         y2 = RAND_NEG1x_1x(y1);
     } while (x2*x2 + y2*y2 > 1.0);
     return (y2/x2);
 
     /* The above is faster than the following:
-    UV x = NEXT_ELEM_PTR(prng);
-    TEMPER_ELEM(x);
+    UV x;
+    IRAND(x, prng);
     return (tan(3.1415926535897932 * RAND_0x_1x(x)));
     */
 }
 
 
-/* Helper function - returns the value ln(gamma(x)) for x > 0 */
-/* Optimized from 'Numerical Recipes in C', Chapter 6.1 */
+/* Helper function that returns the value ln(gamma(x)) for x > 0 */
+/* Optimized from 'Numerical Recipes in C', Chapter 6.1          */
 static NV
 _ln_gamma(NV x)
 {
@@ -257,12 +274,12 @@ _ln_gamma(NV x)
     qq -= (x - 0.5) * log(qq);
 
     ser = 1.000000000190015
-        + (76.18009172947146     / x)
-        - (86.50532032941677     / (x + 1.0))
-        + (24.01409824083091     / (x + 2.0))
-        - (1.231739572450155     / (x + 3.0))
-        + (0.1208650973866179e-2 / (x + 4.0))
-        - (0.5395239384953e-5    / (x + 5.0));
+        + (76.18009172947146    / x)
+        - (86.50532032941677    / (x + 1.0))
+        + (24.01409824083091    / (x + 2.0))
+        - (1.231739572450155    / (x + 3.0))
+        + (1.208650973866179e-3 / (x + 4.0))
+        - (5.395239384953e-6    / (x + 5.0));
 
     return (log(2.5066282746310005 * ser) - qq);
 }
@@ -281,114 +298,57 @@ BOOT:
 }
 
 
-=item Function: mt_irand
+=pod
 
-Returns a random integer for the standalone PRNG.
-This function is normally aliased to 'irand'.
-
-=cut
-
-UV
-mt_irand(...)
-    PREINIT:
-        dMY_CXT;
-    CODE:
-        RETVAL = NEXT_ELEM(MY_CXT);
-        TEMPER_ELEM(RETVAL);
-    OUTPUT:
-        RETVAL
+The functions below are the random number deviates for the module.  They
+support both the functional interface for the standalone PRNG, as well as
+the OO interface for PRNG objects.
 
 
-=item Function: mt_rand
+=item irand
 
-Returns a random number for the standalone PRNG on the
-range [0,1), or [0,X) if an argument is supplied.
-
-This function is normally aliased to 'rand'.
-
-=cut
-
-NV
-mt_rand(...)
-    PREINIT:
-        dMY_CXT;
-        UV rand;
-    CODE:
-        /* Random number on [0,1) interval */
-        rand = NEXT_ELEM(MY_CXT);
-        TEMPER_ELEM(rand);
-        RETVAL = RAND_0i_1x(rand);
-        if (items) {
-            /* Random number on [0,X) interval */
-            RETVAL *= SvNV(ST(0));
-        }
-    OUTPUT:
-        RETVAL
-
-
-=item OO Method: irand
-
-Returns a random integer for a PRNG object.
+Returns a random integer.
 
 =cut
 
 UV
 irand(...)
     PREINIT:
-        PRNG_VARS;
+        DUAL_VARS;
     CODE:
-        /* Extract PRNG context */
-        if (items && sv_isobject(ST(0))) {
-            PRNG_PREP;
-        } else {
-            Perl_croak(aTHX_ "'irand' not called as an object method");
-        }
-
-        RETVAL = NEXT_ELEM_PTR(prng);
-        TEMPER_ELEM(RETVAL);
+        DUAL_PREP
+        IRAND(RETVAL, prng);
     OUTPUT:
         RETVAL
 
 
-=item OO Method: rand
+=item rand
 
-Returns a random number for a PRNG object on the
-range [0,1), or [0,X) if an argument is supplied.
+Returns a random number on the range [0,1),
+or [0,X) if an argument is supplied.
 
 =cut
 
 NV
 rand(...)
     PREINIT:
-        PRNG_VARS;
+        DUAL_VARS;
         UV rand;
     CODE:
-        /* Extract PRNG context */
-        if (items && sv_isobject(ST(0))) {
-            PRNG_PREP;
-        } else {
-            Perl_croak(aTHX_ "'rand' not called as an object method");
-        }
+        DUAL_PREP
 
         /* Random number on [0,1) interval */
-        rand = NEXT_ELEM_PTR(prng);
-        TEMPER_ELEM(rand);
+        IRAND(rand, prng);
         RETVAL = RAND_0i_1x(rand);
-        if (items > 1) {
+        if (items) {
             /* Random number on [0,X) interval */
-            RETVAL *= SvNV(ST(1));
+            RETVAL *= SvNV(ST(idx));
         }
     OUTPUT:
         RETVAL
 
 
-=pod
-
-The functions below support both the functional interface for the standalone
-PRNG, as well as the OO interface for PRNG objects.
-
-
-=item Dual Interface: shuffle
+=item shuffle
 
 Shuffles input data using the Fisher-Yates shuffle algorithm.
 
@@ -407,13 +367,14 @@ shuffle(...)
 
         /* Handle arguments */
         if (items == 1 && SvROK(ST(idx)) && SvTYPE(SvRV(ST(idx)))==SVt_PVAV) {
-            /* User supplied array reference */
+            /* User supplied an array reference */
             ary = (AV*)SvRV(ST(idx));
             RETVAL = newRV_inc((SV *)ary);
 
         } else {
             /* Create an array from user supplied values */
             ary = newAV();
+            av_extend(ary, items);
             while (items--) {
                 av_push(ary, newSVsv(ST(idx++)));
             }
@@ -424,8 +385,7 @@ shuffle(...)
         for (ii=av_len(ary); ii > 0; ii--) {
             /* Pick a random element from the beginning
                of the array to the current element */
-            rand = NEXT_ELEM_PTR(prng);
-            TEMPER_ELEM(rand);
+            IRAND(rand, prng);
             jj = rand % (ii + 1);
             /* Swap elements */
             elem = AvARRAY(ary)[ii];
@@ -436,7 +396,7 @@ shuffle(...)
         RETVAL
 
 
-=item Dual Interface: gaussian
+=item gaussian
 
 Returns random numbers from a Gaussian distribution.
 
@@ -456,17 +416,15 @@ gaussian(...)
 
         if (prng->gaussian.have) {
             /* Use number generated during previous call */
-            prng->gaussian.have = 0;
             RETVAL = prng->gaussian.value;
+            prng->gaussian.have = 0;
 
         } else {
             /* Marsaglia's polar method for the Box-Muller transformation */
             /* See 'Numerical Recipes in C', Chapter 7.2 */
             do {
-                u1 = NEXT_ELEM_PTR(prng);
-                u2 = NEXT_ELEM_PTR(prng);
-                TEMPER_ELEM(u1);
-                TEMPER_ELEM(u2);
+                IRAND(u1, prng);
+                IRAND(u2, prng);
                 v1 = RAND_NEG1x_1x(u1);
                 v2 = RAND_NEG1x_1x(u2);
                 r = v1*v1 + v2*v2;
@@ -476,8 +434,8 @@ gaussian(...)
             RETVAL = v1 * factor;
 
             /* Save 2nd value for later */
-            prng->gaussian.have = 1;
             prng->gaussian.value = v2 * factor;
+            prng->gaussian.have = 1;
         }
 
         if (items) {
@@ -492,7 +450,7 @@ gaussian(...)
         RETVAL
 
 
-=item Dual Interface: exponential
+=item exponential
 
 Returns random numbers from an exponential distribution.
 
@@ -515,7 +473,7 @@ exponential(...)
         RETVAL
 
 
-=pod Dual Interface: erlang
+=item erlang
 
 Returns random numbers from an Erlang distribution.
 
@@ -569,7 +527,7 @@ erlang(...)
         RETVAL
 
 
-=item Dual Interface: poisson
+=item poisson
 
 Returns random numbers from a Poisson distribution.
 
@@ -636,7 +594,7 @@ poisson(...)
         RETVAL
 
 
-=item Dual Interface: binomial
+=item binomial
 
 Returns random numbers from a binomial distribution.
 
@@ -740,7 +698,7 @@ The functions below are for internal use by the Math::Random::MT::Auto package.
 MODULE = Math::Random::MT::Auto   PACKAGE = Math::Random::MT::Auto::_internal
 
 
-=item Function: get_sa_prng
+=item get_sa_prng
 
 Returns a pointer to the standalone PRNG context.
 
@@ -751,29 +709,15 @@ get_sa_prng(...)
     PREINIT:
         dMY_CXT;
     CODE:
-        /* These initializations ensure that the standalone PRNG is 'safe' */
-        MY_CXT.state[0]          = HI_BIT;
-        MY_CXT.left              = 1;
-        MY_CXT.gaussian.have     = 0;
-        MY_CXT.gaussian.value    = 0.0;
-        MY_CXT.poisson.mean      = -1;
-        MY_CXT.poisson.log_mean  = 0.0;
-        MY_CXT.poisson.sqrt2mean = 0.0;
-        MY_CXT.poisson.term      = 0.0;
-        MY_CXT.binomial.trials   = -1;
-        MY_CXT.binomial.term     = 0.0;
-        MY_CXT.binomial.prob     = -1.0;
-        MY_CXT.binomial.plog     = 0.0;
-        MY_CXT.binomial.pclog    = 0.0;
-
+        _init_prng(&MY_CXT);
         RETVAL = newSViv(PTR2IV(&MY_CXT));
     OUTPUT:
         RETVAL
 
 
-=item Function: new_prng
+=item new_prng
 
-Returns a pointer to a new PRNG context for the OO Interface.
+Creates a new PRNG context for the OO Interface, and returns a pointer to it.
 
 =cut
 
@@ -782,18 +726,32 @@ new_prng(...)
     PREINIT:
         struct mt *prng;
     CODE:
-        Newz(0, prng, 1, struct mt);
-        prng->poisson.mean    = -1;
-        prng->binomial.trials = -1;
-        prng->binomial.prob   = -1.0;
+        New(0, prng, 1, struct mt);
+        _init_prng(prng);
         RETVAL = newSViv(PTR2IV(prng));
     OUTPUT:
         RETVAL
 
 
-=item Function: seed_prng
+=item free_prng
+
+Frees the PRNG context as part of object destruction.
+
+=cut
+
+void
+free_prng(...)
+    PREINIT:
+        PRNG_VARS;
+    CODE:
+        PRNG_PREP;
+        Safefree(prng);
+
+
+=item seed_prng
 
 Applies a supplied seed to a specified PRNG.
+
 The specified PRNG may be either the standalone PRNG or an object's PRNG.
 
 =cut
@@ -843,7 +801,7 @@ seed_prng(...)
         prng->left = 1;
 
 
-=item Function: get_state
+=item get_state
 
 Returns an array ref containing the state vector and internal data for a
 specified PRNG.
@@ -863,6 +821,7 @@ get_state(...)
 
         /* Create state array */
         state = newAV();
+        av_extend(state, N+12);
 
         /* Add internal PRNG state to array */
         for (ii=0; ii<N; ii++) {
@@ -870,7 +829,7 @@ get_state(...)
         }
         av_push(state, newSViv(prng->left));
 
-        /* Add non-uniform variant function data to array */
+        /* Add non-uniform deviate function data to array */
         av_push(state, newSViv(prng->gaussian.have));
         av_push(state, newSVnv(prng->gaussian.value));
         av_push(state, newSVnv(prng->poisson.mean));
@@ -888,7 +847,7 @@ get_state(...)
         RETVAL
 
 
-=item Function: set_state
+=item set_state
 
 Sets the specified PRNG's state vector and internal data from a supplied
 array ref.
@@ -918,7 +877,7 @@ set_state(...)
             prng->next = &prng->state[(N+1) - prng->left];
         }
 
-        /* Extract non-uniform variant function data from array */
+        /* Extract non-uniform deviate function data from array */
         prng->gaussian.have     = SvIV(*av_fetch(state, ii, 0)); ii++;
         prng->gaussian.value    = SvNV(*av_fetch(state, ii, 0)); ii++;
         prng->poisson.mean      = SvNV(*av_fetch(state, ii, 0)); ii++;
@@ -931,20 +890,4 @@ set_state(...)
         prng->binomial.plog     = SvNV(*av_fetch(state, ii, 0)); ii++;
         prng->binomial.pclog    = SvNV(*av_fetch(state, ii, 0));
 
-
-=item Function: free_prng
-
-This is the object destructor.  It is not normally called by application code.
-
-=cut
-
-void
-free_prng(...)
-    PREINIT:
-        PRNG_VARS;
-    CODE:
-        PRNG_PREP;
-        Safefree(prng);
-
-=pod End of file
-=cut
+ /* EOF */

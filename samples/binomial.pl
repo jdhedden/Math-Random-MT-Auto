@@ -7,7 +7,7 @@ use warnings;
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/binomial/;
+use Math::Random::MT::Auto qw(binomial);
 
 MAIN:
 {

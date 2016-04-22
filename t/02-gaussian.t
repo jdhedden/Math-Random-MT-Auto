@@ -106,7 +106,8 @@ if (! ok(! $@, '->new() worked')) {
     diag('->new() died: ' . $@);
 }
 can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
-                 shuffle srand seed state warnings/);
+                 shuffle srand get_seed set_seed get_state set_state
+                 get_warnings/);
 
 # Get random numbers and put them in bins
 $loops = 3;

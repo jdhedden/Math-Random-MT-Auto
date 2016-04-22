@@ -1,6 +1,7 @@
 # Verify Mersenne Twister algorithm
-# Test standalone PRNG - srand(\&sub), seed() and state()
-# Test OO interface - seeding from file, $obj->seed() and $obj->state()
+# Test standalone PRNG - srand(\&sub), get_/set_seed() and get_/set_state()
+# Test OO interface - seeding from file, $obj->get_/set_seed() and
+#                                               $obj->get_/set_state()
 # Test PRNG 'cloning'
 
 use Test::More tests => 34;
@@ -8,11 +9,13 @@ use Scalar::Util 'looks_like_number';
 use Config;
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto',
-                qw/rand irand srand seed state warnings :!auto/);
+    use_ok('Math::Random::MT::Auto', qw/rand irand srand get_seed set_seed
+                                        get_state set_state get_warnings
+                                        :!auto/);
 };
 
-can_ok('Math::Random::MT::Auto', qw/rand irand srand seed state warnings/);
+can_ok('Math::Random::MT::Auto', qw/rand irand srand get_seed set_seed
+                                    get_state set_state get_warnings/);
 
 # Known test values for irand()
 my @base_rint = ($Config{'uvsize'} == 8) ?
@@ -850,7 +853,7 @@ if (! ok(! $@, 'srand(\&sub) works')) {
 
 # Check for warnings
 my @warnings;
-eval { @warnings = warnings(1); };
+eval { @warnings = get_warnings(1); };
 if (! ok(! $@, 'Get warnings')) {
     diag('warnings(1) died: ' . $@);
 }
@@ -863,22 +866,23 @@ if (! ok(! @warnings, 'Acquired seed data')) {
 
 # Fetch and verify seed
 my @seed;
-eval { @seed = @{seed()}; };
-if (! ok(! $@, 'Fetch seed() works')) {
-    diag('Fetch seed() died: ' . $@);
+eval { @seed = @{get_seed()}; };
+if (! ok(! $@, 'get_seed() works')) {
+    diag('get_seed() died: ' . $@);
 }
 is_deeply(\@base_seed, \@seed, 'Seed is correct');
 
 
 # Create PRNG object using state of standalone PRNG
 my $prng2;
-eval { $prng2 = Math::Random::MT::Auto->new('STATE' => state()); };
+eval { $prng2 = Math::Random::MT::Auto->new('STATE' => get_state()); };
 if (! ok(! $@, 'SA cloning works')) {
     diag('SA cloning died: ' . $@);
 }
 isa_ok($prng2, 'Math::Random::MT::Auto');
 can_ok($prng2, qw/rand irand gaussian exponential erlang poisson binomial
-                  shuffle srand seed state warnings/);
+                  shuffle srand get_seed set_seed get_state set_state
+                  get_warnings/);
 
 
 # Test for known output from PRNG for irand()
@@ -889,13 +893,13 @@ for (1 .. 500) {
 
 # Save the current PRNG state
 my $state;
-eval { $state = state(); };
-ok(! $@, 'Get state() died: ' . $@);
+eval { $state = get_state(); };
+ok(! $@, 'get_state() died: ' . $@);
 ok(ref($state) eq 'ARRAY', 'State is array ref');
 
 # Reset the seed
-eval { seed(\@seed); };
-ok(! $@, 'Set seed() died: ' . $@);
+eval { set_seed(\@seed); };
+ok(! $@, 'set_seed() died: ' . $@);
 
 # Test again with reset seed
 my @test2_rint;
@@ -905,23 +909,23 @@ for (1 .. 1000) {
 is_deeply(\@test2_rint, \@base_rint);
 
 # Restore previous state
-eval { state($state); };
-ok(! $@, 'Set state() died: ' . $@);
+eval { set_state($state); };
+ok(! $@, 'set_state() died: ' . $@);
 
 # Continue from previous state
 for (501 .. 1000) {
-    push(@test_rint, Math::Random::MT::Auto::mt_irand());
+    push(@test_rint, Math::Random::MT::Auto::irand());
 }
 is_deeply(\@test_rint, \@base_rint);
 
 # Test for known output from PRNG
-#  for rand() and Math::Random::MT::Auto::mt_rand()
+#  for rand() and Math::Random::MT::Auto::rand()
 my @test_doub;
 for (1 .. 500) {
     push(@test_doub, sprintf('%0.8f', rand()));
 }
 for (501 .. 1000) {
-    push(@test_doub, sprintf('%0.8f', Math::Random::MT::Auto::mt_rand()));
+    push(@test_doub, sprintf('%0.8f', Math::Random::MT::Auto::rand()));
 }
 is_deeply(\@test_doub, \@base_doub);
 
@@ -941,7 +945,7 @@ if (open(FH, '>seed_data.tmp')) {
 
 # Create PRNG object
 my $prng;
-eval { $prng = Math::Random::MT::Auto->new('SOURCE' => 'seed_data.tmp'); };
+eval { $prng = Math::Random::MT::Auto->new('src' => 'seed_data.tmp'); };
 unlink('seed_data.tmp');
 if (! ok(! $@, '->new works')) {
     diag('->new died: ' . $@);
@@ -949,7 +953,7 @@ if (! ok(! $@, '->new works')) {
 isa_ok($prng, 'Math::Random::MT::Auto');
 
 # Check for warnings
-eval { @warnings = $prng->warnings(); };
+eval { @warnings = $prng->get_warnings(); };
 if (! ok(! $@, 'Get warnings')) {
     diag('$prng->warnings(1) died: ' . $@);
 }
@@ -964,9 +968,9 @@ if (! ok(! @warnings, 'Acquired seed data')) {
 }
 
 # Fetch and verify seed
-eval { @seed = @{$prng->seed()}; };
-if (! ok(! $@, 'Fetch $prng->seed() works')) {
-    diag('Fetch $prng->seed() died: ' . $@);
+eval { @seed = @{$prng->get_seed()}; };
+if (! ok(! $@, '$prng->get_seed() works')) {
+    diag('$prng->get_seed() died: ' . $@);
 }
 is_deeply(\@base_seed, \@seed, 'Seed is correct');
 
@@ -979,13 +983,13 @@ for (1 .. 500) {
 
 
 # Save the current PRNG state
-eval { $state = $prng->state(); };
-ok(! $@, 'Get $prng->state() died: ' . $@);
+eval { $state = $prng->get_state(); };
+ok(! $@, '$prng->get_state() died: ' . $@);
 ok(ref($state) eq 'ARRAY', 'State is array ref');
 
 # Reset the seed
-eval { $prng->seed(\@seed); };
-ok(! $@, 'Set $prng->seed() died: ' . $@);
+eval { $prng->set_seed(\@seed); };
+ok(! $@, '$prng->set_seed() died: ' . $@);
 
 # Test again with reset seed
 @test2_rint = ();
@@ -995,8 +999,8 @@ for (1 .. 1000) {
 is_deeply(\@test2_rint, \@base_rint);
 
 # Restore previous state
-eval { $prng->state($state); };
-ok(! $@, 'Set $prng->state() died: ' . $@);
+eval { $prng->set_state($state); };
+ok(! $@, '$prng->set_state() died: ' . $@);
 
 
 # Continue from previous state

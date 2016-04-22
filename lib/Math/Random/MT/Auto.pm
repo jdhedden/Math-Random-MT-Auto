@@ -1,25 +1,19 @@
-package Math::Random::MT::Auto;
+package Math::Random::MT::Auto; {
 
 use strict;
 use warnings;
 
 use 5.006;
-use Config;
-use Scalar::Util 1.16 qw/blessed looks_like_number weaken/;
-use Carp;
+use Scalar::Util 1.16 qw(blessed looks_like_number weaken);
+use Carp ();
 
-require DynaLoader;
-our @ISA = qw(DynaLoader);
+use base 'DynaLoader';
 
-our $VERSION = '3.00.00';
+our $VERSION = '4.00.00';
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
-
 ### Package Global Variables ###
-
-# Default seeding sources (set up in import())
-my @SOURCE;
 
 # Object attribute hashes used by inside-out object model
 #
@@ -37,68 +31,52 @@ my %WARN;       # Seeding error messages
 my %REGISTRY;
 
 ### Standalone PRNG data
-# Pointer to internal PRNG memory
-my $_SA       = Math::Random::MT::Auto::_internal::get_sa_prng();
-my $SA        = \$_SA;        # Standalone PRNG pseudo-object
-$SOURCE{$$SA} = \@SOURCE;     # Uses global defaults sources
+# Standalone PRNG pseudo-object - Ref to pointer to internal PRNG memory
+my $SA = do { \(my $prng = Math::Random::MT::Auto::_internal::get_sa_prng()) };
+$SOURCE{$$SA} = [];  # Global default sources - set up in import()
 $SEED{$$SA}   = [];
 $WARN{$$SA}   = [];
-my $SA_AUTO   = 1;            # Flag for auto-seeding standalone PRNG
-                              #   during INIT block
+my $SA_AUTO   = 1;   # Flag for auto-seeding standalone PRNG during INIT block
 
 ### Module Initialization ###
 
-# 1. Size of Perl's integers (32- or 64-bit)
-my $INT_SIZE = $Config{'uvsize'};
-my $UNPACK_CODE = ($INT_SIZE == 8) ? 'Q' : 'L';
-
-
-# 2. Handles importation of random functions,
+# 1. Handles importation of random functions,
 # and specification of seeding sources by user.
 sub import
 {
     my $class = shift;   # Not used
 
     # Exportable functions
-    my %SYMS = (
-        'irand'       => 'mt_',
-        'rand'        => 'mt_',
-        'srand'       => '',
-        'seed'        => '',
-        'state'       => '',
-        'warnings'    => '',
-        'gaussian'    => '',
-        'exponential' => '',
-        'erlang'      => '',
-        'poisson'     => '',
-        'binomial'    => '',
-        'shuffle'     => '',
-    );
+    my %SYMS;
+    @SYMS{qw(rand irand shuffle gaussian
+             exponential erlang poisson binomial
+             srand get_warnings get_seed
+             set_seed get_state set_state)} = undef;
 
     # Handle entries in the import list
     while (my $sym = shift) {
-        if (exists($SYMS{$sym})) {
+        if (exists($SYMS{lc($sym)})) {
             # Export function names
             no strict 'refs';
-            *{caller().'::'.$sym} = \&{$SYMS{$sym}.$sym};
+            *{caller().'::'.$sym} = \&{lc($sym)};
 
-        } elsif ($sym =~ /^:(no|!)?auto$/) {
+        } elsif ($sym =~ /^:(no|!)?auto$/i) {
             # To auto-seed (:auto is default) or not (:!auto or :noauto)
             $SA_AUTO = not defined($1);
 
         } else {
             # User-specified seed acquisition sources
             # or user-defined seed acquisition functions
-            push(@SOURCE, $sym);
+            push(@{$SOURCE{$$SA}}, $sym);
             # Max. count for source, if any
             if (@_ && looks_like_number($_[0])) {
-                push(@SOURCE, shift);
+                push(@{$SOURCE{$$SA}}, shift);
             }
         }
     }
 
     # Set up default seed sources, if none specified by user
-    if (! @SOURCE) {
+    if (! @{$SOURCE{$$SA}}) {
         if ($^O eq 'MSWin32') {
             my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
             if (defined($minor) &&
@@ -106,30 +84,35 @@ sub import
                  ($id == 2 && $major > 5) ||
                  ($id == 2 && $major == 5 && $minor >= 1)))
             {
-                push(@SOURCE, 'win32');
+                push(@{$SOURCE{$$SA}}, 'win32');
             }
 
         } elsif (-e '/dev/urandom') {
-            push(@SOURCE, '/dev/urandom');
+            push(@{$SOURCE{$$SA}}, '/dev/urandom');
 
         } elsif (-e '/dev/random') {
-            push(@SOURCE, '/dev/random');
+            push(@{$SOURCE{$$SA}}, '/dev/random');
         }
-        push(@SOURCE, 'random_org');
+        push(@{$SOURCE{$$SA}}, 'random_org');
     }
 }
 
 
-# 3. Auto seed the standalone PRNG after the module is loaded.
-# Even when $SA_AUTO is false, the PRNG is still seeded using time and PID.
+# 2. Auto seed the standalone PRNG after the module is loaded.
+# Even when $SA_AUTO is false, the PRNG is still seeded using internal data.
 {
     no warnings;
     INIT {
-        # Automatically acquire seed from sources
-        Math::Random::MT::Auto::_internal::acq_seed(
-                                ($SA_AUTO) ? $SOURCE{$$SA} : ['none'],
-                                $SEED{$$SA},
-                                $WARN{$$SA});
+        if ($SA_AUTO) {
+            # Automatically acquire seed from sources
+            Math::Random::MT::Auto::_internal::acq_seed($SOURCE{$$SA},
+                                                        $SEED{$$SA},
+                                                        $WARN{$$SA});
+        } else {
+            # Minimal seed when ':!auto' specified
+            push(@{$SEED{$$SA}}, $$, time(), $$SA);
+        }
+
         # Seed the PRNG
         Math::Random::MT::Auto::_internal::seed_prng($SA, $SEED{$$SA});
     }
@@ -143,7 +126,7 @@ sub CLONE
 {
     # Don't execute when called for sub-classes
     if ($_[0] eq __PACKAGE__) {
-        # Process each cloned object
+        # Process each object in the registry
         for my $old_id (keys(%REGISTRY)) {
             # Get cloned object associated with old ID
             my $obj = delete($REGISTRY{$old_id});
@@ -182,9 +165,9 @@ sub srand
         # Check if sent seed by mistake
         if (looks_like_number($_[0]) || ref($_[0]) eq 'ARRAY') {
             if (blessed($obj)) {
-                $obj->seed(@_);
+                $obj->set_seed(@_);
             } else {
-                seed(@_);
+                set_seed(@_);
             }
             return;
         }
@@ -194,56 +177,16 @@ sub srand
     }
 
     # Acquire seed from sources
-    Math::Random::MT::Auto::_internal::acq_seed($SOURCE{$$obj}, $SEED{$$obj}, $WARN{$$obj});
+    Math::Random::MT::Auto::_internal::acq_seed($SOURCE{$$obj},
+                                                $SEED{$$obj},
+                                                $WARN{$$obj});
     # Seed the PRNG
     Math::Random::MT::Auto::_internal::seed_prng($obj, $SEED{$$obj});
-}
-
-
-# Apply supplied seed, if given, to the PRNG,
-# or return ref to saved seed (if any) when called with no args
-sub seed
-{
-    # Generalize for both OO and standalone PRNGs
-    my $obj = (blessed($_[0])) ? shift : $SA;
-
-    # User requested the seed
-    if (! @_) {
-        return ($SEED{$$obj});
-    }
-
-    # Save a copy of the seed
-    if (ref($_[0]) eq 'ARRAY') {
-        @{$SEED{$$obj}} = @{$_[0]};
-    } else {
-        @{$SEED{$$obj}} = @_;
-    }
-
-    # Seed the PRNG
-    Math::Random::MT::Auto::_internal::seed_prng($obj, $SEED{$$obj});
-}
-
-
-# Set PRNG to supplied state, if given,
-# or return copy of its current state
-sub state
-{
-    # Generalize for both OO and standalone PRNGs
-    my $obj = (blessed($_[0])) ? shift : $SA;
-
-    # Set state of PRNG, if supplied
-    if (@_) {
-        Math::Random::MT::Auto::_internal::set_state($obj, $_[0]);
-        return;
-    }
-
-    # User requested copy of state
-    return (Math::Random::MT::Auto::_internal::get_state($obj));
 }
 
 
 # Returns list of warnings generated while acquiring seed data
-sub warnings
+sub get_warnings
 {
     # Generalize for both OO and standalone PRNGs
     my $obj = (blessed($_[0])) ? shift : $SA;
@@ -260,6 +203,65 @@ sub warnings
 }
 
 
+# Return ref to PRNG's saved seed (if any)
+sub get_seed
+{
+    # Generalize for both OO and standalone PRNGs
+    my $obj = (blessed($_[0])) ? shift : $SA;
+
+    return ($SEED{$$obj});
+}
+
+
+# Apply supplied seed, if given, to the PRNG,
+sub set_seed
+{
+    # Generalize for both OO and standalone PRNGs
+    my $obj = (blessed($_[0])) ? shift : $SA;
+
+    # Check argument
+    if (! @_) {
+        Carp::croak('Missing argument to \'set_seed\'');
+    }
+
+    # Save a copy of the seed
+    if (ref($_[0]) eq 'ARRAY') {
+        @{$SEED{$$obj}} = @{$_[0]};
+    } else {
+        @{$SEED{$$obj}} = @_;
+    }
+
+    # Seed the PRNG
+    Math::Random::MT::Auto::_internal::seed_prng($obj, $SEED{$$obj});
+}
+
+
+# Return copy of PRNG's current state
+sub get_state
+{
+    # Generalize for both OO and standalone PRNGs
+    my $obj = (blessed($_[0])) ? shift : $SA;
+
+    return (Math::Random::MT::Auto::_internal::get_state($obj));
+}
+
+
+# Set PRNG to supplied state
+sub set_state
+{
+    # Generalize for both OO and standalone PRNGs
+    my $obj = (blessed($_[0])) ? shift : $SA;
+
+    # Check argument
+    my $state = $_[0];
+    if (ref($state) ne 'ARRAY') {
+        Carp::croak('\'set_state\' requires an array ref');
+    }
+
+    Math::Random::MT::Auto::_internal::set_state($obj, $state);
+}
+
+
 ### OO Methods ###
 
 # Constructor - creates a new PRNG object
@@ -268,9 +270,8 @@ sub new
     my $thing = shift;
     my $class = ref($thing) || $thing;
 
-    # Create object
-    my $prng = Math::Random::MT::Auto::_internal::new_prng();
-    my $self = \$prng;
+    # Create object - Ref to pointer to internal PRNG memory
+    my $self = do { \(my $prng = Math::Random::MT::Auto::_internal::new_prng()) };
     bless($self, $class);
 
     # Default initializations
@@ -285,7 +286,7 @@ sub new
     # Handle user-supplied arguments
     my $arg_cnt = @_;
     while (my $arg = shift) {
-        if ($arg =~ /^sources?$/i) {
+        if ($arg =~ /^(source|src)s?$/i) {
             # Make sure source is saved as an array ref
             my $src = shift;
             $SOURCE{$$self} = (ref($src) eq 'ARRAY') ? $src : [ $src ];
@@ -298,11 +299,11 @@ sub new
         } elsif ($arg =~ /^state$/i) {
             $state = shift;
             if (ref($state) ne 'ARRAY') {
-                croak('\'STATE\' is not an array ref');
+                Carp::croak('Invalid argument to '.__PACKAGE__.'::new(): value for \'STATE\' is not an array ref');
             }
 
         } else {
-            croak("Invalid argument: $arg");
+            Carp::croak('Invalid argument to '.__PACKAGE__."::new(): $arg");
         }
     }
 
@@ -324,9 +325,9 @@ sub new
 
     } else {
         # CLASS->new(...) was called
-        # Use default sources, if none provided
+        # Use default sources (from standalone PRNG), if none provided
         if (! @{$SOURCE{$$self}}) {
-            @{$SOURCE{$$self}} = @SOURCE;
+            @{$SOURCE{$$self}} = @{$SOURCE{$$SA}};
         }
     }
 
@@ -364,12 +365,21 @@ sub DESTROY {
     delete($REGISTRY{$$self});
 }
 
+} # End of lexical scope for main package
 
-### Internal Subroutines ###
 
-package Math::Random::MT::Auto::_internal;
+### Internal Package ###
 
-use Scalar::Util 1.16 qw/looks_like_number/;
+package Math::Random::MT::Auto::_internal; {
+
+use Config ();
+use Scalar::Util 1.16 qw(looks_like_number);
+
+
+# Size of Perl's integers (32- or 64-bit)
+my $INT_SIZE = $Config::Config{'uvsize'};
+my $UNPACK_CODE = ($INT_SIZE == 8) ? 'Q' : 'L';
+
 
 # Seed source subroutine dispatch table
 my %dispatch = (
@@ -377,6 +387,7 @@ my %dispatch = (
     'hotbits'    => \&src_hotbits,
     'win32'      => \&src_win32
 );
+
 
 # Acquire seed data from specific sources
 sub acq_seed
@@ -403,10 +414,10 @@ sub acq_seed
             # User supplied seeding function
             &$source($seed, $need);
 
-        } elsif ($source ne 'none') {
-            if (defined($dispatch{$source})) {
+        } else {
+            if (defined($dispatch{lc($source)})) {
                 # Module defined seeding source
-                $dispatch{$source}($seed, $need, $warnings);
+                $dispatch{lc($source)}($seed, $need, $warnings);
 
             } elsif (-e $source) {
                 # Random device or file
@@ -427,11 +438,11 @@ sub acq_seed
     if (@$seed < $FULL_SEED) {
         if (! @$sources) {
             push(@$warnings, 'No seed sources specified');
-        } elsif ($$sources[0] ne 'none') {
+        } else {
             push(@$warnings, 'Partial seed - only ' . scalar(@$seed) . ' of ' . $FULL_SEED);
         }
         if (! @$seed) {
-            push(@$seed, time(), $$);  # Default seed
+            push(@$seed, $$, time());   # Minimal seed
         }
     }
 }
@@ -626,6 +637,8 @@ sub src_win32
     }
 }
 
+} # End of lexical scope for internal package
+
 1;
 
 __END__
@@ -638,7 +651,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
   use strict;
   use warnings;
-  use Math::Random::MT::Auto qw/rand irand gaussian shuffle/,
+  use Math::Random::MT::Auto qw(rand irand shuffle gaussian),
                              '/dev/urandom' => 256,
                              'random_org';
 
@@ -647,9 +660,9 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
   my $coin_flip = (irand() & 1) ? 'heads' : 'tails';
 
-  my $rand_IQ = gaussian(15, 100);
-
   my $deck = shuffle(1 .. 52);
+
+  my $rand_IQ = gaussian(15, 100);
 
   # OO interface
   my $prng = Math::Random::MT::Auto->new('SOURCE' => '/dev/random');
@@ -701,9 +714,8 @@ version of the Mersenne Twister algorithm, thus providing 64-bit random
 integers (and 52-bit random doubles).  (32-bits otherwise.)
 
 The code for this module has been optimized for speed.  Under Windows, it's
-2.5 times faster than Math::Random::MT for the functional interface, and 2
-times faster for the OO interface.  Under Solaris, it's 4.4x and 3.5x faster,
-respectively.
+more than twice as fast as Math::Random::MT, and under Solaris, it's more than
+four times faster.
 
 =head2 Quickstart
 
@@ -713,7 +725,7 @@ application code:
 
   use strict;
   use warnings;
-  use Math::Random::MT::Auto qw/rand/;
+  use Math::Random::MT::Auto qw(rand);
 
 and then just use L</"rand"> as you would normally.  You don't even need to
 bother seeding the PRNG (i.e., you don't need to call L</"srand">), as that
@@ -731,16 +743,17 @@ If you need multiple PRNGs, then use the OO interface:
   my $rand_num = $prng1->rand();
   my $rand_int = $prng2->irand();
 
-B<CAUTION>: If you want to C<require> this module, see the
+B<CAUTION>: If you want to L<require|perlfunc/"require"> this module, see the
 L</"Delayed Importation"> section for important information.
 
 =head2 64-bit Support
 
-If Perl has been compiled to support 64-bit integers (do C<perl -V> and
-look for C<use64bitint=define>), then this module will use a 64-bit-integer
-version of the Mersenne Twister.  Otherwise, 32-bit integers will be used.
-The size of integers returned by L</"irand">, and used by L</"seed"> will
-be sized accordingly.
+If Perl has been compiled to support 64-bit integers (do
+L<perl -V|perlrun/"-V"> and look for
+L<use64bitint=define|Config/"use64bitint">), then this module will use a
+64-bit-integer version of the Mersenne Twister.  Otherwise, 32-bit integers
+will be used.  The size of integers returned by L</"irand">, and used by
+L</"get_seed"> and L</"set_seed"> will be sized accordingly.
 
 Programmatically, the size of Perl's integers can be determined using the
 L<Config> module:
@@ -799,8 +812,8 @@ L<LWP::UserAgent> are required to utilize these sources.
   use Math::Random::MT::Auto 'hotbits';
 
 If you connect to the Internet through an HTTP proxy, then you must set
-the C<http_proxy> variable in your environment when using these sources.
-(See L<LWP::UserAgent/"Proxy attributes">.)
+the L<http_proxy|LWP/"http_proxy"> variable in your environment when using
+these sources.  (See L<LWP::UserAgent/"Proxy attributes">.)
 
 The HotBits site will only provide a maximum of 2048 bytes of data per
 request.  If you want to get the full seed from HotBits, then specify
@@ -831,7 +844,7 @@ For the functional interface to the standalone PRNG, these defaults can be
 overridden by specifying the desired sources when the module is declared, or
 through the use of the L</"srand"> function.  Similarly for the OO interface,
 they can be overridden in the L</"$obj-E<gt>new"> method when the PRNG is
-created, or later using the L</"srand"> method.
+created, or later using the L<srand|/"$obj-E<gt>srand"> method.
 
 Optionally, the maximum number of integers (64- or 32-bits as the case may
 be) to be used from a source may be specified:
@@ -846,20 +859,20 @@ could easily be included in future versions of this module.)
 
 =head2 Functional Interface to the Standalone PRNG
 
-The functional interface to the standalone PRNG is faster than the OO
-interface for obtaining pseudo-random numbers.
-
 By default, this module does not automatically export any of its functions.
 If you want to use the standalone PRNG, then you should specify the
 functions you want to use when you declare the module:
 
-  use Math::Random::MT::Auto
-            qw/rand irand gaussian exponential erlang poisson binomial
-               srand seed state warnings/;
+  use Math::Random::MT::Auto qw(rand irand shuffle gaussian
+                                exponential erlang poisson binomial
+                                srand get_warnings get_seed
+                                set_seed get_state set_state);
 
 Without the above declarations, it is still possible to use the standalone
-PRNG by accessing the functions using their full module paths, as described
-below.
+PRNG by accessing the functions using their fully-qualified names.  For
+example:
+
+  my $rand = Math::Random::MT::Auto::rand();
 
 =over
 
@@ -871,10 +884,8 @@ below.
 Behaves exactly like Perl's built-in L<rand|perlfunc/"rand">, returning a
 number uniformly distributed in [0, $num).  ($num defaults to 1.)
 
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::mt_rand> (note the I<mt_> prefix).  (NOTE: If you
-still need to access Perl's built-in L<rand|perlfunc/"rand"> function, you
-can do so using C<CORE::rand()>.)
+NOTE: If you still need to access Perl's built-in L<rand|perlfunc/"rand">
+function, you can do so using C<CORE::rand()>.
 
 =item irand
 
@@ -882,11 +893,18 @@ can do so using C<CORE::rand()>.)
 
 Returns a random integer.  For 32-bit integer Perl, the range is 0 to
 2^32-1 (0xFFFFFFFF) inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1
-inclusive.  This is the fastest method for obtaining pseudo-random numbers
-with this module.
+inclusive.
 
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::mt_irand> (note the I<mt_> prefix).
+=item shuffle
+
+  my $shuffled = shuffle($data, ...);
+  my $shuffled = shuffle(@data);
+  my $shuffled = shuffle(\@data);
+
+Returns an array reference containing a random ordering of the supplied
+arguments (i.e., shuffled) by using the Fisher-Yates shuffling algorithm.  If
+called with a single array reference (fastest method), the contents of the
+array are shuffled in situ.
 
 =item gaussian
 
@@ -899,9 +917,6 @@ Returns floating-point random numbers from a Gaussian (normal) distribution
 distribution uses a standard deviation of 1, and a mean of 0.  Otherwise,
 the supplied argument(s) will be used for the standard deviation, and the
 mean.
-
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::gaussian>.
 
 =item exponential
 
@@ -919,9 +934,6 @@ for radioactive decay, and its inverse is the decay constant (which represents
 the expected number of events per unit time).  The well known term
 I<half-life> is given by I<mean * ln(2)>.
 
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::exponential>.
-
 =item erlang
 
   my $en = erlang($order);
@@ -937,9 +949,6 @@ exponential distribution.  (It is a special case of the gamma distribution for
 which C<$order> is a positive integer.)  When C<$order = 1>, it is just the
 exponential distribution.  It is named after A. K. Erlang who developed it to
 predict waiting times in queuing systems.
-
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::erlang>.
 
 =item poisson
 
@@ -961,9 +970,6 @@ distributions include:
   The number of phone calls to a call center per minute.
   The number of road kill found per a given length of road.
 
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::poisson>.
-
 =item binomial
 
   my $bn = binomial($prob, $trials);
@@ -981,23 +987,6 @@ If the number of trials is very large, the binomial distribution may be
 approximated by a Gaussian distribution. If the average number of successes
 is small (C<$prob * $trials < 1>), then the binomial distribution can be
 approximated by a Poisson distribution.
-
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::binomial>.
-
-=item shuffle
-
-  my $shuffled = shuffle($data, ...);
-  my $shuffled = shuffle(@data);
-  my $shuffled = shuffle(\@data);
-
-Returns an array reference containing a random ordering of the supplied
-arguments (i.e., shuffled) by using the Fisher-Yates shuffling algorithm.  If
-called with a single array reference (fastest method), the contents of the
-array are shuffled in situ.
-
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::shuffle>.
 
 =item srand
 
@@ -1040,54 +1029,75 @@ integers (64- or 32-bit as the case may be) needed.
 
 If called with integer data (a list of one or more value, or an array of
 values), or a reference to an array of integers, these data will be passed to
-L</"seed"> for use in reseeding the PRNG.
+L</"set_seed"> for use in reseeding the PRNG.
 
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::srand>.  (NOTE: If you still need to access
-Perl's built-in L<srand|perlfunc/"srand"> function, you can do so using
-C<CORE::srand($seed)>.)
+NOTE: If you still need to access Perl's built-in L<srand|perlfunc/"srand">
+function, you can do so using C<CORE::srand($seed)>.
 
-=item seed
+=item get_warnings
 
-  my $seed = seed();
-  seed($seed, ...);
-  seed(@seed);
-  seed(\@seed);
+  my @warnings = get_warnings();
+  my @warnings = get_warnings('CLEAR');
 
-When called without arguments, this function will return an array reference
-containing the seed last sent to the PRNG.  NOTE: Changing the data in the
-referenced array will not cause any changes in the PRNG (i.e., it will not
-reseed it).
+This function returns an array containing any error messages that were
+generated while trying to acquire seed data for the standalone PRNG.  It
+can be called after the module is loaded, or after calling L</"srand"> to
+see if there where any problems getting the seed.
+
+If called with any I<true> argument, the stored error messages will also be
+deleted.
+
+B<NOTE>: These warnings are not critical in nature.  The PRNG will still be
+seeded (at a minimum using data such as L<time()|perlfunc/"time"> and PID
+(L<$$|perlvar/"$$">)), and can be used safely.
+
+=item get_seed
+
+  my $seed = get_seed();
+
+This function will return an array reference containing the seed last sent to
+the PRNG.
+
+NOTE: Changing the data in the referenced array will not cause any changes in
+the PRNG (i.e., it will not reseed it).  You need to use L</"srand"> or
+L</"set_seed"> for that.
+
+=item set_seed
+
+  set_seed($seed, ...);
+  set_seed(@seed);
+  set_seed(\@seed);
 
 When called with integer data (a list of one or more value, or an array of
 values), or a reference to an array of integers, these data will be used to
 reseed the PRNG.
 
-Together, this function may be useful for setting up identical sequences
-of random numbers based on the same seed.
+Together with L</"get_seed">, this function may be useful for setting up
+identical sequences of random numbers based on the same seed.
 
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::seed>.
+=item get_state
 
-=item state
+  my $state = get_state();
 
-  my $state = state();
-  state($state);
+This function returns an array reference containing the current state vector
+of the PRNG.
 
-When called without arguments, this function returns an array reference
-containing the current state vector of the PRNG.
+Note that the state vector is not a full serialization of the PRNG, which
+would also require information on the sources and seed.
 
-To reset the PRNG to a previous state, call this function with a previously
-obtained state-vector array reference.
+=item set_state
+
+Sets a PRNG to the state contained in an array reference previously obtained
+using L</"get_state">.
 
   # Get the current state of the PRNG
-  my $state = state();
+  my $state = get_state();
 
   # Run the PRNG some more
   my $rand1 = irand();
 
   # Restore the previous state of the PRNG
-  state($state);
+  set_state($state);
 
   # Get another random number
   my $rand2 = irand();
@@ -1095,38 +1105,12 @@ obtained state-vector array reference.
   # $rand1 and $rand2 will be equal.
 
 B<CAUTION>:  It should go without saying that you should not modify the
-values in the state vector, but I'll say it anyway: "You should not modify
-the values in the state vector."  'Nough said.
+values in the state vector obtained from L</"get_state">.  Doing so and then
+feeding it to L</"set_state"> would be naughty.
 
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::state>.
-
-In conjunction with L<Data::Dumper> and L<do(file)|perlfunc/"do">, this
-function can be used to save and then reload the state vector between
-application runs.  (See L</"EXAMPLES"> below.)
-
-Note that the state vector is not a full serialization of the PRNG, which
-would also require information on the sources and seed.
-
-=item warnings
-
-  my @warnings = warnings();
-  my @warnings = warnings(1);
-
-This function returns an array containing any error messages that were
-generated while trying to acquire seed data for the standalone PRNG.  It
-can be called after the module is loaded, or after calling L</"srand"> to
-see if there where any problems getting the seed.
-
-If called with a I<true> argument, the stored error messages will also be
-erased.
-
-This function may also be accessed using the full path
-C<Math::Random::MT::Auto::warnings>.
-
-B<NOTE>: These warnings are not critical in nature.  The PRNG will still be
-seeded (at a minimum using using C<time()> and PID (C<$$>)), and can be used
-safely.
+In conjunction with L<Data::Dumper> and L<do(file)|perlfunc/"do">,
+L</"get_state"> and L</"set_state"> can be used to save and then reload the
+state vector between application runs.  (See L</"EXAMPLES"> below.)
 
 =back
 
@@ -1135,11 +1119,12 @@ safely.
 Normally, the standalone PRNG is automatically seeded when the module is
 loaded.  This behavior can be modified by supplying the C<:!auto> (or
 C<:noauto>) flag when the module is declared.  (The PRNG will still be
-seeded using C<time()> and PID (C<$$>), just in case.)  When the C<:!auto>
-option is used, the L</"srand"> function should be imported, and then run
-before calling any of the random number functions.
+seeded using data such as L<time()|perlfunc/"time"> and PID
+(L<$$|perlvar/"$$">), just in case.)  When the C<:!auto> option is used, the
+L</"srand"> function should be imported, and then run before calling any of
+the random number deviates.
 
-  use Math::Random::MT::Auto qw/rand srand :!auto/;
+  use Math::Random::MT::Auto qw(rand srand :!auto);
     ...
   srand();
     ...
@@ -1184,10 +1169,16 @@ Specifies the seeding source(s) for the PRNG.  If the C<STATE> and C<SEED>
 options are not used, then seed data will be immediately fetched using the
 specified sources and used to seed the PRNG.
 
-The source list is retained for later use by the C<srand> method.  The
-source list may be replaced by using the C<srand> method.
+The source list is retained for later use by the L<srand|/"$obj-E<gt>srand">
+method.  The source list may be replaced by using the
+L<srand|/"$obj-E<gt>srand"> method.
+
+'SOURCES', 'SRC' and 'SRCS' can all be used as synonyms for 'SOURCE'.
 
 =back
+
+The options above are also supported using lowercase and mixed-case (e.g.,
+'Seed', 'src', etc.).
 
 =item $obj->new
 
@@ -1218,8 +1209,18 @@ uniformly distributed in [0, $num).  ($num defaults to 1.)
 
 Operates like the L</"irand"> function described above, returning a random
 integer.  For 32-bit integer Perl, the range is 0 to 2^32-1 (0xFFFFFFFF)
-inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1 inclusive.  This is the
-fastest method for obtaining pseudo-random numbers from PRNG objects.
+inclusive.  For 64-bit integer Perl, it's 0 to 2^64-1 inclusive.
+
+=item $obj->shuffle
+
+  my $shuffled = $prng->shuffle($data, ...);
+  my $shuffled = $prng->shuffle(@data);
+  my $shuffled = $prng->shuffle(\@data);
+
+Operates like the L</"shuffle"> function described above, returning an array
+reference containing a random ordering of the supplied arguments.  If called
+with a single array reference (fastest method), the contents of the array are
+shuffled in situ.
 
 =item $obj->gaussian
 
@@ -1267,17 +1268,6 @@ random numbers (>= 0) from a binomial distribution.  The probability
 (C<$prob>) must be between 0.0 and 1.0 (inclusive), and the number of trials
 must be >= 0.
 
-=item $obj->shuffle
-
-  my $shuffled = $prng->shuffle($data, ...);
-  my $shuffled = $prng->shuffle(@data);
-  my $shuffled = $prng->shuffle(\@data);
-
-Operates like the L</"shuffle"> function described above, returning an array
-reference containing a random ordering of the supplied arguments.  If called
-with a single array reference (fastest method), the contents of the array are
-shuffled in situ.
-
 =item $obj->srand
 
   $prng->srand();
@@ -1289,46 +1279,60 @@ When called without arguments, the previously-used seeding source(s) will
 be accessed.
 
 Optionally, seeding sources may be supplied as arguments.  (These will be
-saved and used again if the C<srand> method is subsequently called without
-arguments).
+saved and used again if the L<srand|/"$obj-E<gt>srand"> method is subsequently
+called without arguments).
 
 If called with integer data (a list of one or more value, or an array of
 values), or a reference to an array of integers, these data will be passed to
-the C<seed> method for use in reseeding the PRNG.
+the L<set_seed|/"$obj-E<gt>set_seed"> method for use in reseeding the PRNG.
 
-=item $obj->seed
+=item $obj->get_warnings
 
-  my $seed = $prgn->seed();
-  $prgn->seed($seed, ...);
-  $prgn->seed(@seed);
-  $prgn->seed(\@seed);
+  my @warnings = $prng->get_warnings();
+  my @warnings = $prng->get_warnings('CLEAR');
 
-Operates like the L</"seed"> function described above, retrieving the
-PRNG's seed, or setting the PRNG to the supplied seed.
-
-If the PRNG object was created from another PRNG object using the C<STATE>
-option, then this method may return C<undef>.
-
-=item $obj->state
-
-  my $state = $prgn->state();
-  $prgn->state($state);
-
-Operates like the L</"state"> function described above, retrieving the
-PRNG's state, or setting the PRNG to the supplied state.
-
-=item $obj->warnings
-
-  my @warnings = $prng->warnings();
-  my @warnings = $prng->warnings(1);
-
-Operates like the L</"warnings"> function described above, retrieving any
+Operates like the L</"get_warnings"> function described above, retrieving any
 error messages that were generated while trying to acquire seed data for
 the PRNG.  It can be called after the object is created, or after calling
-the L</"srand"> method to see if there where any problems getting the seed.
+the L<srand|/"$obj-E<gt>srand"> method to see if there where any problems
+getting the seed.
 
-If called with a I<true> argument, the stored error messages will also be
-erased.
+If called with any I<true> argument, the stored error messages will also be
+deleted.
+
+=item $obj->get_seed
+
+  my $seed = $prgn->get_seed();
+
+Operates like the L</"get_seed"> function described above, retrieving the
+PRNG's seed.
+
+If the PRNG object was created from another PRNG object using the
+L<STATE|/"'STATE' =E<gt> $prng_state"> option, then this method may return
+C<undef>.
+
+=item $obj->set_seed
+
+  $prgn->set_seed($seed, ...);
+  $prgn->set_seed(@seed);
+  $prgn->set_seed(\@seed);
+
+Operates like the L</"set_seed"> function described above, setting the PRNG
+to the supplied seed.
+
+=item $obj->get_state
+
+  my $state = $prgn->get_state();
+
+Operates like the L</"get_state"> function described above, retrieving the
+PRNG's state.
+
+=item $obj->set_state
+
+  $prgn->set_state($state);
+
+Operates like the L</"set_state"> function described above, setting the PRNG
+to the supplied state.
 
 =back
 
@@ -1358,9 +1362,9 @@ between the parent and child threads such that the two copies of the object
 then function independent of one another.
 
 However, the threading model does not support sharing I<blessed> objects
-(via C<use threads::shared>) between threads such that an object appears to
-be a single copy whereby changes to the object made in the one thread are
-visible in another thread.
+(via L<use threads::shared|threads::shared>) between threads such that an
+object appears to be a single copy whereby changes to the object made in the
+one thread are visible in another thread.
 
 =back
 
@@ -1389,17 +1393,18 @@ but an issue with Perl's threading model in general.)
 
 =head2 Delayed Importation
 
-When this module is imported via C<use>, the standalone PRNG is initialized
-via an C<INIT> block that is executed right after the module is loaded.
+When this module is imported via L<use|perlfunc/"use">, the standalone PRNG is
+initialized via an L<INIT|perlmod/"BEGIN, CHECK, INIT and END"> block that is
+executed right after the module is loaded.
 
 However, if you want to delay the importation of this module using
-C<require> and want to use the standalone PRNG, then you must import
-L</"srand">, and execute it so that the PRNG gets initialized:
+L<require|perlfunc/"require"> and want to use the standalone PRNG, then you
+must import L</"srand">, and execute it so that the PRNG gets initialized:
 
   eval {
       require Math::Random::MT::Auto;
       # Add other symbols to the import call, as desired.
-      import Math::Random::MT::Auto qw/srand/;
+      import Math::Random::MT::Auto qw(srand);
       # Add seed sources to the srand() call, as desired.
       srand();
   };
@@ -1416,20 +1421,20 @@ sufficient:
 =head2 Implementing Subclasses
 
 This package uses the I<inside-out> object model (see informational links
-under L</"See Also">).  This object model offers a number of advantages, but
+under L</"SEE ALSO">).  This object model offers a number of advantages, but
 does require some extra programming when you create subclasses so as to
 support (among other things) oject cloning for thread safety (i.e., a CLONE
 subroutine), and oject destruction (i.e., a DESTROY subroutine).
 
-Further, in the case of this package, the objects created are not the usual
-blessed hash reference: They are blessed scalar references.  Therefore, your
+Further, the objects created are not the usual blessed hash reference: In the
+case of this package, they are blessed scalar references.  Therefore, your
 subclass cannot store attributes I<inside> the object returned by this
-package, nor can you even assign a value to the object's referenced scalar.
+package, nor should you modify or make use of the value stored in the object's
+referenced scalar.
 
 The subclass L<Math::Random::MT::Auto::Range> included with this module's
-distribution is provided as an example of how to implement subclasses based
-on this package.  Execute the following to find the location of its source
-code file:
+distribution is provided as an example of how to implement subclasses of this
+package.  Execute the following to find the location of its source code file:
 
   perldoc -l Math::Random::MT::Auto::Range
 
@@ -1439,9 +1444,9 @@ code file:
 
 =item Cloning the standalone PRNG to an object
 
-  use Math::Random::MT::Auto qw/rand irand state/;
+  use Math::Random::MT::Auto qw(rand irand get_state);
 
-  my $prng = Math::Random::MT::Auto->new('STATE' => state());
+  my $prng = Math::Random::MT::Auto->new('STATE' => get_state());
 
 The standalone PRNG and the PRNG object will now return the same sequence
 of pseudo-random numbers.
@@ -1449,9 +1454,9 @@ of pseudo-random numbers.
 =item Save state to file
 
   use Data::Dumper;
-  use Math::Random::MT::Auto qw/rand irand state/;
+  use Math::Random::MT::Auto qw(rand irand get_state);
 
-  my $state = state();
+  my $state = get_state();
   if (open(my $FH, '>/tmp/rand_state_data.tmp')) {
       print($FH Data::Dumper->Dump([$state], ['state']));
       print($FH "1;\n");
@@ -1460,13 +1465,13 @@ of pseudo-random numbers.
 
 =item Use state as stored above
 
-  use Math::Random::MT::Auto qw/rand irand state/;
+  use Math::Random::MT::Auto qw(rand irand set_state);
 
   our $state;
   my $rc = do('/tmp/rand_state_data.tmp');
   unlink('/tmp/rand_state_data.tmp');
   if ($rc) {
-      state($state);
+      set_state($state);
   }
 
 =back
@@ -1482,39 +1487,38 @@ something goes awry when trying to get seed data from an Internet source,
 your application will not hang for an inordinate amount of time.
 
 If you connect to the Internet through an HTTP proxy, then you must set the
-C<http_proxy> variable in your environment when using the Internet seed
-sources.  (See L<LWP::UserAgent/"Proxy attributes">.)
+L<http_proxy|LWP/"http_proxy"> variable in your environment when using the
+Internet seed sources.  (See L<LWP::UserAgent/"Proxy attributes">.)
 
 The HotBits site has a quota on the amount of data you can request in a
 24-hour period.  (I don't know how big the quota is.)  Therefore, this
 source may fail to provide any data if used too often.
 
 If the module cannot acquire any seed data from the specified sources, then
-the C<time()> and PID (C<$$>) will be used to seed the PRNG.  Use
-L</"warnings"> to check for seed acquisition problems.
+data such as L<time()|perlfunc/"time"> and PID (L<$$|perlvar/"$$">) will be
+used to seed the PRNG.  Use L</"get_warnings"> to check for seed acquisition
+problems.
 
 It is possible to seed the PRNG with more than 19968 bits of data (through
 the use of a seeding subroutine supplied to L</"srand">, or by supplying a
-large array ref of data to L</"seed">).  However, doing so does not make
+large array ref of data to L</"set_seed">).  However, doing so does not make
 the PRNG "more random" as 19968 bits more than covers all the possible PRNG
 state vectors.
 
 =head1 PERFORMANCE
 
-Under Windows, this module is 2.5 times faster than Math::Random::MT for
-the functional interface to the standalone PRNG, and 2 times faster for the
-OO interface.  Under Solaris, it's 4.4x and 3.5x faster, respectively.  The
-file F<samples/timings.pl>, included in this module's distribution, can be
-used to compare timing results.
+Under Windows, this module is more than twice as fast as Math::Random::MT, and
+under Solaris, it's more than four times faster.  The file
+F<samples/timings.pl>, included in this module's distribution, can be used to
+compare timing results.
 
-Depending on your connection speed, acquiring seed data from the Internet
-may take up to couple of seconds.  This delay might be apparent when your
-application is first started, or after creating a new PRNG object.  This is
-especially true if you specify the C<hotbits> source twice (so as to get
-the full seed from the HotBits site) as this results in two accesses to the
-Internet.  (If F</dev/urandom> is available on your machine, then you
-should definitely consider using the Internet sources only as a secondary
-source.)
+If you connect to the Internet via a phone modem, acquiring seed data may take
+a second or so.  This delay might be apparent when your application is first
+started, or after creating a new PRNG object.  This is especially true if you
+specify the L<hotbits|/"Internet Sites"> source twice (so as to get the full
+seed from the HotBits site) as this results in two accesses to the Internet.
+(If F</dev/urandom> is available on your machine, then you should definitely
+consider using the Internet sources only as a secondary source.)
 
 =head1 SEE ALSO
 
@@ -1542,17 +1546,18 @@ L<http://www.die.net/doc/linux/man/man4/random.4.html>
 Windows XP random data source:
 L<http://blogs.msdn.com/michael_howard/archive/2005/01/14/353379.aspx>
 
-Non-uniform random number deviates in I<Numerical Recipes in C>,
-Chapters 7.2 and 7.3:
-L<http://www.library.cornell.edu/nr/bookcpdf.html>
-
 Fisher-Yates Shuffling Algorithm:
 L<http://en.wikipedia.org/wiki/Shuffling_playing_cards#Shuffling_algorithms>,
 and L<shuffle() in List::Util|List::Util>
 
+Non-uniform random number deviates in I<Numerical Recipes in C>,
+Chapters 7.2 and 7.3:
+L<http://www.library.cornell.edu/nr/bookcpdf.html>
+
 Inside-out Object Model:
-L<http://www.perlmonks.org/index.pl?node_id=219378>, and
-L<http://www.perlmonks.org/index.pl?node_id=483162>
+L<http://www.perlmonks.org/index.pl?node_id=219378>,
+L<http://www.perlmonks.org/index.pl?node_id=483162>, and
+Chapter 15 of "Perl Best Practices" by Damian Conway
 
 L<LWP::UserAgent>
 

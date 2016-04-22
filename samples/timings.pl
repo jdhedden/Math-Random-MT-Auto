@@ -12,8 +12,8 @@ no warnings 'void';
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/rand irand srand seed warnings
-                              gaussian exponential :!auto/;
+use Math::Random::MT::Auto qw(rand irand srand get_seed set_seed get_warnings
+                              gaussian exponential :!auto);
 use Time::HiRes;
 use Config;
 
@@ -85,28 +85,28 @@ MAIN:
         printf("rand [64-bit]:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
     }
 
-    my @seed = @{seed()};       # Copy of existing seed
+    my @seed = @{get_seed()};       # Copy of existing seed
 
-    my @warnings = warnings(1); # Clear any existing error messages
+    my @warnings = get_warnings(1); # Clear any existing error messages
 
     if ($^O eq 'MSWin32') {
         # Call srand to load Win32::API
         srand('win32');
         # If errors, then ignore (probably not XP or no Win32::API)
-        @warnings = warnings(1);
+        @warnings = get_warnings(1);
         if (! @warnings) {
             # Time our srand() for win32
             $start = Time::HiRes::time();
             srand('win32');
             $end = Time::HiRes::time();
             printf("srand:\t\t%f secs. (Win32 XP)\n", $end - $start);
-            @seed = @{seed()};
+            @seed = @{get_seed()};
         }
 
     } else {
         # Run srand once to load fcntl
         srand('/dev/random');
-        @warnings = warnings(1);
+        @warnings = get_warnings(1);
 
         # Time our srand() for /dev/random
         print("\n- Math::Random::MT::Auto - Standalone PRNG -\n");
@@ -114,26 +114,26 @@ MAIN:
         srand('/dev/random');
         $end = Time::HiRes::time();
         # If errors, then ignore (probably no /dev/random)
-        @warnings = warnings(1);
+        @warnings = get_warnings(1);
         if (! @warnings) {
             printf("srand:\t\t%f secs. (/dev/random)\n", $end - $start);
-            @seed = @{seed()};
+            @seed = @{get_seed()};
         }
     }
 
     if (! $local) {
         # Call srand to load LWP::UserAgent
-        @warnings = warnings(1);
+        @warnings = get_warnings(1);
         srand('random_org');
         # If errors, then ignore (probably no LWP::UserAgent)
-        @warnings = warnings(1);
+        @warnings = get_warnings(1);
         if (! @warnings) {
             # Time our srand() for random.org
             $start = Time::HiRes::time();
             srand('random_org');
             $end = Time::HiRes::time();
             printf("srand:\t\t%f secs. (random.org)\n", $end - $start);
-            @seed = @{seed()};
+            @seed = @{get_seed()};
         }
     }
 
@@ -147,19 +147,7 @@ MAIN:
     printf("irand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    seed(\@seed);
-
-    # Time our irand()
-    $cnt = $count;
-    $start = Time::HiRes::time();
-    while ($cnt--) {
-        Math::Random::MT::Auto::mt_irand();
-    }
-    $end = Time::HiRes::time();
-    printf("::mt_irand:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
-
-    # Reseed
-    seed(\@seed);
+    set_seed(\@seed);
 
     # Time our rand()
     $cnt = $count;
@@ -171,7 +159,7 @@ MAIN:
     printf("rand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    seed(\@seed);
+    set_seed(\@seed);
 
     # Time our rand(arg)
     $cnt = $count;
@@ -183,7 +171,7 @@ MAIN:
     printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    seed(\@seed);
+    set_seed(\@seed);
 
     # Time gaussian()
     $cnt = $count;
@@ -195,7 +183,7 @@ MAIN:
     printf("gaussian:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    seed(\@seed);
+    set_seed(\@seed);
 
     # Time gaussian(sd, mean)
     $cnt = $count;
@@ -207,7 +195,7 @@ MAIN:
     printf("gaussian(3,69):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    seed(\@seed);
+    set_seed(\@seed);
 
     # Time exponential()
     $cnt = $count;
@@ -219,7 +207,7 @@ MAIN:
     printf("expon:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    seed(\@seed);
+    set_seed(\@seed);
 
     # Time exponential(mean)
     $cnt = $count;
@@ -231,7 +219,7 @@ MAIN:
     printf("expon(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    seed(\@seed);
+    set_seed(\@seed);
 
     # Time OO interface
     print("\n- Math::Random::MT::Auto - OO Interface -\n");
@@ -241,7 +229,7 @@ MAIN:
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['win32']);
         $end = Time::HiRes::time();
         # If errors, then ignore (probably not XP or no Win32::API)
-        @warnings = $rand->warnings(1);
+        @warnings = $rand->get_warnings(1);
         if (! @warnings) {
             printf("new:\t\t%f secs. (Win32 XP)\n", $end - $start);
         }
@@ -251,7 +239,7 @@ MAIN:
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['/dev/random']);
         $end = Time::HiRes::time();
         # If errors, then ignore (probably no /dev/random)
-        @warnings = $rand->warnings(1);
+        @warnings = $rand->get_warnings(1);
         if (! @warnings) {
             printf("new:\t\t%f secs. (/dev/random)\n", $end - $start);
         }
@@ -263,14 +251,14 @@ MAIN:
         $rand = Math::Random::MT::Auto->new('SOURCE' => ['random_org']);
         $end = Time::HiRes::time();
         # If errors, then ignore (probably no LWP::UserAgent)
-        @warnings = $rand->warnings(1);
+        @warnings = $rand->get_warnings(1);
         if (! @warnings) {
             printf("new:\t\t%f secs. (random.org)\n", $end - $start);
         }
     }
 
     # Reseed
-    $rand->seed(\@seed);
+    $rand->set_seed(\@seed);
 
     # Time our irand()
     $cnt = $count;
@@ -282,7 +270,7 @@ MAIN:
     printf("irand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    $rand->seed(\@seed);
+    $rand->set_seed(\@seed);
 
     # Time our rand()
     $cnt = $count;
@@ -294,7 +282,7 @@ MAIN:
     printf("rand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    $rand->seed(\@seed);
+    $rand->set_seed(\@seed);
 
     # Time our rand(arg)
     $cnt = $count;
@@ -306,7 +294,7 @@ MAIN:
     printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    $rand->seed(\@seed);
+    $rand->set_seed(\@seed);
 
     # Time our gaussian()
     $cnt = $count;
@@ -318,7 +306,7 @@ MAIN:
     printf("gaussian:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    $rand->seed(\@seed);
+    $rand->set_seed(\@seed);
 
     # Time gaussian(sd, mean)
     $cnt = $count;
@@ -330,7 +318,7 @@ MAIN:
     printf("gaussian(3,69):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    $rand->seed(\@seed);
+    $rand->set_seed(\@seed);
 
     # Time our exponential()
     $cnt = $count;
@@ -342,7 +330,7 @@ MAIN:
     printf("expon:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    $rand->seed(\@seed);
+    $rand->set_seed(\@seed);
 
     # Time exponential(mean)
     $cnt = $count;
@@ -354,13 +342,59 @@ MAIN:
     printf("expon(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Reseed
-    $rand->seed(\@seed);
+    $rand->set_seed(\@seed);
 
     # See if Math::Random::MT is available
-    eval { require Math::Random::MT; };
+    eval { require Math::Random::MT;
+           import Math::Random::MT qw(srand rand);
+           srand($seed); };
     if (! $@) {
+        print("\n- Math::Random::MT - Functional Interface -\n");
+
+        # Time its srand() function
+        $start = Time::HiRes::time();
+        $rand = srand($seed);
+        $end = Time::HiRes::time();
+        printf("srand:\t\t%f secs.\n", $end - $start);
+
+        # Time its rand()
+        $cnt = $count;
+        $start = Time::HiRes::time();
+        while ($cnt--) {
+            rand();
+        }
+        $end = Time::HiRes::time();
+        printf("rand:\t\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+        # Reseed
+        srand($seed);
+
+        # Time its rand(arg)
+        $cnt = $count;
+        $start = Time::HiRes::time();
+        while ($cnt--) {
+            rand(5);
+        }
+        $end = Time::HiRes::time();
+        printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+        # Time its rand() to product 64-bit randoms
+        if ($Config{'uvsize'} == 8) {
+            # Reseed
+            $rand = Math::Random::MT->new(@seed);
+
+            $cnt = $count;
+            $start = Time::HiRes::time();
+            while ($cnt--) {
+                (int(rand(4294967296)) << 32) | int(rand(4294967296));
+            }
+            $end = Time::HiRes::time();
+            printf("rand [64-bit]:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+        }
+
+        print("\n- Math::Random::MT - OO Interface -\n");
+
         # Time its new(@seed) method
-        print("\n- Math::Random::MT -\n");
         $start = Time::HiRes::time();
         $rand = Math::Random::MT->new(@seed);
         $end = Time::HiRes::time();
@@ -386,20 +420,6 @@ MAIN:
         }
         $end = Time::HiRes::time();
         printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
-
-        # Time its rand() to product 64-bit randoms
-        if ($Config{'uvsize'} == 8) {
-            # Reseed
-            $rand = Math::Random::MT->new(@seed);
-
-            $cnt = $count;
-            $start = Time::HiRes::time();
-            while ($cnt--) {
-                (int($rand->rand(4294967296)) << 32) | int($rand->rand(4294967296));
-            }
-            $end = Time::HiRes::time();
-            printf("rand [64-bit]:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
-        }
     }
 }
 

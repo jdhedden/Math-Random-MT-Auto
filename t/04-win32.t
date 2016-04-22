@@ -19,14 +19,14 @@ if ($^O ne 'MSWin32') {
 }
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand irand warnings/, 'win32');
+    use_ok('Math::Random::MT::Auto', qw/rand irand get_warnings/, 'win32');
 }
 
 # Check for warnings
 my @warnings;
-eval { @warnings = warnings(1); };
+eval { @warnings = get_warnings(1); };
 if (! ok(! $@, 'Get warnings')) {
-    diag('warnings(1) died: ' . $@);
+    diag('get_warnings(1) died: ' . $@);
 }
 if (! ok(! @warnings, 'Acquired seed data')) {
     diag('Seed warnings: ' . join(' | ', @warnings));

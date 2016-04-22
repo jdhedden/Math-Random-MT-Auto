@@ -29,7 +29,8 @@ if (! ok(! $@, '->new worked')) {
 }
 isa_ok($prng, 'Math::Random::MT::Auto');
 can_ok($prng, qw/rand irand gaussian exponential erlang poisson binomial
-                 shuffle srand seed state warnings/);
+                 shuffle srand get_seed set_seed get_state set_state
+                 get_warnings/);
 
 # Get random numbers from thread
 my $rands = threads->create(

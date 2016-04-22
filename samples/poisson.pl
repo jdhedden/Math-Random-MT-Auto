@@ -7,7 +7,7 @@ use warnings;
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/poisson/;
+use Math::Random::MT::Auto qw(poisson);
 
 MAIN:
 {

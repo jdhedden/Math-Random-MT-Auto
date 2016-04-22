@@ -6,11 +6,13 @@ use ExtUtils::MakeMaker;
 use Config ();
 use File::Spec ();
 
+# First, check for manatory Perl version
 if ($] < 5.006) {
-    die("Math::Random::MT::Auto requires Perl v5.6.0 or higher\n");
+    die("Math::Random::MT::Auto requires Perl 5.6.0 or higher\n");
 }
 
-# Check for C compiler
+
+# Next, check for C compiler
 sub check_cc
 {
     my $cmd = $_[0];
@@ -44,14 +46,30 @@ if (! have_cc()) {
 }
 
 
+# Finally, construct make file
 WriteMakefile(
-    NAME              => 'Math::Random::MT::Auto',
-    OBJECT            => 'MRMA.o',
-    VERSION_FROM      => 'lib/Math/Random/MT/Auto.pm',
-    PREREQ_PM         => { 'Scalar::Util' => 1.16 },
-    ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM  => 'lib/Math/Random/MT/Auto.pm',
-       AUTHOR         => 'Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>') : ()),
+    'NAME'          => 'Math::Random::MT::Auto',
+    'AUTHOR'        => 'Jerry D. Hedden <jdhedden AT 1979 DOT usna DOT com>',
+    'VERSION_FROM'  => 'lib/Math/Random/MT/Auto.pm',
+    'ABSTRACT_FROM' => 'lib/Math/Random/MT/Auto.pm',
+    'PREREQ_PM'     => { 'Scalar::Util' => '1.16' },
+    'OBJECT'        => 'MRMA.o',
 );
+
+
+# Add additional target to Makefile
+if (open(my $FH, '>> Makefile')) {
+    print($FH <<'_VCHECK_');
+# Check version strings in various files
+vcheck:
+	@echo "Version is ${VERSION}"
+	@if ! head -3 Changes | tail -1 | grep ^${VERSION} >/dev/null; then echo "Version error in Changes"; fi
+	@if ! head -1 README | grep ${VERSION}$ >/dev/null; then echo "Version error in README"; fi
+	@if [ `grep 'VERSION="${VERSION}"' Build.PL | wc -l` -ne 2 ]; then echo "Version error in Build.PL"; fi
+	@if ! grep "VERSION = '${VERSION}'" lib/Math/Random/MT/Auto.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto.pm"; fi
+	@if ! grep "VERSION = '${VERSION}'" lib/Math/Random/MT/Auto/Range.pm >/dev/null; then echo "Version error in lib/Math/Random/MT/Auto/Range.pm"; fi
+_VCHECK_
+    close($FH);
+}
 
 # EOF

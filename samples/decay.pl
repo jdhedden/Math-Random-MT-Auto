@@ -11,7 +11,7 @@ use warnings;
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/exponential/;
+use Math::Random::MT::Auto qw(exponential);
 
 MAIN:
 {

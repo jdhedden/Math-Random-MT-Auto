@@ -11,14 +11,14 @@ if ($@) {
 }
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/rand irand warnings/, 'random_org');
+    use_ok('Math::Random::MT::Auto', qw/rand irand get_warnings/, 'random_org');
 }
 
 # Check for warnings
 my @warnings;
-eval { @warnings = warnings(1); };
+eval { @warnings = get_warnings(1); };
 if (! ok(! $@, 'Get warnings')) {
-    diag('warnings(1) died: ' . $@);
+    diag('get_warnings(1) died: ' . $@);
 }
 if (@warnings) {
     diag('Seed warnings: ' . join(' | ', @warnings));

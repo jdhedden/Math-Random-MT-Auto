@@ -13,7 +13,7 @@ use warnings;
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/gaussian/;
+use Math::Random::MT::Auto qw(gaussian);
 
 MAIN:
 {

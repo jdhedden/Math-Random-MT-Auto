@@ -5,13 +5,13 @@ use warnings;
 
 $| = 1;
 
-use Math::Random::MT::Auto qw/shuffle/;
+use Math::Random::MT::Auto qw(shuffle);
 
 MAIN:
 {
     my $deck = shuffle(0..51);
-    my @cards = qw/A 1 2 3 4 5 6 7 8 9 10 J Q K/;
-    my @suits = qw/C D H S/;
+    my @cards = qw(A 1 2 3 4 5 6 7 8 9 10 J Q K);
+    my @suits = qw(C D H S);
 
     print('My hand: ');
     for my $card (0 .. 4) {

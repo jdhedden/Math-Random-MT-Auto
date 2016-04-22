@@ -5,7 +5,7 @@ use Scalar::Util 'looks_like_number';
 use Data::Dumper;
 
 BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/irand state/);
+    use_ok('Math::Random::MT::Auto', qw/irand get_state set_state/);
 };
 
 
@@ -22,8 +22,8 @@ for (1 .. 500) {
 
 # Get state
 our $state;
-eval { $state = state(); };
-ok(! $@, 'Get state() died: ' . $@);
+eval { $state = get_state(); };
+ok(! $@, 'get_state() died: ' . $@);
 ok(ref($state) eq 'ARRAY', 'State is array ref');
 
 
@@ -52,8 +52,8 @@ my $rc = do('state_data.tmp');
 unlink('state_data.tmp');
 
 # Set state
-eval { state($state); };
-ok(! $@, 'Set state() died: ' . $@);
+eval { set_state($state); };
+ok(! $@, 'set_state() died: ' . $@);
 
 # Compare numbers after restoration of state
 my @rn2;

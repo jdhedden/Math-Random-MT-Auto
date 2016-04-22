@@ -1,6 +1,6 @@
 # Test gaussian()
 
-use Test::More tests => 4;
+use Test::More tests => 6;
 use Scalar::Util 'looks_like_number';
 use Config;
 
@@ -419,7 +419,7 @@ my @base_gaus = ($Config{'uvsize'} == 8) ?
      0.29343915   1.32344159   0.15794698  -0.45255219   0.86179561/;
 
 
-### - Guassian Function - ###
+### - Gaussian Function - ###
 
 # Set predetermined seed for verification test
 sub myseed
@@ -441,8 +441,30 @@ if (! ok(! $@, 'srand(\&sub) works')) {
 
 # Test Gaussian randoms
 my @test_gaus;
-for (my $ii=0; $ii < 1000; $ii++) {
+for (my $ii=0; $ii < 500; $ii++) {
     push(@test_gaus, sprintf('%0.8f', gaussian()));
+}
+for (my $ii=500; $ii < 1000; $ii++) {
+    push(@test_gaus, sprintf('%0.8f', gaussian(1, 3.14) - 3.14));
+}
+is_deeply(\@test_gaus, \@base_gaus);
+
+
+### - Gaussian OO - ###
+
+my $prng;
+eval { $prng = Math::Random::MT::Auto->new('SOURCE' => \&myseed); };
+if (! ok(! $@, '->new(SOURCE)')) {
+    diag('->new(SOURCE) died: ' . $@);
+}
+
+# Test OO Gaussian randoms
+undef(@test_gaus);
+for (my $ii=0; $ii < 500; $ii++) {
+    push(@test_gaus, sprintf('%0.8f', $prng->gaussian()));
+}
+for (my $ii=500; $ii < 1000; $ii++) {
+    push(@test_gaus, sprintf('%0.8f', $prng->gaussian(1, 3.14) - 3.14));
 }
 is_deeply(\@test_gaus, \@base_gaus);
 

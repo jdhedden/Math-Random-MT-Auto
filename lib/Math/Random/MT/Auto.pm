@@ -3,14 +3,14 @@ package Math::Random::MT::Auto;
 use strict;
 use warnings;
 
-use 5.006;   # 64-bit support
+use 5.006;
 use Config;
 use Scalar::Util 1.16 qw/looks_like_number weaken/;
 
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.35;
+our $VERSION = 1.36;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 
@@ -34,7 +34,7 @@ my @CLONING_LIST;
 
 ### Module Initialization ###
 
-# 1. Size of Perl's integers
+# 1. Size of Perl's integers (32- or 64-bit)
 my $INT_SIZE = $Config{'uvsize'};
 my $UNPACK_CODE = ($INT_SIZE == 8) ? 'Q' : 'L';
 
@@ -56,8 +56,7 @@ sub import
                  $sym eq 'seed'     ||
                  $sym eq 'state'    ||
                  $sym eq 'warnings' ||
-                 $sym eq 'gaussian' ||
-                 $sym eq 'rand32')
+                 $sym eq 'gaussian')
         {
             no strict 'refs';
             *{"${pkg}::$sym"} = \&$sym;
@@ -293,27 +292,6 @@ sub warnings
 }
 
 
-# Gaussian probability
-sub gaussian
-{
-    # Generalize for both OO and standalone PRNGs
-    my $obj;
-    if (defined($_[0]) &&
-        UNIVERSAL::isa($_[0], 'UNIVERSAL') &&
-        $_[0]->isa(__PACKAGE__))
-    {
-        # OO interface
-        $obj = shift;
-    } else {
-        # Standalone PRNG
-        $obj = \%STANDALONE;
-    }
-
-    return ((@_) ? X_gaussian($obj->{'PRNG'}, $_[0])
-                 : X_gaussian($obj->{'PRNG'}));
-}
-
-
 ### OO Methods ###
 
 # Create a new PRNG object
@@ -519,14 +497,11 @@ sub _acq_dev
         eval {
             require Fcntl;
 
-            my $flags = 0;
-            if (! fcntl($FH, &Fcntl::F_GETFL, $flags)) {
-                die("Failed getting filehandle flags: $!\n");
-            }
-            $flags |= &Fcntl::O_NONBLOCK;
-            if (! fcntl($FH, &Fcntl::F_SETFL, $flags)) {
-                die("Failed setting filehandle flags: $!\n");
-            }
+            my $flags;
+            $flags = fcntl($FH, &Fcntl::F_GETFL, 0)
+                or die("Failed getting filehandle flags: $!\n");
+            fcntl($FH, &Fcntl::F_SETFL, $flags | &Fcntl::O_NONBLOCK)
+                or die("Failed setting filehandle flags: $!\n");
         };
         if ($@) {
             push(@$warnings, "Failure setting non-blocking mode: $@");
@@ -561,10 +536,9 @@ sub _acq_random_org
     # Load LWP::UserAgent module
     eval {
         require LWP::UserAgent;
-        import LWP::UserAgent;
     };
     if ($@) {
-        push(@$warnings, "Failure importing LWP::UserAgent: $@");
+        push(@$warnings, "Failure loading LWP::UserAgent: $@");
         return;
     }
 
@@ -600,10 +574,9 @@ sub _acq_hotbits
     # Load LWP::UserAgent module
     eval {
         require LWP::UserAgent;
-        import LWP::UserAgent;
     };
     if ($@) {
-        push(@$warnings, "Failure importing LWP::UserAgent: $@");
+        push(@$warnings, "Failure loading LWP::UserAgent: $@");
         return;
     }
 
@@ -666,7 +639,6 @@ sub _acq_win32
     eval {
         # Load Win32::API module
         require Win32::API;
-        import Win32::API;
 
         # Import the random source function
         my $func = Win32::API->new('ADVAPI32.DLL', 'SystemFunction036', 'PN', 'I');
@@ -705,14 +677,14 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNG
 
   my $coin_flip = (irand() & 1) ? 'heads' : 'tails';
 
-  my $rand_IQ = 100 + gaussian(15);
+  my $rand_IQ = gaussian(15, 100);
 
   # OO interface
   my $prng = Math::Random::MT::Auto->new('SOURCE' => '/dev/random');
 
   my $angle = $prng->rand(360);
 
-  my $rand_height = 69 + $prng->gaussian(3);
+  my $rand_height = $prng->gaussian(3, 69);
 
 =head1 DESCRIPTION
 
@@ -733,7 +705,7 @@ and beyond.  The standalone PRNG is not thread-safe.
 
 For Perl compiled to support 64-bit integers, this module will use a 64-bit
 version of the Mersenne Twister algorithm, thus providing 64-bit random
-integers (and 53-bit random doubles).  (32-bits otherwise.)
+integers (and 52-bit random doubles).  (32-bits otherwise.)
 
 The code for this module has been optimized for speed.  Under Windows, it's
 2.5 times faster than Math::Random::MT for the functional interface, and 2
@@ -778,7 +750,7 @@ L<Config> module:
 
   use Config;
 
-  print("Ints are $Config{'uvsize'} bytes in length\n");
+  print("Integers are $Config{'uvsize'} bytes in length\n");
 
 =head2 Seeding Sources
 
@@ -843,7 +815,7 @@ the C<hotbits> source twice in the module declaration.
 
 =item Windows XP Random Data
 
-On Windows XP, you can acquire random seed data from the system.
+Under Windows XP, you can acquire random seed data from the system.
 
   use Math::Random::MT::Auto 'win32';
 
@@ -853,10 +825,10 @@ installed.
 =back
 
 The default list of seeding sources is determined when the module is loaded
-(actually when the C<import> function is called).  On Windows XP, C<win32>
-is added to the list.  Otherwise, F</dev/urandom> and then F</dev/random>
-are checked.  The first one found is added to the list.  Finally,
-C<random_org> is added.
+(actually when the C<import> function is called).  Under Windows XP,
+C<win32> is added to the list.  Otherwise, F</dev/urandom> and then
+F</dev/random> are checked.  The first one found is added to the list.
+Finally, C<random_org> is added.
 
 For the functional interface to the standalone PRNG, these defaults can be
 overriden by specifying the desired sources when the module is declared, or
@@ -921,12 +893,14 @@ C<Math::Random::MT::Auto::mt_irand> (note the I<mt_> prefix).
 =item gaussian
 
   my $gn = gaussian();
-  my $gn = gaussian($num);
+  my $gn = gaussian($sd);
+  my $gn = gaussian($sd, $mean);
 
-Returns floating-point random numbers from a Guassian (normal) distribution
-(i.e., numbers that fit a bell curve) distributed about 0.  If called with
-no arguments, the distribution uses a standard deviation of 1.  Otherwise,
-the supplied argument will be used for the standard deviation.
+Returns floating-point random numbers from a Gaussian (normal) distribution
+(i.e., numbers that fit a bell curve).  If called with no arguments, the
+distribution uses a standard deviation of 1, and a mean of 0.  Otherwise,
+the supplied argument(s) will be used for the standard deviation, and the
+mean.
 
 =item srand
 
@@ -1144,12 +1118,12 @@ inclusive.  This is the fastest method for obtaining pseudo-random numbers
 =item $obj->gaussian
 
   my $gn = $prng->gaussian();
-  my $gn = $prng->gaussian($num);
+  my $gn = $prng->gaussian($sd);
+  my $gn = $prng->gaussian($sd, $mean);
 
 Operates like the L</"gaussian"> function described above, returning
-floating-point random numbers from a Guassian (normal) distribution
-distributed about 0 and having a standard deviation of 1 (no args), or
-C<$num>.
+floating-point random numbers from a Gaussian (normal) distribution.  The
+standard deviation defaults to 1 and the mean defaults to 0.
 
 =item $obj->srand
 

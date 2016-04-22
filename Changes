@@ -1,9 +1,14 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+1.36  Fri Jul 15 09:18:30 2005
+	- Speedups and cleanups
+	- Support gaussian($sd, $mean)
+	- Fix to non-blocking IO code
+
 1.35  Tue Jul 12 11:17:40 2005
 	- Require 'C' compiler in Makefile.PL
+	- No non-blocking IO on Windows
 	- Non-fatal if can't set non-blocking IO
-	- Don't try non-blocking IO on Windows
 	- Fix for identifying Win XP
 
 1.34  Mon Jul 11 09:03:00 2005
@@ -17,21 +22,18 @@ Revision history for Perl extension Math::Random::MT::Auto.
 1.30  Thu Jul 07 20:16:00 2005
 	- Belated version bump for 64-bit support
 	- Fix for non-gcc compilers
-	- More speed comparisons in samples/random
 
 1.23  Thu Jul 07 11:41:00 2005
 	- 64-bit algorithm on Perls with 'use64bitint'
-	- Added irand for random integers
-	- rand32 deprecated (see POD)
+	- Added irand for random integers (rand32 deprecated)
 
 1.22  Tue Jul 05 15:06:00 2005
-	- Subclass handling and documentation
+	- Subclass handling
 	- Fix for thread cloning for 5.7.2-5.8.6
 	- Documented as not thread-safe for < 5.7.2
 
 1.21  Fri Jul 01 14:43:30 2005
 	- Added gaussian() - Gaussian (normal) distributed random numbers
-	- Improved testing
 
 1.20  Thu Jun 30 14:22:45 2005
 	- Full-blown OO interface that is also thread safe
@@ -39,7 +41,7 @@ Revision history for Perl extension Math::Random::MT::Auto.
 	- Win32 XP random seed source
 
 1.11  Fri Jun 24 12:36:30 2005
-	- Fixed bug associated with processing the :!auto flag
+	- Fixed :!auto flag processing
 	- Better arg handling in srand() and seed()
 	- Added cautionary note to POD concerning the use of 'require'
 

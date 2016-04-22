@@ -68,6 +68,7 @@
 #include <stdlib.h>
 #include <math.h>
 
+
 /* Constants used in X_gaussian() */
 #define  A1  (-3.969683028665376e+01)
 #define  A2    2.209460984245205e+02
@@ -95,8 +96,9 @@
 #define  D4    3.754408661907416e+00
 
 #define P_LOW   0.02425
-/* P_high = 1 - p_low*/
+/* P_HIGH = 1 - P_LOW */
 #define P_HIGH  0.97575
+
 
 /* Constants related to the Mersenne Twister */
 #if UVSIZE == 8
@@ -106,29 +108,60 @@
 #   define MIXBITS(u,v) ( ((u) & 0xFFFFFFFF80000000ULL) | ((v) & 0x7FFFFFFFULL) )
 #   define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? 0xB5026F5AA96619E9ULL : 0ULL))
 
-#   define BIT_SHIFT 62
+#   define TEMPER_ELEM(x)                       \
+        x ^= (x >> 29) & 0x0000000555555555ULL; \
+        x ^= (x << 17) & 0x71D67FFFEDA60000ULL; \
+        x ^= (x << 37) & 0xFFF7EEE000000000ULL; \
+        x ^= (x >> 43)
 
+    /* Seed routine constants */
+#   define BIT_SHIFT 62
 #   define MAGIC1 6364136223846793005ULL
 #   define MAGIC2 3935559000370003845ULL
 #   define MAGIC3 2862933555777941757ULL
-
 #   define HI_BIT 1ULL<<63
+
+#   define TWOeMINUS52 2.22044604925031308085e-016
+    /* Make a double between 0 (inclusive) and 1 (exclusive) */
+#   define MAKE_0_1(x) (((x) >> 12) * TWOeMINUS52)
+
+    /* Make a double between 0 and 1 (exclusive) */
+#   define BETWEEN_0_1(x) ((((x) >> 12) * TWOeMINUS52) + (TWOeMINUS52 / 2))
+
 #else
 #   define N 624
 #   define M 397
 
 #   define MIXBITS(u,v) ( ((u) & 0x80000000) | ((v) & 0x7FFFFFFF) )
-#   define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? 0x9908B0DF : 0UL))
+#   define TWIST(u,v) ((MIXBITS((u),(v)) >> 1) ^ (((v)&1UL) ? 0x9908B0DF : 0UL))
 
+#   define TEMPER_ELEM(x)            \
+        x ^= (x >> 11);              \
+        x ^= (x << 7)  & 0x9D2C5680; \
+        x ^= (x << 15) & 0xEFC60000; \
+        x ^= (x >> 18)
+
+    /* Seed routine constants */
 #   define BIT_SHIFT 30
-
 #   define MAGIC1 1812433253
 #   define MAGIC2 1664525
 #   define MAGIC3 1566083941
-
 #   define HI_BIT 0x80000000
+
+#   define TWOeMINUS32 2.32830643653869628906e-010
+    /* Make a double between 0 (inclusive) and 1 (exclusive) */
+#   define MAKE_0_1(x) (((IV)(x) * TWOeMINUS32) + 0.5)
+
+    /* Make a double between 0 and 1 (exclusive) */
+#   define BETWEEN_0_1(x) (((IV)(x) * TWOeMINUS32) + (0.5 + TWOeMINUS32 / 2))
 #endif
 
+/* Get next element from the PRNG */
+#define NEXT_ELEM(x) ((--x.left == 0) ? _mt_algo(&x) : *x.next++)
+#define NEXT_ELEM_PTR(x) ((--x->left == 0) ? _mt_algo(x) : *x->next++)
+
+
+/* The PRNG state structure */
 struct mt {
     UV state[N];
     UV *next;
@@ -233,19 +266,8 @@ mt_irand(...)
         dMY_CXT;
     CODE:
         /* Random number on [0,0xFFFFFFFF] interval */
-        RETVAL = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
-                                      : *MY_CXT.next++;
-#if UVSIZE == 8
-        RETVAL ^= (RETVAL >> 29) & 0x5555555555555555ULL;
-        RETVAL ^= (RETVAL << 17) & 0x71D67FFFEDA60000ULL;
-        RETVAL ^= (RETVAL << 37) & 0xFFF7EEE000000000ULL;
-        RETVAL ^= (RETVAL >> 43);
-#else
-        RETVAL ^= (RETVAL >> 11);
-        RETVAL ^= (RETVAL << 7)  & 0x9D2C5680;
-        RETVAL ^= (RETVAL << 15) & 0xEFC60000;
-        RETVAL ^= (RETVAL >> 18);
-#endif
+        RETVAL = NEXT_ELEM(MY_CXT);
+        TEMPER_ELEM(RETVAL);
     OUTPUT:
         RETVAL
 
@@ -256,20 +278,9 @@ mt_rand(...)
         UV rand;
     CODE:
         /* Random number on [0,1) interval */
-        rand = (--MY_CXT.left == 0) ? _mt_algo(&MY_CXT)
-                                    : *MY_CXT.next++;
-#if UVSIZE == 8
-        rand ^= (rand >> 29) & 0x5555555555555555ULL;
-        rand ^= (rand << 17) & 0x71D67FFFEDA60000ULL;
-        rand ^= (rand << 37) & 0xFFF7EEE000000000ULL;
-        rand ^= (rand >> 43);
-        RETVAL = (double)(rand >> 11) / 9007199254740991.0;
-#else
-        rand ^= (rand >> 11);
-        rand ^= (rand << 7)  & 0x9D2C5680;
-        rand ^= (rand << 15) & 0xEFC60000;
-        RETVAL = (double)(rand ^ (rand >> 18)) / 4294967296.0;
-#endif
+        rand = NEXT_ELEM(MY_CXT);
+        TEMPER_ELEM(rand);
+        RETVAL = MAKE_0_1(rand);
         if (items >= 1) {
             /* Random number on [0,X) interval */
             RETVAL *= SvNV(ST(0));
@@ -297,19 +308,8 @@ irand(rand_obj)
         prng = INT2PTR(my_cxt_t *, tmp);
 
         /* Random number on [0,0xFFFFFFFF] interval */
-        RETVAL = (--prng->left == 0) ? _mt_algo(prng)
-                                     : *prng->next++;
-#if UVSIZE == 8
-        RETVAL ^= (RETVAL >> 29) & 0x5555555555555555ULL;
-        RETVAL ^= (RETVAL << 17) & 0x71D67FFFEDA60000ULL;
-        RETVAL ^= (RETVAL << 37) & 0xFFF7EEE000000000ULL;
-        RETVAL ^= (RETVAL >> 43);
-#else
-        RETVAL ^= (RETVAL >> 11);
-        RETVAL ^= (RETVAL << 7)  & 0x9D2C5680;
-        RETVAL ^= (RETVAL << 15) & 0xEFC60000;
-        RETVAL ^= (RETVAL >> 18);
-#endif
+        RETVAL = NEXT_ELEM_PTR(prng);
+        TEMPER_ELEM(RETVAL);
     OUTPUT:
         RETVAL
 
@@ -326,20 +326,9 @@ rand(rand_obj, ...)
         prng = INT2PTR(my_cxt_t *, tmp);
 
         /* Random number on [0,1) interval */
-        rand = (--prng->left == 0) ? _mt_algo(prng)
-                                   : *prng->next++;
-#if UVSIZE == 8
-        rand ^= (rand >> 29) & 0x5555555555555555ULL;
-        rand ^= (rand << 17) & 0x71D67FFFEDA60000ULL;
-        rand ^= (rand << 37) & 0xFFF7EEE000000000ULL;
-        rand ^= (rand >> 43);
-        RETVAL = (double)(rand >> 11) / 9007199254740991.0;
-#else
-        rand ^= (rand >> 11);
-        rand ^= (rand << 7)  & 0x9D2C5680;
-        rand ^= (rand << 15) & 0xEFC60000;
-        RETVAL = (double)(rand ^ (rand >> 18)) / 4294967296.0;
-#endif
+        rand = NEXT_ELEM_PTR(prng);
+        TEMPER_ELEM(rand);
+        RETVAL = MAKE_0_1(rand);
         if (items >= 2) {
             /* Random number on [0,X) interval */
             RETVAL *= SvNV(ST(1));
@@ -413,34 +402,37 @@ X_set_state(prng, state)
         }
 
 double
-X_gaussian(prng, ...)
-        Math::Random::MT::Auto prng
+gaussian(...)
     PREINIT:
+        dMY_CXT;
+        HV *rand_obj;
+        IV tmp;
+        my_cxt_t *prng;
         UV y;
         double p, q, r;
+        int idx = 0;
     CODE:
-        /* Get random integer */
-        y = (--prng->left == 0) ? _mt_algo(prng)
-                                : *prng->next++;
-#if UVSIZE == 8
-        y ^= (y >> 29) & 0x5555555555555555ULL;
-        y ^= (y << 17) & 0x71D67FFFEDA60000ULL;
-        y ^= (y << 37) & 0xFFF7EEE000000000ULL;
-        y ^= (y >> 43);
+        if (items && SvROK(ST(0))) {
+            /* OO interface */
+            rand_obj = (HV*)SvRV(ST(0));
+            tmp = SvIV((SV*)SvRV(*hv_fetch(rand_obj, "PRNG", 4, 0)));
+            prng = INT2PTR(my_cxt_t *, tmp);
 
-        /* Convert to (0, 1) */
-        p = ((double)(y>>12) + 0.5) / 4503599627370496.0;
-#else
-        y ^= (y >> 11);
-        y ^= (y << 7)  & 0x9D2C5680;
-        y ^= (y << 15) & 0xEFC60000;
-        y ^= (y >> 18);
+            items--;
+            idx = 1;
 
-        /* Convert to (0, 1) */
-        p = ((double)(y) + 0.5) / 4294967296.0;
-#endif
+            /* Get random integer from OO PRNG*/
+            y = NEXT_ELEM_PTR(prng);
 
-        /* Normal distribution with SD = 1 */
+        } else {
+            /* Get random integer from standalone PRNG*/
+            y = NEXT_ELEM(MY_CXT);
+        }
+
+        TEMPER_ELEM(y);
+        p = BETWEEN_0_1(y);
+
+        /* Normal distribution with SD = 1 and mean = 0 */
         if (p < P_LOW) {
             q = sqrt(-2*log(p));
             RETVAL = (((((C1*q+C2)*q+C3)*q+C4)*q+C5)*q+C6) /
@@ -458,9 +450,13 @@ X_gaussian(prng, ...)
                        ((((D1*q+D2)*q+D3)*q+D4)*q+1);
         }
 
-        if (items >= 2) {
+        if (items) {
             /* Normal distribution with SD = X */
-            RETVAL *= SvNV(ST(1));
+            RETVAL *= SvNV(ST(idx));
+            if (items > 1) {
+                /* Normal distribution with mean = Y */
+                RETVAL += SvNV(ST(idx+1));
+            }
         }
     OUTPUT:
         RETVAL

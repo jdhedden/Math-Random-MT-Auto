@@ -61,7 +61,7 @@ MAIN:
     printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Time Perl's rand() to product 64-bit randoms
-    if (exists($Config{'use64bitint'})) {
+    if ($Config{'uvsize'} == 8) {
         # Reseed
         CORE::srand($seed);
 
@@ -93,6 +93,10 @@ MAIN:
         }
 
     } else {
+        # Run srand once to load fcntl
+        srand('/dev/random');
+        @warnings = warnings(1);
+
         # Time our srand() for /dev/random
         print("\n- Math::Random::MT::Auto - Standalone PRNG -\n");
         $start = Time::HiRes::time();
@@ -165,6 +169,9 @@ MAIN:
     $end = Time::HiRes::time();
     printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
+    # Reseed
+    seed(\@seed);
+
     # Time gaussian()
     $cnt = $count;
     $start = Time::HiRes::time();
@@ -173,6 +180,18 @@ MAIN:
     }
     $end = Time::HiRes::time();
     printf("gaussian:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+    # Reseed
+    seed(\@seed);
+
+    # Time gaussian(sd, mean)
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+        gaussian(3, 69);
+    }
+    $end = Time::HiRes::time();
+    printf("gaussian(3,69):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # Time OO interface
     print("\n- Math::Random::MT::Auto - OO Interface -\n");
@@ -244,6 +263,29 @@ MAIN:
     $end = Time::HiRes::time();
     printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
+    # Reseed
+    $rand->seed(\@seed);
+
+    # Time our gaussian()
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+        $rand->gaussian();
+    }
+    $end = Time::HiRes::time();
+    printf("gaussian:\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
+
+    # Reseed
+    $rand->seed(\@seed);
+
+    # Time gaussian(sd, mean)
+    $cnt = $count;
+    $start = Time::HiRes::time();
+    while ($cnt--) {
+        $rand->gaussian(3, 69);
+    }
+    $end = Time::HiRes::time();
+    printf("gaussian(3,69):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
     # See if Math::Random::MT is available
     eval { require Math::Random::MT; };
@@ -277,7 +319,7 @@ MAIN:
         printf("rand(5):\t%f secs. (%d)\n", ($end-$start)-$overhead, $count);
 
         # Time its rand() to product 64-bit randoms
-        if (exists($Config{'use64bitint'})) {
+        if ($Config{'uvsize'} == 8) {
             # Reseed
             $rand = Math::Random::MT->new(@seed);
 

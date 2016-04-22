@@ -6,44 +6,42 @@ use warnings;
 use Test::More;
 
 my @WARN;
-
 BEGIN {
-    if ($^O eq 'MSWin32') {
-        my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
-        if (defined($minor) &&
-            (($id > 2) ||
-             ($id == 2 && $major > 5) ||
-             ($id == 2 && $major == 5 && $minor >= 1)))
-        {
-            eval {
-                # Suppress (harmless) warning about Win32::API::Type's INIT block
-                local $SIG{__WARN__} = sub {
-                    if ($_[0] !~ /^Too late to run INIT block/) {
-                        print(STDERR "# $_[0]");    # Output other warnings
-                    }
-                };
-
-                # Load Win32::API module
-                require Win32::API;
-            };
-            if (! $@) {
-                plan(tests => 92);
-            } else {
-                plan(skip_all => 'No Win32::API');
-            }
-        } else {
-            plan(skip_all => 'Not Win XP');
-        }
-    } else {
-        plan(skip_all => 'Not Win32');
-    }
-
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
-
-    use_ok('Math::Random::MT::Auto', qw(rand irand), 'win32');
 }
 
+if ($^O eq 'MSWin32') {
+    my ($id, $major, $minor) = (Win32::GetOSVersion())[4,1,2];
+    if (defined($minor) &&
+        (($id > 2) ||
+         ($id == 2 && $major > 5) ||
+         ($id == 2 && $major == 5 && $minor >= 1)))
+    {
+        eval {
+            # Suppress (harmless) warning about Win32::API::Type's INIT block
+            local $SIG{__WARN__} = sub {
+                if ($_[0] !~ /^Too late to run INIT block/) {
+                    print(STDERR "# $_[0]");    # Output other warnings
+                }
+            };
+
+            # Load Win32::API module
+            require Win32::API;
+        };
+        if (! $@) {
+            plan(tests => 92);
+        } else {
+            plan(skip_all => 'No Win32::API');
+        }
+    } else {
+        plan(skip_all => 'Not Win XP');
+    }
+} else {
+    plan(skip_all => 'Not Win32');
+}
+
+use_ok('Math::Random::MT::Auto', qw(rand irand), 'win32');
 can_ok('main', qw(rand irand));
 
 # Check for warnings

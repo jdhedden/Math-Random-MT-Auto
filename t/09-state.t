@@ -6,9 +6,7 @@ use warnings;
 use Test::More 'no_plan';
 use Data::Dumper;
 
-BEGIN {
-    use_ok('Math::Random::MT::Auto', qw(irand get_state set_state));
-};
+use_ok('Math::Random::MT::Auto', qw(irand get_state set_state));
 can_ok('main', qw(irand get_state set_state));
 
 

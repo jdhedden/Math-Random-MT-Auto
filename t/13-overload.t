@@ -12,15 +12,9 @@ my @WARN;
 BEGIN {
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
-
-    use_ok('Math::Random::MT::Auto', ':!auto');
 }
-BEGIN {
-    # Warning signal handler
-    $SIG{__WARN__} = sub { push(@WARN, @_); };
-
-    use_ok('Math::Random::MT::Auto::Range');
-}
+use_ok('Math::Random::MT::Auto', ':!auto');
+use_ok('Math::Random::MT::Auto::Range');
 
 # Set predetermined seed for verification test
 my @seed = ($Config{'uvsize'} == 8)

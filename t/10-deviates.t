@@ -9,10 +9,10 @@ my @WARN;
 BEGIN {
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
-
-    use_ok('Math::Random::MT::Auto', qw(exponential erlang poisson
-                                        binomial shuffle));
 }
+
+use_ok('Math::Random::MT::Auto', qw(exponential erlang poisson
+                                    binomial shuffle));
 can_ok('Math::Random::MT::Auto', qw(exponential erlang poisson
                                     binomial shuffle));
 can_ok('main', qw(exponential erlang poisson

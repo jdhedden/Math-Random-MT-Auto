@@ -7,10 +7,7 @@ use Test::More 'no_plan';
 
 my $CNT = 500000;
 
-BEGIN {
-    use_ok('Math::Random::MT::Auto', qw/gaussian/);
-};
-
+use_ok('Math::Random::MT::Auto', qw/gaussian/);
 can_ok('Math::Random::MT::Auto', qw/gaussian/);
 can_ok('main', qw/gaussian/);
 

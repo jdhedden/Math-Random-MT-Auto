@@ -1,7 +1,7 @@
 # Verify Mersenne Twister algorithm
 # Test standalone PRNG - srand(\&sub), get_/set_seed() and get_/set_state()
 # Test OO interface - seeding from file, $obj->get_/set_seed() and
-#                                               $obj->get_/set_state()
+#                     $obj->get_/set_state()
 # Test PRNG 'cloning'
 
 use strict;
@@ -17,7 +17,7 @@ BEGIN {
 
     use_ok('Math::Random::MT::Auto', qw(rand irand srand get_seed set_seed
                                         get_state set_state :!auto));
-};
+}
 
 can_ok('Math::Random::MT::Auto', qw(rand irand srand get_seed set_seed
                                     get_state set_state));
@@ -856,7 +856,6 @@ eval { srand(\&myseed); };
 if (! ok(! $@, 'srand(\&sub) works')) {
     diag('srand(\&sub) died: ' . $@);
 }
-
 
 # Check for warnings
 @WARN = grep { $_ !~ /Partial seed/ } @WARN;

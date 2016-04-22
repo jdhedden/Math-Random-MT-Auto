@@ -10,15 +10,10 @@ my @WARN;
 BEGIN {
     # Warning signal handler
     $SIG{__WARN__} = sub { push(@WARN, @_); };
-
-    use_ok('Math::Random::MT::Auto', ':!auto');
 }
-BEGIN {
-    # Warning signal handler
-    $SIG{__WARN__} = sub { push(@WARN, @_); };
 
-    use_ok('Math::Random::MT::Auto::Range');
-};
+use_ok('Math::Random::MT::Auto', ':!auto');
+use_ok('Math::Random::MT::Auto::Range');
 
 # Known test values for irand()
 my @base_rint = ($Config{'uvsize'} == 8) ?

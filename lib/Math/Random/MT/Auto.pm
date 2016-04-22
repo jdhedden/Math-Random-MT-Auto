@@ -10,7 +10,7 @@ use Scalar::Util 1.16 qw/looks_like_number weaken/;
 require DynaLoader;
 our @ISA = qw(DynaLoader);
 
-our $VERSION = 1.36;
+our $VERSION = 1.37;
 
 bootstrap Math::Random::MT::Auto $VERSION;
 

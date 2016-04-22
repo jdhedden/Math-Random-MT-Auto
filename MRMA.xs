@@ -150,10 +150,10 @@
 
 #   define TWOeMINUS32 2.32830643653869628906e-010
     /* Make a double between 0 (inclusive) and 1 (exclusive) */
-#   define MAKE_0_1(x) (((IV)(x) * TWOeMINUS32) + 0.5)
+#   define MAKE_0_1(x) ((double)(x) * TWOeMINUS32)
 
     /* Make a double between 0 and 1 (exclusive) */
-#   define BETWEEN_0_1(x) (((IV)(x) * TWOeMINUS32) + (0.5 + TWOeMINUS32 / 2))
+#   define BETWEEN_0_1(x) (((double)(x) + 0.5) * TWOeMINUS32)
 #endif
 
 /* Get next element from the PRNG */

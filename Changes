@@ -1,5 +1,8 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+1.37  Sat Jul 16 18:42:40 2005
+	- Fix to 32-bit floating point conversion
+
 1.36  Fri Jul 15 09:18:30 2005
 	- Speedups and cleanups
 	- Support gaussian($sd, $mean)

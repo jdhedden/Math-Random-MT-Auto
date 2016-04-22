@@ -13,7 +13,7 @@ BEGIN {
 
 if (-e '/dev/random') {
     my $FH;
-    if (open($FH, '</dev/random')) {
+    if (open($FH, '<', '/dev/random')) {
         binmode($FH);
         my $data;
         my $cnt = read($FH, $data, 8);
@@ -42,6 +42,10 @@ if (grep { /exhausted/ } @WARN) {
 }
 if (grep { /unavailable/ } @WARN) {
     diag('/dev/random unavailable');
+    undef(@WARN);
+}
+if (grep { /Failure reading/ } @WARN) {
+    diag('Seed warning ignored: ' . join(' | ', @WARN));
     undef(@WARN);
 }
 if (! ok(! @WARN, 'Acquired seed data')) {

@@ -5,7 +5,7 @@ require 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '6.11';
+our $VERSION = '6.12';
 my $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -435,7 +435,6 @@ sub _acq_device :PRIVATE
     my $device = $_[0];
     my $prng   = $_[1];
     my $need   = $_[2];
-    my $bytes  = $need * $INT_SIZE;
 
     # Try opening device/file
     my $FH;
@@ -462,22 +461,24 @@ sub _acq_device :PRIVATE
     }
 
     # Read data
-    my $data;
-    my $cnt = read($FH, $data, $bytes);
-    close($FH);
+    for (1..$need) {
+        my $data;
+        my $cnt = read($FH, $data, $INT_SIZE);
 
-    if (defined($cnt)) {
-        # Complain if we didn't get all the data we asked for
-        if ($cnt < $bytes) {
-            Carp::carp("Random device '$device' exhausted");
+        if (defined($cnt)) {
+            # Complain if we didn't get all the data we asked for
+            if ($cnt < $INT_SIZE) {
+                Carp::carp("Random device '$device' exhausted");
+            }
+            # Add data to seed array
+            if ($cnt = int($cnt / $INT_SIZE)) {
+                push(@{$seed_for{$$prng}}, unpack("$UNPACK_CODE$cnt", $data));
+            }
+        } else {
+            Carp::carp("Failure reading from random device '$device': $!");
         }
-        # Add data to seed array
-        if ($cnt = int($cnt / $INT_SIZE)) {
-            push(@{$seed_for{$$prng}}, unpack("$UNPACK_CODE$cnt", $data));
-        }
-    } else {
-        Carp::carp("Failure reading from random device '$device': $!");
     }
+    close($FH);
 }
 
 
@@ -664,7 +665,7 @@ Math::Random::MT::Auto - Auto-seeded Mersenne Twister PRNGs
 
 =head1 VERSION
 
-This documentation refers to Math::Random::MT::Auto version 6.11
+This documentation refers to Math::Random::MT::Auto version 6.12
 
 =head1 SYNOPSIS
 
@@ -1697,7 +1698,7 @@ Math::Random::MT::Auto Discussion Forum on CPAN:
 L<http://www.cpanforum.com/dist/Math-Random-MT-Auto>
 
 Annotated POD for Math::Random::MT::Auto:
-L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.11/lib/Math/Random/MT/Auto.pm>
+L<http://annocpan.org/~JDHEDDEN/Math-Random-MT-Auto-6.12/lib/Math/Random/MT/Auto.pm>
 
 Source repository:
 L<http://code.google.com/p/mrma/>
@@ -1767,7 +1768,7 @@ and including Shawn Cokus's optimizations.
  Copyright (C) 1997 - 2004, Makoto Matsumoto and Takuji Nishimura,
   All rights reserved.
  Copyright (C) 2005, Mutsuo Saito, All rights reserved.
- Copyright 2005 - 2007 Jerry D. Hedden <jdhedden AT cpan DOT org>
+ Copyright 2005 - 2008 Jerry D. Hedden <jdhedden AT cpan DOT org>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions

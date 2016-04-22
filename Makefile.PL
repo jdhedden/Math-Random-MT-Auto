@@ -43,7 +43,7 @@ sub have_cc
 }
 
 if (! have_cc()) {
-    die("No 'C' compiler found to build Math::Random::MT::Auto\n");
+    die("OS unsupported:  ERROR: No 'C' compiler found to build Math::Random::MT::Auto\n");
 }
 
 

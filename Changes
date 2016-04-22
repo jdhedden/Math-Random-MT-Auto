@@ -1,5 +1,9 @@
 Revision history for Perl extension Math::Random::MT::Auto.
 
+6.12 Tue Feb 26 13:58:15 2008
+	- Read random devices in smaller chunks
+	- 'die' properly if no compiler
+
 6.11 Wed Feb 20 17:36:53 2008
 	- POD updates
 	- Upgraded ppport.h to Devel::PPPort 3.13_01
